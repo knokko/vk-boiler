@@ -34,6 +34,9 @@ allprojects {
 					? "natives-windows${osArch.startsWith("aarch64") ? "-arm64" : ""}"
 					: "natives-windows-x86"
 			break
+		case OperatingSystem.MAC_OS:
+			project.ext.lwjglNatives = System.getProperty("os.arch").startsWith("aarch64") ? "natives-macos-arm64" : "natives-macos"
+			break
 	}
 }
 

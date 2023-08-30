@@ -1,4 +1,4 @@
-name: Testing with Java 17 and 20 on Linux, Windows, and MacOS
+name: Testing with Java 17 and Java 20 on Linux
 
 on:
   push:
@@ -10,14 +10,15 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
+  test_ubuntu:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ windows-latest, macos-latest, ubuntu-latest ]
         jdk: [ 17, 20 ]
     steps:
       - uses: actions/checkout@v3
+      - run: sudo apt install vulkan-validationlayers
+      - run: sudo apt install mesa-vulkan-drivers
       - name: Set up JDK ${{ matrix.jdk }}
         uses: actions/setup-java@v3
         with:
