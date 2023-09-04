@@ -4,6 +4,7 @@ import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.builder.swapchain.SimpleCompositeAlphaPicker;
+import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.lwjgl.glfw.GLFW;
@@ -87,11 +88,10 @@ public class TranslucentWindowPlayground {
                 assertVkSuccess(vkResetFences(boiler.vkDevice(), stack.longs(fence)), "ResetFences", "Acquire" + counter);
 
                 var commandBuffer = commandBuffers[commandIndex];
-                boiler.commands.begin(commandBuffer, stack, "Fill");
+                var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Fill");
 
-                boiler.commands.transitionColorLayout(
-                        stack, commandBuffer, acquired.vkImage(),
-                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                recorder.transitionColorLayout(
+                        acquired.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                         new ResourceUsage(0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT),
                         new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
                 );
@@ -105,9 +105,8 @@ public class TranslucentWindowPlayground {
 
                 vkCmdClearColorImage(commandBuffer, acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pClearColor, pRanges);
 
-                boiler.commands.transitionColorLayout(
-                        stack, commandBuffer, acquired.vkImage(),
-                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                recorder.transitionColorLayout(
+                        acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                         new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
                         new ResourceUsage(0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT)
                 );

@@ -3,6 +3,7 @@ package com.github.knokko.boiler.samples;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
+import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
@@ -181,7 +182,7 @@ public class SimpleRingApproximation {
                 long fence = commandFences[frameIndex];
                 boiler.sync.waitAndReset(stack, fence, 100_000_000);
 
-                boiler.commands.begin(commandBuffer, stack, "RingApproximation");
+                var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 
                 var pColorClear = VkClearValue.calloc(1, stack);
                 pColorClear.color().float32(stack.floats(0.07f, 0.4f, 0.6f, 1f));
@@ -196,7 +197,7 @@ public class SimpleRingApproximation {
                 biRenderPass.pClearValues(pColorClear);
 
                 vkCmdBeginRenderPass(commandBuffer, biRenderPass, VK_SUBPASS_CONTENTS_INLINE);
-                boiler.commands.dynamicViewportAndScissor(stack, commandBuffer, swapchainImage.width(), swapchainImage.height());
+                recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
                 int numTriangles = 30_000_000;

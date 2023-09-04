@@ -2,6 +2,7 @@ package com.github.knokko.boiler.buffer;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
+import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.junit.jupiter.api.Test;
@@ -46,23 +47,17 @@ public class TestBufferCopies {
                     commandPool, 1, "Copy"
             )[0];
 
-            boiler.commands.begin(commandBuffer, stack, "Copying");
+            var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Copying");
 
-            boiler.commands.copyBuffer(
-                    commandBuffer, stack, 100, sourceBuffer.vkBuffer(), 0,
-                    middleBuffer.vkBuffer(), 0
-            );
-            boiler.commands.bufferBarrier(
-                    stack, commandBuffer, middleBuffer.vkBuffer(), 0, 100,
+            recorder.copyBuffer(100, sourceBuffer.vkBuffer(), 0, middleBuffer.vkBuffer(), 0);
+            recorder.bufferBarrier(
+                    middleBuffer.vkBuffer(), 0, 100,
                     new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
                     new ResourceUsage(VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
             );
-            boiler.commands.copyBuffer(
-                    commandBuffer, stack, 100, middleBuffer.vkBuffer(), 0,
-                    destinationBuffer.vkBuffer(), 0
-            );
+            recorder.copyBuffer(100, middleBuffer.vkBuffer(), 0, destinationBuffer.vkBuffer(), 0);
 
-            assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Copying");
+            recorder.end();
 
             boiler.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "Copying", new WaitSemaphore[0], fence

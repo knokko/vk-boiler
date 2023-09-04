@@ -3,6 +3,7 @@ package com.github.knokko.boiler.samples;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
+import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.cull.FrustumCuller;
 import com.github.knokko.boiler.images.VmaImage;
 import com.github.knokko.boiler.instance.BoilerInstance;
@@ -285,36 +286,36 @@ public class TerrainPlayground {
 
             coarseDeltaHeightLookup = new HeightLookup(600, HEIGHT_IMAGE_NUM_PIXELS, deltaHeightBuffer);
 
-            boiler.commands.begin(commandBuffer, stack, "CopyHeightImage");
-            boiler.commands.transitionColorLayout(
-                    stack, commandBuffer, image.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "CopyHeightImage");
+            recorder.transitionColorLayout(
+                    image.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     null, new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
             );
-            boiler.commands.transitionColorLayout(
-                    stack, commandBuffer, normalImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            recorder.transitionColorLayout(
+                    normalImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     null, new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
             );
-            boiler.commands.copyBufferToImage(
-                    commandBuffer, stack, VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(),
+            recorder.copyBufferToImage(
+                    VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(),
                     gridSize, gridSize, stagingBuffer.vkBuffer()
             );
-            boiler.commands.copyBufferToImage(
-                    commandBuffer, stack, VK_IMAGE_ASPECT_COLOR_BIT, normalImage.vkImage(),
+            recorder.copyBufferToImage(
+                    VK_IMAGE_ASPECT_COLOR_BIT, normalImage.vkImage(),
                     normalImage.width(), normalImage.height(), normalStagingBuffer.vkBuffer()
             );
-            boiler.commands.transitionColorLayout(
-                    stack, commandBuffer, image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            recorder.transitionColorLayout(
+                    image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
                     new ResourceUsage(VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
             );
-            boiler.commands.transitionColorLayout(
-                    stack, commandBuffer, normalImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            recorder.transitionColorLayout(
+                    normalImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
                     new ResourceUsage(VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
             );
-            assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "CopyHeightImage");
+            recorder.end();
 
             boiler.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "CopyHeightImage", new WaitSemaphore[0], fence
@@ -567,7 +568,7 @@ public class TerrainPlayground {
                 long fence = commandFences[frameIndex];
                 boiler.sync.waitAndReset(stack, fence, 100_000_000);
 
-                boiler.commands.begin(commandBuffer, stack, "TerrainDraw");
+                var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "TerrainDraw");
 
                 var clearValues = VkClearValue.calloc(2, stack);
                 var clearColor = clearValues.get(0);
@@ -586,7 +587,7 @@ public class TerrainPlayground {
 
                 vkCmdBeginRenderPass(commandBuffer, biRenderPass, VK_SUBPASS_CONTENTS_INLINE);
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, groundPipeline);
-                boiler.commands.dynamicViewportAndScissor(stack, commandBuffer, swapchainImage.width(), swapchainImage.height());
+                recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
                 vkCmdBindDescriptorSets(
                         commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
                         0, stack.longs(descriptorSet), null
@@ -663,7 +664,7 @@ public class TerrainPlayground {
                     System.out.println("Drew " + quadCount + " quads in " + fragmentCount + " fragment with camera yaw " + camera.yaw);
                 }
 
-                assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "TerrainDraw");
+                recorder.end();
 
                 boiler.queueFamilies().graphics().queues().get(0).submit(
                         commandBuffer, "TerrainDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
