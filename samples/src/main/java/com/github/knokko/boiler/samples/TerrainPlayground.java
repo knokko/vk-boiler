@@ -6,6 +6,7 @@ import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.cull.FrustumCuller;
 import com.github.knokko.boiler.images.VmaImage;
 import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
 import com.github.knokko.boiler.sync.ResourceUsage;
@@ -180,32 +181,25 @@ public class TerrainPlayground {
         vertexInput.pVertexBindingDescriptions(null);
         vertexInput.pVertexAttributeDescriptions(null);
 
-        var ciPipelines = VkGraphicsPipelineCreateInfo.calloc(1, stack);
-        var ciGroundPipeline = ciPipelines.get(0);
-        ciGroundPipeline.sType$Default();
-        boiler.pipelines.shaderStages(
-                stack, ciGroundPipeline,
+        var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
+        pipelineBuilder.shaderStages(
                 new ShaderInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexShader, null),
                 new ShaderInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, null)
         );
-        ciGroundPipeline.pVertexInputState(vertexInput);
-        boiler.pipelines.simpleInputAssembly(stack, ciGroundPipeline);
-        boiler.pipelines.dynamicViewports(stack, ciGroundPipeline, 1);
-        boiler.pipelines.simpleRasterization(stack, ciGroundPipeline, VK_CULL_MODE_BACK_BIT);
-        boiler.pipelines.noMultisampling(stack, ciGroundPipeline);
-        boiler.pipelines.simpleDepthStencil(stack, ciGroundPipeline, VK_COMPARE_OP_LESS_OR_EQUAL);
-        boiler.pipelines.noColorBlending(stack, ciGroundPipeline, 1);
-        boiler.pipelines.dynamicStates(stack, ciGroundPipeline, VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-        ciGroundPipeline.layout(pipelineLayout);
-        ciGroundPipeline.renderPass(renderPass);
-        ciGroundPipeline.subpass(0);
 
-        var pPipeline = stack.callocLong(1);
-        assertVkSuccess(vkCreateGraphicsPipelines(
-                boiler.vkDevice(), VK_NULL_HANDLE, ciPipelines, null, pPipeline
-        ), "CreateGraphicsPipelines", "GroundPipeline");
-        long groundPipeline = pPipeline.get(0);
-        boiler.debug.name(stack, groundPipeline, VK_OBJECT_TYPE_PIPELINE, "GroundPipeline");
+        pipelineBuilder.ciPipeline.pVertexInputState(vertexInput);
+        pipelineBuilder.simpleInputAssembly();
+        pipelineBuilder.dynamicViewports(1);
+        pipelineBuilder.simpleRasterization(VK_CULL_MODE_BACK_BIT);
+        pipelineBuilder.noMultisampling();
+        pipelineBuilder.simpleDepthStencil(VK_COMPARE_OP_LESS_OR_EQUAL);
+        pipelineBuilder.noColorBlending(1);
+        pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
+        pipelineBuilder.ciPipeline.layout(pipelineLayout);
+        pipelineBuilder.ciPipeline.renderPass(renderPass);
+        pipelineBuilder.ciPipeline.subpass(0);
+
+        long groundPipeline = pipelineBuilder.build("GroundPipeline");
 
         vkDestroyShaderModule(boiler.vkDevice(), vertexShader, null);
         vkDestroyShaderModule(boiler.vkDevice(), fragmentShader, null);

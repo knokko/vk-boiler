@@ -3,6 +3,7 @@ package com.github.knokko.boiler.samples;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
+import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
 import com.github.knokko.boiler.sync.WaitSemaphore;
@@ -106,31 +107,24 @@ public class SimpleRingApproximation {
             ciVertexInput.pVertexBindingDescriptions(null);
             ciVertexInput.pVertexAttributeDescriptions(null);
 
-            var ciPipelines = VkGraphicsPipelineCreateInfo.calloc(1, stack);
-            var ciPipeline = ciPipelines.get(0);
-            ciPipeline.sType$Default();
-            boiler.pipelines.shaderStages(
-                    stack, ciPipeline,
+            var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
+            pipelineBuilder.shaderStages(
                     new ShaderInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexModule, null),
                     new ShaderInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentModule, null)
             );
-            ciPipeline.pVertexInputState(ciVertexInput);
-            boiler.pipelines.simpleInputAssembly(stack, ciPipeline);
-            boiler.pipelines.dynamicViewports(stack, ciPipeline, 1);
-            boiler.pipelines.simpleRasterization(stack, ciPipeline, VK_CULL_MODE_NONE);
-            boiler.pipelines.noMultisampling(stack, ciPipeline);
-            boiler.pipelines.noDepthStencil(stack, ciPipeline);
-            boiler.pipelines.noColorBlending(stack, ciPipeline, 1);
-            boiler.pipelines.dynamicStates(stack, ciPipeline, VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
+            pipelineBuilder.ciPipeline.pVertexInputState(ciVertexInput);
+            pipelineBuilder.simpleInputAssembly();
+            pipelineBuilder.dynamicViewports(1);
+            pipelineBuilder.simpleRasterization(VK_CULL_MODE_NONE);
+            pipelineBuilder.noMultisampling();
+            pipelineBuilder.noDepthStencil();
+            pipelineBuilder.noColorBlending(1);
+            pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
 
-            ciPipeline.renderPass(renderPass);
-            ciPipeline.layout(pipelineLayout);
+            pipelineBuilder.ciPipeline.renderPass(renderPass);
+            pipelineBuilder.ciPipeline.layout(pipelineLayout);
 
-            var pPipeline = stack.callocLong(1);
-            assertVkSuccess(vkCreateGraphicsPipelines(
-                    boiler.vkDevice(), VK_NULL_HANDLE, ciPipelines, null, pPipeline
-            ), "CreateGraphicsPipelines", "RingApproximation");
-            graphicsPipeline = pPipeline.get(0);
+            graphicsPipeline = pipelineBuilder.build("RingApproximation");
 
             vkDestroyShaderModule(boiler.vkDevice(), vertexModule, null);
             vkDestroyShaderModule(boiler.vkDevice(), fragmentModule, null);
