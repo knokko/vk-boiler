@@ -82,6 +82,6 @@ public class TestBufferCopies {
         sourceBuffer.destroy(boiler.vmaAllocator());
         middleBuffer.destroy(boiler.vmaAllocator());
         destinationBuffer.destroy(boiler.vmaAllocator());
-        boiler.destroy();
+        boiler.destroyInitialObjects();
     }
 }

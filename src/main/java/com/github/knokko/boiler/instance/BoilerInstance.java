@@ -119,7 +119,20 @@ public class BoilerInstance {
         return vmaAllocator;
     }
 
-    public void destroy() {
+    /**
+     * Destroys the GLFW window and the Vulkan objects that were created during <i>BoilerBuilder.build()</i> (or were
+     * passed to the constructor of this class if <i>BoilerBuilder</i> wasn't used). A list of objects that will be
+     * destroyed:
+     * <ul>
+     *     <li>The swapchain (if applicable)</li>
+     *     <li>The VMA allocator</li>
+     *     <li>The VkDevice</li>
+     *     <li>The window surface (if applicable)</li>
+     *     <li>The VkInstance</li>
+     *     <li>The GLFW window (if applicable)</li>
+     * </ul>
+     */
+    public void destroyInitialObjects() {
         checkDestroyed();
 
         if (swapchains != null) swapchains.destroy();

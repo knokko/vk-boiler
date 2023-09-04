@@ -130,6 +130,6 @@ public class TranslucentWindowPlayground {
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
         for (long fence : commandFences) vkDestroyFence(boiler.vkDevice(), fence, null);
 
-        boiler.destroy();
+        boiler.destroyInitialObjects();
     }
 }

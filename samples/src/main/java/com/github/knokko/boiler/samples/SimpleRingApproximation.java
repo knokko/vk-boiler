@@ -235,7 +235,7 @@ public class SimpleRingApproximation {
         vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
         vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-        boiler.destroy();
+        boiler.destroyInitialObjects();
     }
 
     private record AssociatedSwapchainResources(

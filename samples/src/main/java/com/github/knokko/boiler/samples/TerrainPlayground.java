@@ -698,7 +698,7 @@ public class TerrainPlayground {
         vkDestroySampler(boiler.vkDevice(), normalSampler, null);
 
         vkDestroyDebugUtilsMessengerEXT(boiler.vkInstance(), debugMessenger, null);
-        boiler.destroy();
+        boiler.destroyInitialObjects();
     }
 
     private record AssociatedSwapchainResources(

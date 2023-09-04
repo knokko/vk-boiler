@@ -43,7 +43,7 @@ public class TestBoilerBuilder {
         assertTrue(pDidCallInstanceCreator[0]);
         assertThrows(UnsupportedOperationException.class, boiler::glfwWindow);
 
-        boiler.destroy();
+        boiler.destroyInitialObjects();
     }
 
     @Test
@@ -104,7 +104,7 @@ public class TestBoilerBuilder {
                     return BoilerBuilder.DEFAULT_VK_INSTANCE_CREATOR.vkCreateInstance(stack, ciInstance);
                 }).build();
 
-        boiler.destroy();
+        boiler.destroyInitialObjects();
         assertTrue(pDidCallInstanceCreator[0]);
     }
 }

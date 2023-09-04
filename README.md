@@ -169,7 +169,7 @@ var boiler = new BoilerBuilder(
 
 // Render loop with boiler.swapchains...
 
-boiler.destroy()
+boiler.destroyInitialObjects()
 ```
 To learn about the rest of the features, just check the code completion
 suggestions :)

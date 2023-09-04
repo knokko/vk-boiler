@@ -132,6 +132,6 @@ public class TestComputePipelines {
             vmaDestroyBuffer(boiler.vmaAllocator(), buffer.vkBuffer(), buffer.vmaAllocation());
         }
 
-        boiler.destroy();
+        boiler.destroyInitialObjects();
     }
 }
