@@ -20,6 +20,7 @@ import static com.github.knokko.boiler.builder.BoilerSwapchainBuilder.createSurf
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.*;
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTMemoryBudget.VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
@@ -230,7 +231,17 @@ public class BoilerBuilder {
             if (initGLFW && !glfwInit()) throw new GLFWFailureException("glfwInit() returned false");
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
             window = glfwCreateWindow(windowWidth, windowHeight, applicationName, 0L, 0L);
-            if (window == 0) throw new GLFWFailureException("glfwCreateWindow() returned 0");
+            if (window == 0) {
+                try (var stack = stackPush()) {
+                    var pError = stack.callocPointer(1);
+                    int errorCode = glfwGetError(pError);
+                    if (errorCode == GLFW_NO_ERROR) throw new GLFWFailureException("glfwCreateWindow() returned 0");
+                    else throw new GLFWFailureException(
+                            "glfwCreateWindow() returned 0 and glfwGetError() returned "
+                                    + errorCode + " because: " + memUTF8(pError.get())
+                    );
+                }
+            }
         }
 
         if (window != 0L) {
