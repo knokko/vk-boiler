@@ -27,7 +27,15 @@ public class TranslucentWindowPlayground {
     public static void main(String[] args) throws InterruptedException {
         // Wayland's windows have cool transparency support
         if (glfwPlatformSupported(GLFW_PLATFORM_WAYLAND)) glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
-        glfwInit();
+        if (!glfwInit()) {
+            // Sometimes, GLFW advertises Wayland support, although it doesn't really work...
+            // In such cases, retry with X11 instead
+            if (glfwPlatformSupported(GLFW_PLATFORM_WAYLAND) && glfwPlatformSupported(GLFW_PLATFORM_X11)) {
+                glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+                System.out.println("GLFW appears to have Wayland issues; falling back to X11...");
+            }
+            if (!glfwInit()) throw new RuntimeException("Failed to init GLFW");
+        }
         glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
 
         var boiler = new BoilerBuilder(
