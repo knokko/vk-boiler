@@ -80,7 +80,9 @@ class BoilerDeviceBuilder {
             for (var extension : builder.desiredVulkanDeviceExtensions) {
                 if (supportedExtensions.contains(extension)) enabledExtensions.add(extension);
             }
+        }
 
+        try (var stack = stackPush()) {
             PointerBuffer ppEnabledExtensions = stack.callocPointer(enabledExtensions.size());
             for (var extension : enabledExtensions) {
                 ppEnabledExtensions.put(stack.UTF8(extension));

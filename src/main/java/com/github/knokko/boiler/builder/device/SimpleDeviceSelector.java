@@ -9,30 +9,36 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR;
 import static org.lwjgl.vulkan.VK10.*;
 
 public record SimpleDeviceSelector(int... preferredDeviceTypes) implements PhysicalDeviceSelector {
 
     static Set<String> getSupportedDeviceExtensions(
-            MemoryStack stack, VkPhysicalDevice vkPhysicalDevice, String context
+            VkPhysicalDevice vkPhysicalDevice, String context
     ) {
-        var pNumExtensions = stack.callocInt(1);
-        assertVkSuccess(vkEnumerateDeviceExtensionProperties(
-                vkPhysicalDevice, (ByteBuffer) null, pNumExtensions, null
-        ), "EnumerateDeviceExtensionProperties", context + " count");
-        int numExtensions = pNumExtensions.get(0);
+        try (var stack = stackPush()) {
+            var pNumExtensions = stack.callocInt(1);
+            assertVkSuccess(vkEnumerateDeviceExtensionProperties(
+                    vkPhysicalDevice, (ByteBuffer) null, pNumExtensions, null
+            ), "EnumerateDeviceExtensionProperties", context + " count");
+            int numExtensions = pNumExtensions.get(0);
 
-        var pExtensions = VkExtensionProperties.calloc(numExtensions, stack);
-        assertVkSuccess(vkEnumerateDeviceExtensionProperties(
-                vkPhysicalDevice, (ByteBuffer) null, pNumExtensions, pExtensions
-        ), "EnumerateDeviceExtensionProperties", context);
+            // NOTE: Do NOT allocate this on the stack because this array can be dangerously large for the
+            // small default LWJGL stack
+            var pExtensions = VkExtensionProperties.calloc(numExtensions);
+            assertVkSuccess(vkEnumerateDeviceExtensionProperties(
+                    vkPhysicalDevice, (ByteBuffer) null, pNumExtensions, pExtensions
+            ), "EnumerateDeviceExtensionProperties", context);
 
-        var extensions = new HashSet<String>(numExtensions);
-        for (int index = 0; index < numExtensions; index++) {
-            extensions.add(pExtensions.get(index).extensionNameString());
+            var extensions = new HashSet<String>(numExtensions);
+            for (int index = 0; index < numExtensions; index++) {
+                extensions.add(pExtensions.get(index).extensionNameString());
+            }
+            pExtensions.free();
+            return extensions;
         }
-        return extensions;
     }
 
     @Override
@@ -60,7 +66,7 @@ public record SimpleDeviceSelector(int... preferredDeviceTypes) implements Physi
             var properties = VkPhysicalDeviceProperties.calloc(stack);
             vkGetPhysicalDeviceProperties(device, properties);
 
-            var supportedExtensions = getSupportedDeviceExtensions(stack, device, "DeviceSelector");
+            var supportedExtensions = getSupportedDeviceExtensions(device, "DeviceSelector");
             for (String extension : requiredDeviceExtensions) {
                 if (!supportedExtensions.contains(extension)) continue deviceLoop;
             }
