@@ -136,6 +136,7 @@ public class BoilerInstance {
         checkDestroyed();
 
         if (swapchains != null) swapchains.destroy();
+        sync.fenceBank.destroy();
         vmaDestroyAllocator(vmaAllocator);
         vkDestroyDevice(vkDevice, null);
         if (windowSurface != null) windowSurface.destroy(vkInstance);

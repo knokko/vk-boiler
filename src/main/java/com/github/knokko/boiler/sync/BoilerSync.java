@@ -12,9 +12,11 @@ import static org.lwjgl.vulkan.VK10.*;
 public class BoilerSync {
 
     private final BoilerInstance instance;
+    public final FenceBank fenceBank;
 
     public BoilerSync(BoilerInstance instance) {
         this.instance = instance;
+        this.fenceBank = new FenceBank(instance);
     }
 
     public long[] createFences(boolean startSignaled, int amount, String name) {
