@@ -112,11 +112,13 @@ class BoilerDeviceBuilder {
                 supportedFeatures13.sType$Default();
                 var supportedFeatures2 = VkPhysicalDeviceFeatures2.calloc(stack);
                 supportedFeatures2.sType$Default();
-                supportedFeatures2.pNext(supportedFeatures11);
-                if (minorVersion >= 2) {
+                if (minorVersion >= 1 && builder.vkDeviceFeaturePicker11 != null) {
+                    supportedFeatures2.pNext(supportedFeatures11);
+                }
+                if (minorVersion >= 2 && builder.vkDeviceFeaturePicker12 != null) {
                     supportedFeatures2.pNext(supportedFeatures12);
                 }
-                if (minorVersion >= 3) {
+                if (minorVersion >= 3 && builder.vkDeviceFeaturePicker13 != null) {
                     supportedFeatures2.pNext(supportedFeatures13);
                 }
 
