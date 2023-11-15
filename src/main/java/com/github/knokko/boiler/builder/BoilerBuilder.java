@@ -193,6 +193,26 @@ public class BoilerBuilder {
         return this;
     }
 
+    public BoilerBuilder featurePicker10(FeaturePicker10 picker) {
+        this.vkDeviceFeaturePicker10 = picker;
+        return this;
+    }
+
+    public BoilerBuilder featurePicker11(FeaturePicker11 picker) {
+        this.vkDeviceFeaturePicker11 = picker;
+        return this;
+    }
+
+    public BoilerBuilder featurePicker12(FeaturePicker12 picker) {
+        this.vkDeviceFeaturePicker12 = picker;
+        return this;
+    }
+
+    public BoilerBuilder featurePicker13(FeaturePicker13 picker) {
+        this.vkDeviceFeaturePicker13 = picker;
+        return this;
+    }
+
     private boolean checkedMainThread = false;
 
     private void checkMainThread() {
