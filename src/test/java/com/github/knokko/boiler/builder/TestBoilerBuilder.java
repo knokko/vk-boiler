@@ -1,6 +1,5 @@
-package com.github.knokko.boiler.instance;
+package com.github.knokko.boiler.builder;
 
-import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkValidationFeaturesEXT;
