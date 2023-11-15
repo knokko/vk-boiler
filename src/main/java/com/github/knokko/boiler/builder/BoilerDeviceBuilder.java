@@ -190,7 +190,7 @@ class BoilerDeviceBuilder {
 
             var ciDevice = VkDeviceCreateInfo.calloc(stack);
             ciDevice.sType$Default();
-            if (enabledFeatures2 != null) ciDevice.pNext(enabledFeatures2);
+            if (enabledFeatures2 != null) ciDevice.pNext(enabledFeatures2.address());
             ciDevice.flags(0);
             ciDevice.pQueueCreateInfos(pQueueCreateInfos);
             ciDevice.ppEnabledLayerNames(null); // Device layers are deprecated

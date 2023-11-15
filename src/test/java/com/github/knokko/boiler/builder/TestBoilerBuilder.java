@@ -2,7 +2,7 @@ package com.github.knokko.boiler.builder;
 
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import org.junit.jupiter.api.Test;
-import org.lwjgl.vulkan.VkValidationFeaturesEXT;
+import org.lwjgl.vulkan.*;
 
 import java.util.HashSet;
 import java.util.Objects;
@@ -18,7 +18,9 @@ import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUM
 import static org.lwjgl.vulkan.KHRSurface.VK_KHR_SURFACE_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.VK_API_VERSION_1_0;
 import static org.lwjgl.vulkan.VK10.VK_MAKE_VERSION;
-import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
+import static org.lwjgl.vulkan.VK12.*;
+import static org.lwjgl.vulkan.VK13.VK_API_VERSION_1_3;
+import static org.lwjgl.vulkan.VK13.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
 
 public class TestBoilerBuilder {
 
@@ -46,12 +48,25 @@ public class TestBoilerBuilder {
     }
 
     @Test
+    @SuppressWarnings("resource")
     public void testComplexInstanceBuilder() {
         boolean[] pDidCallInstanceCreator = { false };
+        boolean[] pDidCallDeviceCreator = { false };
 
         var boiler = new BoilerBuilder(
-                VK_API_VERSION_1_2, "TestComplexVulkan1.2", VK_MAKE_VERSION(1, 1, 1)
-        ).engine("TestEngine", VK_MAKE_VERSION(0, 8, 4))
+                VK_API_VERSION_1_3, "TestComplexVulkan1.2", VK_MAKE_VERSION(1, 1, 1)
+        )
+                .engine("TestEngine", VK_MAKE_VERSION(0, 8, 4))
+                .featurePicker12((stack, supported, toEnable) -> {
+                    // This feature has 100% coverage according to Vulkan hardware database
+                    assertTrue(supported.imagelessFramebuffer());
+                    toEnable.imagelessFramebuffer(true);
+                })
+                .featurePicker13((stack, supported, toEnable) -> {
+                    // Dynamic rendering is required in VK1.3
+                    assertTrue(supported.dynamicRendering());
+                    toEnable.dynamicRendering(true);
+                })
                 .requiredVkInstanceExtensions(createSet(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))
                 .desiredVkInstanceExtensions(createSet(VK_KHR_SURFACE_EXTENSION_NAME))
                 .validation(new ValidationFeatures(
@@ -70,7 +85,7 @@ public class TestBoilerBuilder {
 
                     var appInfo = Objects.requireNonNull(ciInstance.pApplicationInfo());
                     assertEquals("TestComplexVulkan1.2", appInfo.pApplicationNameString());
-                    assertEquals(VK_API_VERSION_1_2, appInfo.apiVersion());
+                    assertEquals(VK_API_VERSION_1_3, appInfo.apiVersion());
                     assertEquals("TestEngine", appInfo.pEngineNameString());
                     assertEquals(VK_MAKE_VERSION(0, 8, 4), appInfo.engineVersion());
 
@@ -101,9 +116,39 @@ public class TestBoilerBuilder {
                     assertEquals(expectedExtensions, actualExtensions);
 
                     return BoilerBuilder.DEFAULT_VK_INSTANCE_CREATOR.vkCreateInstance(stack, ciInstance);
-                }).build();
+                })
+                .vkDeviceCreator((stack, physicalDevice, deviceExtensions, ciDevice) -> {
+                    VkPhysicalDeviceVulkan11Features enabledFeatures11 = null;
+                    VkPhysicalDeviceVulkan12Features enabledFeatures12 = null;
+                    VkPhysicalDeviceVulkan13Features enabledFeatures13 = null;
+
+                    var nextStruct = VkBaseInStructure.createSafe(ciDevice.pNext());
+                    while (nextStruct != null) {
+                        if (nextStruct.sType() == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES) {
+                            enabledFeatures11 = VkPhysicalDeviceVulkan11Features.create(nextStruct.address());
+                        }
+                        if (nextStruct.sType() == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES) {
+                            enabledFeatures12 = VkPhysicalDeviceVulkan12Features.create(nextStruct.address());
+                        }
+                        if (nextStruct.sType() == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES) {
+                            enabledFeatures13 = VkPhysicalDeviceVulkan13Features.create(nextStruct.address());
+                        }
+                        nextStruct = nextStruct.pNext();
+                    }
+
+                    assertNull(enabledFeatures11);
+                    assertNotNull(enabledFeatures12);
+                    assertTrue(enabledFeatures12.imagelessFramebuffer());
+                    assertNotNull(enabledFeatures13);
+                    assertTrue(enabledFeatures13.dynamicRendering());
+
+                    pDidCallDeviceCreator[0] = true;
+                    return BoilerBuilder.DEFAULT_VK_DEVICE_CREATOR.vkCreateDevice(stack, physicalDevice, deviceExtensions, ciDevice);
+                })
+                .build();
 
         boiler.destroyInitialObjects();
         assertTrue(pDidCallInstanceCreator[0]);
+        assertTrue(pDidCallDeviceCreator[0]);
     }
 }
