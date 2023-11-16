@@ -9,11 +9,12 @@ import org.lwjgl.vulkan.VkDebugUtilsObjectNameInfoEXT;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
 import static org.lwjgl.vulkan.VK10.VK_FALSE;
+import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 
 public class BoilerDebug {
 
     private final BoilerInstance instance;
-    private final boolean hasDebug;
+    public final boolean hasDebug;
 
     public BoilerDebug(BoilerInstance instance) {
         this.instance = instance;
@@ -37,6 +38,8 @@ public class BoilerDebug {
     public long createMessenger(
             MemoryStack stack, int messageSeverityBits, int messageTypeBits, BoilerDebugCallback callback, String name
     ) {
+        if (!hasDebug) return VK_NULL_HANDLE;
+
         var ciMessenger = VkDebugUtilsMessengerCreateInfoEXT.calloc(stack);
         ciMessenger.sType$Default();
         ciMessenger.messageSeverity(messageSeverityBits);

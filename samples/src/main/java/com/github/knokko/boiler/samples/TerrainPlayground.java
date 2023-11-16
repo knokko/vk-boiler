@@ -692,7 +692,7 @@ public class TerrainPlayground {
         vkDestroySampler(boiler.vkDevice(), heightSampler, null);
         vkDestroySampler(boiler.vkDevice(), normalSampler, null);
 
-        vkDestroyDebugUtilsMessengerEXT(boiler.vkInstance(), debugMessenger, null);
+        if (boiler.debug.hasDebug) vkDestroyDebugUtilsMessengerEXT(boiler.vkInstance(), debugMessenger, null);
         boiler.destroyInitialObjects();
     }
 
