@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.builder;
 
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
+import com.github.knokko.boiler.exceptions.NoVkPhysicalDeviceException;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
 
@@ -150,5 +151,18 @@ public class TestBoilerBuilder {
         boiler.destroyInitialObjects();
         assertTrue(pDidCallInstanceCreator[0]);
         assertTrue(pDidCallDeviceCreator[0]);
+    }
+
+    private void testApiVersionCheck(int apiVersion) {
+        var builder = new BoilerBuilder(apiVersion, "TestApiVersionCheck", 1)
+                .validation(new ValidationFeatures(false, false, false, false, false))
+                .physicalDeviceSelector((stack, candidates) -> fail("There should be no candidates"));
+        assertThrows(NoVkPhysicalDeviceException.class, builder::build);
+    }
+
+    @Test
+    public void testApiVersionCheck() {
+        testApiVersionCheck(VK_MAKE_API_VERSION(0, 1, 50, 0));
+        testApiVersionCheck(VK_MAKE_API_VERSION(0, 2, 0, 0));
     }
 }

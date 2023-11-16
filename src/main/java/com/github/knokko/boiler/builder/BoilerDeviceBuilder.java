@@ -46,9 +46,10 @@ class BoilerDeviceBuilder {
                 windowSurface = pSurface.get(0);
             } else windowSurface = 0L;
 
-            vkPhysicalDevice = builder.deviceSelector.choosePhysicalDevice(
-                    stack, vkInstance, windowSurface, builder.requiredVulkanDeviceExtensions
-            );
+            VkPhysicalDevice[] candidateDevices = BasicDeviceFilter.getCandidates(builder, vkInstance, windowSurface);
+            if (candidateDevices.length == 0) throw new NoVkPhysicalDeviceException();
+
+            vkPhysicalDevice = builder.deviceSelector.choosePhysicalDevice(stack, candidateDevices);
             if (vkPhysicalDevice == null) throw new NoVkPhysicalDeviceException();
         }
 
@@ -216,18 +217,7 @@ class BoilerDeviceBuilder {
             var vmaVulkanFunctions = VmaVulkanFunctions.calloc(stack);
             vmaVulkanFunctions.set(vkInstance, vkDevice);
 
-            int vmaFlags = 0;
-            if (enabledExtensions.contains(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME)
-                    && enabledExtensions.contains(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)
-            ) {
-                vmaFlags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
-            }
-            if (enabledExtensions.contains(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME)) {
-                vmaFlags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
-            }
-            if (enabledExtensions.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
-                vmaFlags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
-            }
+            int vmaFlags = getVmaFlags(enabledExtensions);
 
             var ciAllocator = VmaAllocatorCreateInfo.calloc(stack);
             ciAllocator.flags(vmaFlags);
@@ -246,6 +236,22 @@ class BoilerDeviceBuilder {
         }
 
         return new Result(vkPhysicalDevice, vkDevice, enabledExtensions, windowSurface, queueFamilies, vmaAllocator);
+    }
+
+    private static int getVmaFlags(Set<String> enabledExtensions) {
+        int vmaFlags = 0;
+        if (enabledExtensions.contains(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME)
+                && enabledExtensions.contains(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)
+        ) {
+            vmaFlags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+        }
+        if (enabledExtensions.contains(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME)) {
+            vmaFlags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
+        }
+        if (enabledExtensions.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+            vmaFlags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+        }
+        return vmaFlags;
     }
 
     private static QueueFamily getQueueFamily(MemoryStack stack, VkDevice vkDevice, int familyIndex, int queueCount) {
