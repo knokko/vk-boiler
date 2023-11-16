@@ -32,6 +32,9 @@ import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.VK_KHR_GET_PHYSIC
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
+import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
+import static org.lwjgl.vulkan.VK13.VK_API_VERSION_1_3;
 
 public class BoilerBuilder {
 
@@ -83,11 +86,19 @@ public class BoilerBuilder {
     FeaturePicker12 vkDeviceFeaturePicker12;
     FeaturePicker13 vkDeviceFeaturePicker13;
 
+    RequiredFeatures10 vkRequiredFeatures10;
+    RequiredFeatures11 vkRequiredFeatures11;
+    RequiredFeatures12 vkRequiredFeatures12;
+    RequiredFeatures13 vkRequiredFeatures13;
+
     QueueFamilyMapper queueFamilyMapper = new MinimalQueueFamilyMapper();
 
     private boolean didBuild = false;
 
     public BoilerBuilder(int apiVersion, String applicationName, int applicationVersion) {
+        if (VK_API_VERSION_PATCH(apiVersion) != 0) throw new IllegalArgumentException("Patch of API version must be 0");
+        if (VK_API_VERSION_VARIANT(apiVersion) != 0) throw new IllegalArgumentException("Variant of API version must be 0");
+
         this.apiVersion = apiVersion;
         this.applicationName = applicationName;
         this.applicationVersion = applicationVersion;
@@ -193,23 +204,59 @@ public class BoilerBuilder {
         return this;
     }
 
+    private void checkApiVersion(int required) {
+        if (VK_API_VERSION_MAJOR(apiVersion) < VK_API_VERSION_MAJOR(required)) {
+            throw new UnsupportedOperationException("API major version is too low for this feature");
+        }
+        if (VK_API_VERSION_MAJOR(apiVersion) == VK_API_VERSION_MAJOR(required) &&
+            VK_API_VERSION_MINOR(apiVersion) < VK_API_VERSION_MINOR(required)) {
+            throw new UnsupportedOperationException("API minor version is too low for this feature");
+        }
+    }
+
     public BoilerBuilder featurePicker10(FeaturePicker10 picker) {
         this.vkDeviceFeaturePicker10 = picker;
         return this;
     }
 
     public BoilerBuilder featurePicker11(FeaturePicker11 picker) {
+        checkApiVersion(VK_API_VERSION_1_1);
         this.vkDeviceFeaturePicker11 = picker;
         return this;
     }
 
     public BoilerBuilder featurePicker12(FeaturePicker12 picker) {
+        checkApiVersion(VK_API_VERSION_1_2);
         this.vkDeviceFeaturePicker12 = picker;
         return this;
     }
 
     public BoilerBuilder featurePicker13(FeaturePicker13 picker) {
+        checkApiVersion(VK_API_VERSION_1_3);
         this.vkDeviceFeaturePicker13 = picker;
+        return this;
+    }
+
+    public BoilerBuilder requiredFeatures10(RequiredFeatures10 requiredFeatures) {
+        this.vkRequiredFeatures10 = requiredFeatures;
+        return this;
+    }
+
+    public BoilerBuilder requiredFeatures11(RequiredFeatures11 requiredFeatures) {
+        checkApiVersion(VK_API_VERSION_1_1);
+        this.vkRequiredFeatures11 = requiredFeatures;
+        return this;
+    }
+
+    public BoilerBuilder requiredFeatures12(RequiredFeatures12 requiredFeatures) {
+        checkApiVersion(VK_API_VERSION_1_2);
+        this.vkRequiredFeatures12 = requiredFeatures;
+        return this;
+    }
+
+    public BoilerBuilder requiredFeatures13(RequiredFeatures13 requiredFeatures) {
+        checkApiVersion(VK_API_VERSION_1_3);
+        this.vkRequiredFeatures13 = requiredFeatures;
         return this;
     }
 

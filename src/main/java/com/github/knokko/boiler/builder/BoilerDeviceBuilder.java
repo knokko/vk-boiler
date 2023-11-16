@@ -24,7 +24,6 @@ import static org.lwjgl.vulkan.KHRDedicatedAllocation.VK_KHR_DEDICATED_ALLOCATIO
 import static org.lwjgl.vulkan.KHRGetMemoryRequirements2.VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR;
 import static org.lwjgl.vulkan.VK10.*;
-import static org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceFeatures2;
 
 class BoilerDeviceBuilder {
 
@@ -94,60 +93,44 @@ class BoilerDeviceBuilder {
                 throw new UnsupportedOperationException("Unknown api major version: " + VK_API_VERSION_MAJOR(builder.apiVersion));
             }
 
+            var supportedFeatures = SupportedFeatures.query(
+                    stack, vkPhysicalDevice, builder.apiVersion,
+                    builder.vkDeviceFeaturePicker10 != null, builder.vkDeviceFeaturePicker11 != null,
+                    builder.vkDeviceFeaturePicker12 != null, builder.vkDeviceFeaturePicker13 != null
+            );
+
             int minorVersion = VK_API_VERSION_MINOR(builder.apiVersion);
             VkPhysicalDeviceFeatures enabledFeatures10;
             VkPhysicalDeviceFeatures2 enabledFeatures2 = null;
             if (minorVersion == 0) {
-                var supportedFeatures10 = VkPhysicalDeviceFeatures.calloc(stack);
-                vkGetPhysicalDeviceFeatures(vkPhysicalDevice, supportedFeatures10);
                 enabledFeatures10 = VkPhysicalDeviceFeatures.calloc(stack);
                 if (builder.vkDeviceFeaturePicker10 != null) {
-                    builder.vkDeviceFeaturePicker10.enableFeatures(stack, supportedFeatures10, enabledFeatures10);
+                    builder.vkDeviceFeaturePicker10.enableFeatures(stack, supportedFeatures.features10(), enabledFeatures10);
                 }
             } else {
-                var supportedFeatures11 = VkPhysicalDeviceVulkan11Features.calloc(stack);
-                supportedFeatures11.sType$Default();
-                var supportedFeatures12 = VkPhysicalDeviceVulkan12Features.calloc(stack);
-                supportedFeatures12.sType$Default();
-                var supportedFeatures13 = VkPhysicalDeviceVulkan13Features.calloc(stack);
-                supportedFeatures13.sType$Default();
-                var supportedFeatures2 = VkPhysicalDeviceFeatures2.calloc(stack);
-                supportedFeatures2.sType$Default();
-                if (minorVersion >= 1 && builder.vkDeviceFeaturePicker11 != null) {
-                    supportedFeatures2.pNext(supportedFeatures11);
-                }
-                if (minorVersion >= 2 && builder.vkDeviceFeaturePicker12 != null) {
-                    supportedFeatures2.pNext(supportedFeatures12);
-                }
-                if (minorVersion >= 3 && builder.vkDeviceFeaturePicker13 != null) {
-                    supportedFeatures2.pNext(supportedFeatures13);
-                }
-
-                vkGetPhysicalDeviceFeatures2(vkPhysicalDevice, supportedFeatures2);
-
                 enabledFeatures2 = VkPhysicalDeviceFeatures2.calloc(stack);
                 enabledFeatures2.sType$Default();
                 enabledFeatures10 = enabledFeatures2.features();
 
                 if (builder.vkDeviceFeaturePicker10 != null) {
-                    builder.vkDeviceFeaturePicker10.enableFeatures(stack, supportedFeatures2.features(), enabledFeatures10);
+                    builder.vkDeviceFeaturePicker10.enableFeatures(stack, supportedFeatures.features10(), enabledFeatures10);
                 }
                 if (builder.vkDeviceFeaturePicker11 != null) {
                     var enabledFeatures11 = VkPhysicalDeviceVulkan11Features.calloc(stack);
                     enabledFeatures11.sType$Default();
-                    builder.vkDeviceFeaturePicker11.enableFeatures(stack, supportedFeatures11, enabledFeatures11);
+                    builder.vkDeviceFeaturePicker11.enableFeatures(stack, supportedFeatures.features11(), enabledFeatures11);
                     enabledFeatures2.pNext(enabledFeatures11);
                 }
                 if (builder.vkDeviceFeaturePicker12 != null) {
                     var enabledFeatures12 = VkPhysicalDeviceVulkan12Features.calloc(stack);
                     enabledFeatures12.sType$Default();
-                    builder.vkDeviceFeaturePicker12.enableFeatures(stack, supportedFeatures12, enabledFeatures12);
+                    builder.vkDeviceFeaturePicker12.enableFeatures(stack, supportedFeatures.features12(), enabledFeatures12);
                     enabledFeatures2.pNext(enabledFeatures12);
                 }
                 if (builder.vkDeviceFeaturePicker13 != null) {
                     var enabledFeatures13 = VkPhysicalDeviceVulkan13Features.calloc(stack);
                     enabledFeatures13.sType$Default();
-                    builder.vkDeviceFeaturePicker13.enableFeatures(stack, supportedFeatures13, enabledFeatures13);
+                    builder.vkDeviceFeaturePicker13.enableFeatures(stack, supportedFeatures.features13(), enabledFeatures13);
                     enabledFeatures2.pNext(enabledFeatures13);
                 }
             }

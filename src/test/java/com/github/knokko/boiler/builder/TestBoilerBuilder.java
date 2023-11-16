@@ -165,4 +165,63 @@ public class TestBoilerBuilder {
         testApiVersionCheck(VK_MAKE_API_VERSION(0, 1, 50, 0));
         testApiVersionCheck(VK_MAKE_API_VERSION(0, 2, 0, 0));
     }
+
+    private void testRequiredFeatures10(int apiVersion) {
+        var builder = new BoilerBuilder(apiVersion, "TestRequiredFeatures", 1)
+                .featurePicker10((stack, supported, enable) -> fail())
+                .requiredFeatures10(supportedFeatures -> {
+                    assertTrue(supportedFeatures.robustBufferAccess());
+                    return false;
+                });
+        assertThrows(NoVkPhysicalDeviceException.class, builder::build);
+    }
+
+    private void testRequiredFeatures11(int apiVersion) {
+        var builder = new BoilerBuilder(apiVersion, "TestRequiredFeatures", 1)
+                .featurePicker11((stack, supported, enable) -> fail())
+                .requiredFeatures11(supportedFeatures -> {
+                    assertTrue(supportedFeatures.multiview());
+                    return false;
+                });
+        assertThrows(NoVkPhysicalDeviceException.class, builder::build);
+    }
+
+    private void testRequiredFeatures12(int apiVersion) {
+        var builder = new BoilerBuilder(apiVersion, "TestRequiredFeatures", 1)
+                .featurePicker12((stack, supported, enable) -> fail())
+                .requiredFeatures12(supportedFeatures -> {
+                    assertTrue(supportedFeatures.hostQueryReset());
+                    return false;
+                });
+        assertThrows(NoVkPhysicalDeviceException.class, builder::build);
+    }
+
+    @Test
+    public void testRequiredFeatures13() {
+        var builder = new BoilerBuilder(VK_API_VERSION_1_3, "TestRequiredFeatures", 1)
+                .featurePicker13((stack, supported, enable) -> fail())
+                .requiredFeatures13(supportedFeatures -> {
+                    assertTrue(supportedFeatures.dynamicRendering());
+                    return false;
+                });
+        assertThrows(NoVkPhysicalDeviceException.class, builder::build);
+    }
+
+    @Test
+    public void testRequiredFeatures10() {
+        int[] versions = { VK_API_VERSION_1_0, VK_API_VERSION_1_1, VK_API_VERSION_1_2, VK_API_VERSION_1_3 };
+        for (int version : versions) testRequiredFeatures10(version);
+    }
+
+    @Test
+    public void testRequiredFeatures11() {
+        int[] versions = { VK_API_VERSION_1_1, VK_API_VERSION_1_2, VK_API_VERSION_1_3 };
+        for (int version : versions) testRequiredFeatures11(version);
+    }
+
+    @Test
+    public void testRequiredFeatures12() {
+        testRequiredFeatures12(VK_API_VERSION_1_2);
+        testRequiredFeatures12(VK_API_VERSION_1_3);
+    }
 }
