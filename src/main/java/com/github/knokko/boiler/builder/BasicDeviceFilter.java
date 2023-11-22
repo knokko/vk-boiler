@@ -43,19 +43,19 @@ class BasicDeviceFilter {
         try (var stack = stackPush()) {
             var supportedFeatures = SupportedFeatures.query(
                     stack, device, builder.apiVersion,
-                    builder.vkRequiredFeatures10 != null, builder.vkRequiredFeatures11 != null,
-                    builder.vkRequiredFeatures12 != null, builder.vkRequiredFeatures13 != null
+                    !builder.vkRequiredFeatures10.isEmpty(), !builder.vkRequiredFeatures11.isEmpty(),
+                    !builder.vkRequiredFeatures12.isEmpty(), !builder.vkRequiredFeatures13.isEmpty()
             );
-            if (builder.vkRequiredFeatures10 != null && !builder.vkRequiredFeatures10.supportsRequiredFeatures(supportedFeatures.features10())) {
+            if (!builder.vkRequiredFeatures10.stream().allMatch(required -> required.supportsRequiredFeatures(supportedFeatures.features10()))) {
                 return false;
             }
-            if (builder.vkRequiredFeatures11 != null && !builder.vkRequiredFeatures11.supportsRequiredFeatures(supportedFeatures.features11())) {
+            if (!builder.vkRequiredFeatures11.stream().allMatch(required -> required.supportsRequiredFeatures(supportedFeatures.features11()))) {
                 return false;
             }
-            if (builder.vkRequiredFeatures12 != null && !builder.vkRequiredFeatures12.supportsRequiredFeatures(supportedFeatures.features12())) {
+            if (!builder.vkRequiredFeatures12.stream().allMatch(required -> required.supportsRequiredFeatures(supportedFeatures.features12()))) {
                 return false;
             }
-            return builder.vkRequiredFeatures13 == null || builder.vkRequiredFeatures13.supportsRequiredFeatures(supportedFeatures.features13());
+            return builder.vkRequiredFeatures13.stream().allMatch(required -> required.supportsRequiredFeatures(supportedFeatures.features13()));
         }
     }
 

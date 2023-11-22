@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.builder;
 
 import com.github.knokko.boiler.builder.device.*;
+import com.github.knokko.boiler.builder.instance.PreVkInstanceCreator;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.builder.instance.VkInstanceCreator;
 import com.github.knokko.boiler.builder.queue.MinimalQueueFamilyMapper;
@@ -12,9 +13,7 @@ import org.lwjgl.system.Platform;
 import org.lwjgl.vulkan.*;
 
 import java.lang.management.ManagementFactory;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import static com.github.knokko.boiler.builder.BoilerSwapchainBuilder.createSurface;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
@@ -38,13 +37,13 @@ import static org.lwjgl.vulkan.VK13.VK_API_VERSION_1_3;
 
 public class BoilerBuilder {
 
-    public static final VkInstanceCreator DEFAULT_VK_INSTANCE_CREATOR = (stack, ciInstance) -> {
+    public static final VkInstanceCreator DEFAULT_VK_INSTANCE_CREATOR = (ciInstance, stack) -> {
         var pInstance = stack.callocPointer(1);
         assertVkSuccess(vkCreateInstance(ciInstance, null, pInstance), "CreateInstance", "BoilerBuilder");
         return new VkInstance(pInstance.get(0), ciInstance);
     };
 
-    public static final VkDeviceCreator DEFAULT_VK_DEVICE_CREATOR = (stack, physicalDevice, deviceExtensions, ciDevice) -> {
+    public static final VkDeviceCreator DEFAULT_VK_DEVICE_CREATOR = (ciDevice, physicalDevice, stack) -> {
         var pDevice = stack.callocPointer(1);
         assertVkSuccess(vkCreateDevice(physicalDevice, ciDevice, null, pDevice), "CreateDevice", "BoilerBuilder");
         return new VkDevice(pDevice.get(0), physicalDevice, ciDevice);
@@ -75,21 +74,23 @@ public class BoilerBuilder {
     ValidationFeatures validationFeatures = null;
 
     VkInstanceCreator vkInstanceCreator = DEFAULT_VK_INSTANCE_CREATOR;
+    Collection<PreVkInstanceCreator> preInstanceCreators = new ArrayList<>();
     PhysicalDeviceSelector deviceSelector = new SimpleDeviceSelector(
             VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
             VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
     );
     VkDeviceCreator vkDeviceCreator = DEFAULT_VK_DEVICE_CREATOR;
+    Collection<PreVkDeviceCreator> preDeviceCreators = new ArrayList<>();
 
-    FeaturePicker10 vkDeviceFeaturePicker10;
-    FeaturePicker11 vkDeviceFeaturePicker11;
-    FeaturePicker12 vkDeviceFeaturePicker12;
-    FeaturePicker13 vkDeviceFeaturePicker13;
+    Collection<FeaturePicker10> vkDeviceFeaturePicker10 = new ArrayList<>();
+    Collection<FeaturePicker11> vkDeviceFeaturePicker11 = new ArrayList<>();
+    Collection<FeaturePicker12> vkDeviceFeaturePicker12 = new ArrayList<>();
+    Collection<FeaturePicker13> vkDeviceFeaturePicker13 = new ArrayList<>();
 
-    RequiredFeatures10 vkRequiredFeatures10;
-    RequiredFeatures11 vkRequiredFeatures11;
-    RequiredFeatures12 vkRequiredFeatures12;
-    RequiredFeatures13 vkRequiredFeatures13;
+    Collection<RequiredFeatures10> vkRequiredFeatures10 = new ArrayList<>();
+    Collection<RequiredFeatures11> vkRequiredFeatures11 = new ArrayList<>();
+    Collection<RequiredFeatures12> vkRequiredFeatures12 = new ArrayList<>();
+    Collection<RequiredFeatures13> vkRequiredFeatures13 = new ArrayList<>();
 
     QueueFamilyMapper queueFamilyMapper = new MinimalQueueFamilyMapper();
 
@@ -190,12 +191,28 @@ public class BoilerBuilder {
     }
 
     public BoilerBuilder vkInstanceCreator(VkInstanceCreator creator) {
+        if (this.vkInstanceCreator != DEFAULT_VK_INSTANCE_CREATOR) {
+            throw new IllegalStateException("Attempted to set multiple instance creators");
+        }
         this.vkInstanceCreator = creator;
         return this;
     }
 
+    public BoilerBuilder beforeInstanceCreation(PreVkInstanceCreator preCreator) {
+        this.preInstanceCreators.add(preCreator);
+        return this;
+    }
+
     public BoilerBuilder vkDeviceCreator(VkDeviceCreator creator) {
+        if (this.vkDeviceCreator != DEFAULT_VK_DEVICE_CREATOR) {
+            throw new IllegalStateException("Attempted to set multiple device creators");
+        }
         this.vkDeviceCreator = creator;
+        return this;
+    }
+
+    public BoilerBuilder beforeDeviceCreation(PreVkDeviceCreator preCreator) {
+        this.preDeviceCreators.add(preCreator);
         return this;
     }
 
@@ -215,48 +232,48 @@ public class BoilerBuilder {
     }
 
     public BoilerBuilder featurePicker10(FeaturePicker10 picker) {
-        this.vkDeviceFeaturePicker10 = picker;
+        this.vkDeviceFeaturePicker10.add(picker);
         return this;
     }
 
     public BoilerBuilder featurePicker11(FeaturePicker11 picker) {
         checkApiVersion(VK_API_VERSION_1_1);
-        this.vkDeviceFeaturePicker11 = picker;
+        this.vkDeviceFeaturePicker11.add(picker);
         return this;
     }
 
     public BoilerBuilder featurePicker12(FeaturePicker12 picker) {
         checkApiVersion(VK_API_VERSION_1_2);
-        this.vkDeviceFeaturePicker12 = picker;
+        this.vkDeviceFeaturePicker12.add(picker);
         return this;
     }
 
     public BoilerBuilder featurePicker13(FeaturePicker13 picker) {
         checkApiVersion(VK_API_VERSION_1_3);
-        this.vkDeviceFeaturePicker13 = picker;
+        this.vkDeviceFeaturePicker13.add(picker);
         return this;
     }
 
     public BoilerBuilder requiredFeatures10(RequiredFeatures10 requiredFeatures) {
-        this.vkRequiredFeatures10 = requiredFeatures;
+        this.vkRequiredFeatures10.add(requiredFeatures);
         return this;
     }
 
     public BoilerBuilder requiredFeatures11(RequiredFeatures11 requiredFeatures) {
         checkApiVersion(VK_API_VERSION_1_1);
-        this.vkRequiredFeatures11 = requiredFeatures;
+        this.vkRequiredFeatures11.add(requiredFeatures);
         return this;
     }
 
     public BoilerBuilder requiredFeatures12(RequiredFeatures12 requiredFeatures) {
         checkApiVersion(VK_API_VERSION_1_2);
-        this.vkRequiredFeatures12 = requiredFeatures;
+        this.vkRequiredFeatures12.add(requiredFeatures);
         return this;
     }
 
     public BoilerBuilder requiredFeatures13(RequiredFeatures13 requiredFeatures) {
         checkApiVersion(VK_API_VERSION_1_3);
-        this.vkRequiredFeatures13 = requiredFeatures;
+        this.vkRequiredFeatures13.add(requiredFeatures);
         return this;
     }
 

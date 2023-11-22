@@ -2,6 +2,7 @@ package com.github.knokko.boiler.builder;
 
 import com.github.knokko.boiler.exceptions.MissingVulkanExtensionException;
 import com.github.knokko.boiler.exceptions.MissingVulkanLayerException;
+import com.github.knokko.boiler.util.CollectionHelper;
 import org.lwjgl.vulkan.*;
 
 import java.util.HashSet;
@@ -104,18 +105,6 @@ class BoilerInstanceBuilder {
 
             } else pValidationFeatures = null;
 
-            var pEnabledLayers = stack.callocPointer(enabledLayers.size());
-            for (String layer : enabledLayers) {
-                pEnabledLayers.put(stack.UTF8(layer));
-            }
-            pEnabledLayers.flip();
-
-            var pEnabledExtensions = stack.callocPointer(enabledExtensions.size());
-            for (String extension : enabledExtensions) {
-                pEnabledExtensions.put(stack.UTF8(extension));
-            }
-            pEnabledExtensions.flip();
-
             var ciInstance = VkInstanceCreateInfo.calloc(stack);
             ciInstance.sType$Default();
             ciInstance.pNext(pValidationFeatures != null ? pValidationFeatures.address() : 0L);
@@ -123,10 +112,14 @@ class BoilerInstanceBuilder {
                 ciInstance.flags(VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR);
             } else ciInstance.flags(0);
             ciInstance.pApplicationInfo(appInfo);
-            ciInstance.ppEnabledLayerNames(pEnabledLayers);
-            ciInstance.ppEnabledExtensionNames(pEnabledExtensions);
+            ciInstance.ppEnabledLayerNames(CollectionHelper.encodeStringSet(enabledLayers, stack));
+            ciInstance.ppEnabledExtensionNames(CollectionHelper.encodeStringSet(enabledExtensions, stack));
 
-            vkInstance = builder.vkInstanceCreator.vkCreateInstance(stack, ciInstance);
+            for (var preCreator : builder.preInstanceCreators) {
+                preCreator.beforeInstanceCreation(ciInstance, stack);
+            }
+
+            vkInstance = builder.vkInstanceCreator.vkCreateInstance(ciInstance, stack);
         }
         return new Result(vkInstance, enabledExtensions);
     }
