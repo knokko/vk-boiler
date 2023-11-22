@@ -124,6 +124,12 @@ class BasicDeviceFilter {
 
                 if (!hasPresentQueueFamily || !hasGraphicsQueueFamily) continue;
 
+                if (!builder.extraDeviceRequirements.stream().allMatch(
+                        requirements -> requirements.satisfiesRequirements(device, windowSurface, stack)
+                )) {
+                    continue;
+                }
+
                 devices.add(device);
             }
 

@@ -92,6 +92,8 @@ public class BoilerBuilder {
     Collection<RequiredFeatures12> vkRequiredFeatures12 = new ArrayList<>();
     Collection<RequiredFeatures13> vkRequiredFeatures13 = new ArrayList<>();
 
+    Collection<ExtraDeviceRequirements> extraDeviceRequirements = new ArrayList<>();
+
     QueueFamilyMapper queueFamilyMapper = new MinimalQueueFamilyMapper();
 
     private boolean didBuild = false;
@@ -274,6 +276,11 @@ public class BoilerBuilder {
     public BoilerBuilder requiredFeatures13(RequiredFeatures13 requiredFeatures) {
         checkApiVersion(VK_API_VERSION_1_3);
         this.vkRequiredFeatures13.add(requiredFeatures);
+        return this;
+    }
+
+    public BoilerBuilder extraDeviceRequirements(ExtraDeviceRequirements requirements) {
+        this.extraDeviceRequirements.add(requirements);
         return this;
     }
 

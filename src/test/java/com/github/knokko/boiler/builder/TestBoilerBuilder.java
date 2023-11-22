@@ -260,4 +260,23 @@ public class TestBoilerBuilder {
                     }).build();
         });
     }
+
+    @Test
+    public void testExtraDeviceRequirements() {
+        assertThrows(NoVkPhysicalDeviceException.class, () -> {
+            new BoilerBuilder(VK_API_VERSION_1_0, "TestExtraDeviceRequirements", 1)
+                    .extraDeviceRequirements((device, windowSurface, stack) -> false)
+                    .build();
+        });
+        assertThrows(NoVkPhysicalDeviceException.class, () -> {
+            new BoilerBuilder(VK_API_VERSION_1_0, "TestExtraDeviceRequirements", 1)
+                    .extraDeviceRequirements((device, windowSurface, stack) -> false)
+                    .extraDeviceRequirements((device, windowSurface, stack) -> true)
+                    .build();
+        });
+        new BoilerBuilder(VK_API_VERSION_1_0, "TestExtraDeviceRequirements", 1)
+                .extraDeviceRequirements((device, windowSurface, stack) -> true)
+                .extraDeviceRequirements((device, windowSurface, stack) -> true)
+                .build().destroyInitialObjects();
+    }
 }
