@@ -7,7 +7,7 @@ import static org.lwjgl.vulkan.VK10.*;
 public record SimpleDeviceSelector(int... preferredDeviceTypes) implements PhysicalDeviceSelector {
 
     @Override
-    public VkPhysicalDevice choosePhysicalDevice(MemoryStack stack, VkPhysicalDevice[] candidates) {
+    public VkPhysicalDevice choosePhysicalDevice(MemoryStack stack, VkPhysicalDevice[] candidates, VkInstance vkInstance) {
         int[] deviceTypes = new int[candidates.length];
         var deviceProperties = VkPhysicalDeviceProperties.calloc(stack);
         for (int index = 0; index < candidates.length; index++) {

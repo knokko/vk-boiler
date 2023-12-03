@@ -53,6 +53,7 @@ dependencies {
         compileOnly "org.lwjgl:lwjgl-vulkan"
         compileOnly "org.lwjgl:lwjgl-glfw"
         compileOnly "org.lwjgl:lwjgl-vma"
+        compileOnly "org.lwjgl:lwjgl-openxr"
         compileOnly "org.joml:joml:${jomlVersion}"
         
         testImplementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
@@ -80,11 +81,13 @@ project(':samples') {
         implementation "org.lwjgl:lwjgl-vma"
         implementation "org.lwjgl:lwjgl-vulkan"
         implementation "org.lwjgl:lwjgl-glfw"
+        implementation "org.lwjgl:lwjgl-openxr"
         implementation "org.joml:joml:${jomlVersion}"
 
         runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
         runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
         runtimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
+        runtimeOnly "org.lwjgl:lwjgl-openxr::$lwjglNatives"
 		if (lwjglNatives == "natives-macos") runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
     }
     shadowJar {

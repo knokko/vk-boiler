@@ -156,7 +156,7 @@ public class TestBoilerBuilder {
     private void testApiVersionCheck(int apiVersion) {
         var builder = new BoilerBuilder(apiVersion, "TestApiVersionCheck", 1)
                 .validation(new ValidationFeatures(false, false, false, false, false))
-                .physicalDeviceSelector((stack, candidates) -> fail("There should be no candidates"));
+                .physicalDeviceSelector((stack, candidates, vkInstance) -> fail("There should be no candidates"));
         assertThrows(NoVkPhysicalDeviceException.class, builder::build);
     }
 

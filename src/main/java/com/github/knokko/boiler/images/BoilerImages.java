@@ -91,7 +91,8 @@ public class BoilerImages {
         var ciImageView = VkImageViewCreateInfo.calloc(stack);
         ciImageView.sType$Default();
         ciImageView.image(image);
-        ciImageView.viewType(VK_IMAGE_VIEW_TYPE_2D);
+        if (arrayLayers > 1) ciImageView.viewType(VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+        else ciImageView.viewType(VK_IMAGE_VIEW_TYPE_2D);
         ciImageView.format(format);
         ciImageView.components().set(
                 VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,

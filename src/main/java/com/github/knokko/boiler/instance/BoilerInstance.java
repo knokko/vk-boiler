@@ -11,6 +11,7 @@ import com.github.knokko.boiler.surface.WindowSurface;
 import com.github.knokko.boiler.swapchain.BoilerSwapchains;
 import com.github.knokko.boiler.swapchain.SwapchainSettings;
 import com.github.knokko.boiler.sync.BoilerSync;
+import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkPhysicalDevice;
@@ -28,6 +29,8 @@ public class BoilerInstance {
     private final long glfwWindow;
     private final WindowSurface windowSurface;
     public final SwapchainSettings swapchainSettings;
+
+    private final XrBoiler xr;
 
     private final VkInstance vkInstance;
     private final VkPhysicalDevice vkPhysicalDevice;
@@ -48,7 +51,7 @@ public class BoilerInstance {
     private boolean destroyed = false;
 
     public BoilerInstance(
-            long glfwWindow, WindowSurface windowSurface, SwapchainSettings swapchainSettings,
+            long glfwWindow, WindowSurface windowSurface, SwapchainSettings swapchainSettings, XrBoiler xr,
             VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
             Set<String> instanceExtensions, Set<String> deviceExtensions,
             QueueFamilies queueFamilies, long vmaAllocator
@@ -56,6 +59,7 @@ public class BoilerInstance {
         this.glfwWindow = glfwWindow;
         this.windowSurface = windowSurface;
         this.swapchainSettings = swapchainSettings;
+        this.xr = xr;
         this.vkInstance = vkInstance;
         this.vkPhysicalDevice = vkPhysicalDevice;
         this.vkDevice = vkDevice;
@@ -94,6 +98,12 @@ public class BoilerInstance {
         return windowSurface;
     }
 
+    public XrBoiler xr() {
+        checkDestroyed();
+        if (xr == null) throw new UnsupportedOperationException("This BoilerInstance doesn't have OpenXR support");
+        return xr;
+    }
+
     public VkInstance vkInstance() {
         checkDestroyed();
         return vkInstance;
@@ -130,6 +140,7 @@ public class BoilerInstance {
      *     <li>The window surface (if applicable)</li>
      *     <li>The VkInstance</li>
      *     <li>The GLFW window (if applicable)</li>
+     *     <li>The OpenXR instance (if applicable)</li>
      * </ul>
      */
     public void destroyInitialObjects() {
@@ -142,6 +153,7 @@ public class BoilerInstance {
         if (windowSurface != null) windowSurface.destroy(vkInstance);
         vkDestroyInstance(vkInstance, null);
         if (glfwWindow != 0L) glfwDestroyWindow(glfwWindow);
+        if (xr != null) xr.destroyInitialObjects();
 
         destroyed = true;
     }

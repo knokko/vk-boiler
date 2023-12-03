@@ -6,9 +6,11 @@ import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.builder.instance.VkInstanceCreator;
 import com.github.knokko.boiler.builder.queue.MinimalQueueFamilyMapper;
 import com.github.knokko.boiler.builder.queue.QueueFamilyMapper;
+import com.github.knokko.boiler.builder.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.exceptions.*;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.util.CollectionHelper;
+import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.system.Platform;
 import org.lwjgl.vulkan.*;
 
@@ -58,6 +60,8 @@ public class BoilerBuilder {
     int windowHeight = 0;
     BoilerSwapchainBuilder swapchainBuilder;
     boolean initGLFW = true;
+
+    BoilerXrBuilder xrBuilder;
 
     String engineName = "VkBoiler";
     int engineVersion = VK_MAKE_VERSION(0, 1, 0);
@@ -123,6 +127,11 @@ public class BoilerBuilder {
         this.windowWidth = width;
         this.windowHeight = height;
         this.swapchainBuilder = swapchainBuilder;
+        return this;
+    }
+
+    public BoilerBuilder xr(BoilerXrBuilder xrBuilder) {
+        this.xrBuilder = xrBuilder;
         return this;
     }
 
@@ -346,6 +355,15 @@ public class BoilerBuilder {
             this.requiredVulkanDeviceExtensions.add(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
         }
 
+        XrBoiler xr = null;
+
+        if (xrBuilder != null) {
+            xr = xrBuilder.build(
+                    this, validationFeatures != null, apiVersion,
+                    applicationName, applicationVersion, engineName, engineVersion
+            );
+        }
+
         // Nice for VMA
         if (VK_API_VERSION_MAJOR(apiVersion) == 1 && VK_API_VERSION_MINOR(apiVersion) == 0) {
             this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
@@ -368,11 +386,13 @@ public class BoilerBuilder {
                 createSurface(deviceResult.vkPhysicalDevice(), deviceResult.windowSurface()) : null;
         var swapchainSettings = windowSurface != null ? swapchainBuilder.chooseSwapchainSettings(windowSurface) : null;
 
-        return new BoilerInstance(
-                window, windowSurface, swapchainSettings,
+        var instance = new BoilerInstance(
+                window, windowSurface, swapchainSettings, xr,
                 instanceResult.vkInstance(), deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
                 instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
                 deviceResult.queueFamilies(), deviceResult.vmaAllocator()
         );
+        if (xr != null) xr.boiler = instance;
+        return instance;
     }
 }

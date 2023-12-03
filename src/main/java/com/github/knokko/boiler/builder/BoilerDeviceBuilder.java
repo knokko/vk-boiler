@@ -48,7 +48,7 @@ class BoilerDeviceBuilder {
             VkPhysicalDevice[] candidateDevices = BasicDeviceFilter.getCandidates(builder, vkInstance, windowSurface);
             if (candidateDevices.length == 0) throw new NoVkPhysicalDeviceException();
 
-            vkPhysicalDevice = builder.deviceSelector.choosePhysicalDevice(stack, candidateDevices);
+            vkPhysicalDevice = builder.deviceSelector.choosePhysicalDevice(stack, candidateDevices, vkInstance);
             if (vkPhysicalDevice == null) throw new NoVkPhysicalDeviceException();
         }
 

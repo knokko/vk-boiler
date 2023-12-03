@@ -9,6 +9,6 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 public interface VkDeviceCreator {
 
     VkDevice vkCreateDevice(
-            VkDeviceCreateInfo viDevice, VkPhysicalDevice physicalDevice, MemoryStack stack
+            VkDeviceCreateInfo ciDevice, VkPhysicalDevice physicalDevice, MemoryStack stack
     );
 }
