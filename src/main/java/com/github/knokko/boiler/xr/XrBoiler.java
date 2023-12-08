@@ -255,6 +255,6 @@ public class XrBoiler {
     }
 
     public void destroyInitialObjects() {
-        xrDestroyInstance(instance);
+        assertXrSuccess(xrDestroyInstance(instance), "DestroyInstance", "XrBoiler");
     }
 }

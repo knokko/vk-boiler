@@ -4,10 +4,13 @@ import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.builder.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
+import com.github.knokko.boiler.images.VmaImage;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.openxr.*;
 import org.lwjgl.vulkan.*;
@@ -21,6 +24,8 @@ import static java.lang.Thread.sleep;
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memFloatBuffer;
+import static org.lwjgl.system.MemoryUtil.memIntBuffer;
+import static org.lwjgl.util.vma.Vma.vmaDestroyImage;
 import static org.lwjgl.vulkan.KHRCreateRenderpass2.VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRDepthStencilResolve.VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRDynamicRendering.*;
@@ -32,6 +37,7 @@ import static org.lwjgl.vulkan.VK13.*;
 
 public class HelloXR {
 
+    @SuppressWarnings("resource")
     public static void main(String[] args) throws InterruptedException {
         var boiler = new BoilerBuilder(
                 VK_API_VERSION_1_0, "HelloXR", 1
@@ -123,6 +129,7 @@ public class HelloXR {
 
         long[] swapchainImages = boiler.xr().getSwapchainImages(swapchain);
         long[] swapchainImageViews = new long[swapchainImages.length];
+        VmaImage depthImage;
         try (var stack = stackPush()) {
             for (int index = 0; index < swapchainImages.length; index++) {
                 swapchainImageViews[index] = boiler.images.createView(
@@ -130,6 +137,10 @@ public class HelloXR {
                         VK_IMAGE_ASPECT_COLOR_BIT, 1, 2, "SwapchainView"
                 );
             }
+            depthImage = boiler.images.create(
+                    stack, width, height, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                    VK_IMAGE_ASPECT_DEPTH_BIT, VK_SAMPLE_COUNT_1_BIT, 1, 2, true, "DepthImage"
+            );
         }
 
         var commandPool = boiler.commands.createPool(
@@ -140,18 +151,29 @@ public class HelloXR {
 
         int vertexSize = (3 + 3) * 4;
         var vertexBuffer = boiler.buffers.createMapped(
-                3 * vertexSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "VertexBuffer"
+                4 * vertexSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "VertexBuffer"
         );
-        var hostVertexBuffer = memFloatBuffer(vertexBuffer.hostAddress(), 3 * 6);
+        var hostVertexBuffer = memFloatBuffer(vertexBuffer.hostAddress(), 4 * 6);
         hostVertexBuffer.put(-1f).put(0f).put(-1f); // vertex1.position = (-1, 0, -1)
         hostVertexBuffer.put(1f).put(0f).put(0f); // vertex1.color = red
         hostVertexBuffer.put(1f).put(0f).put(-1f); // vertex2.position = (1, 0, -1)
         hostVertexBuffer.put(0f).put(1f).put(0f); // vertex2.color = green
         hostVertexBuffer.put(0f).put(0f).put(1f); // vertex3.position = (0, 0, 1)
         hostVertexBuffer.put(0f).put(0f).put(1f); // vertex3.color = blue
+        hostVertexBuffer.put(0f).put(1f).put(0f); // vertex4.position = (0, 1, 0)
+        hostVertexBuffer.put(0.5f).put(0.5f).put(0.5f); // vertex4.color = grey
+
+        var indexBuffer = boiler.buffers.createMapped(
+                4 * 3 * 4, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "IndexBuffer"
+        );
+        var hostIndexBuffer = memIntBuffer(indexBuffer.hostAddress(), 4 * 3);
+        hostIndexBuffer.put(0).put(1).put(2); // bottom triangle
+        hostIndexBuffer.put(0).put(1).put(3);
+        hostIndexBuffer.put(1).put(2).put(3);
+        hostIndexBuffer.put(2).put(0).put(3);
 
         var matrixBuffer = boiler.buffers.createMapped(
-                2 * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "MatrixBuffer"
+                5 * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "MatrixBuffer"
         );
 
         long descriptorSetLayout;
@@ -202,14 +224,19 @@ public class HelloXR {
 
             vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
 
+            var pushConstants = VkPushConstantRange.calloc(1, stack);
+            pushConstants.stageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+            pushConstants.offset(0);
+            pushConstants.size(8);
+
             pipelineLayout = boiler.pipelines.createLayout(
-                    stack, null, "SimplePipelineLayout", descriptorSetLayout
+                    stack, pushConstants, "SimplePipelineLayout", descriptorSetLayout
             );
             var vertexShader = boiler.pipelines.createShaderModule(
                     stack, "com/github/knokko/boiler/samples/graphics/xr.vert.spv", "VertexShader"
             );
             var fragmentShader = boiler.pipelines.createShaderModule(
-                    stack, "com/github/knokko/boiler/samples/graphics/triangle.frag.spv", "FragmentShader"
+                    stack, "com/github/knokko/boiler/samples/graphics/xr.frag.spv", "FragmentShader"
             );
 
             var vertexBindings = VkVertexInputBindingDescription.calloc(1, stack);
@@ -248,7 +275,7 @@ public class HelloXR {
 
             var ciViewport = VkPipelineViewportStateCreateInfo.calloc(stack);
             ciViewport.sType$Default();
-            ciViewport.viewportCount(1); // TODO Maybe 2?
+            ciViewport.viewportCount(1);
             ciViewport.pViewports(viewportSize);
             ciViewport.scissorCount(1);
             ciViewport.pScissors(scissorSize);
@@ -282,6 +309,144 @@ public class HelloXR {
             vkDestroyShaderModule(boiler.vkDevice(), fragmentShader, null);
         }
 
+        XrActionSet actionSet;
+        XrAction handPoseAction, handClickAction;
+        long pathLeftHand, pathRightHand;
+        XrSpace leftHandSpace, rightHandSpace;
+        long interactionProfile;
+        try (var stack = stackPush()) {
+            var ciActionSet = XrActionSetCreateInfo.calloc(stack);
+            ciActionSet.type$Default();
+            ciActionSet.actionSetName(stack.UTF8("hands"));
+            ciActionSet.localizedActionSetName(stack.UTF8("Hand poses and 'click' information"));
+            ciActionSet.priority(1);
+
+            var pActionSet = stack.callocPointer(1);
+            assertXrSuccess(xrCreateActionSet(
+                    boiler.xr().instance, ciActionSet, pActionSet
+            ), "CreateActionSet", null);
+            actionSet = new XrActionSet(pActionSet.get(0), boiler.xr().instance);
+
+            var pLeftPath = stack.callocLong(1);
+            assertXrSuccess(xrStringToPath(
+                    boiler.xr().instance, stack.UTF8("/user/hand/left"), pLeftPath
+            ), "StringToPath", "left hand");
+            pathLeftHand = pLeftPath.get(0);
+
+            var pRightPath = stack.callocLong(1);
+            assertXrSuccess(xrStringToPath(
+                    boiler.xr().instance, stack.UTF8("/user/hand/right"), pRightPath
+            ), "StringToPath", "right hand");
+            pathRightHand = pRightPath.get(0);
+
+            var ciPoseAction = XrActionCreateInfo.calloc(stack);
+            ciPoseAction.type$Default();
+            ciPoseAction.actionName(stack.UTF8("hand_poses"));
+            ciPoseAction.actionType(XR_ACTION_TYPE_POSE_INPUT);
+            ciPoseAction.countSubactionPaths(2);
+            //noinspection SuspiciousNameCombination
+            ciPoseAction.subactionPaths(stack.longs(pathLeftHand, pathRightHand));
+            ciPoseAction.localizedActionName(stack.UTF8("Hand poses"));
+
+            var pPoseAction = stack.callocPointer(1);
+            assertXrSuccess(xrCreateAction(
+                    actionSet, ciPoseAction, pPoseAction
+            ), "CreateAction", "hand poses");
+            handPoseAction = new XrAction(pPoseAction.get(0), actionSet);
+
+            var ciClickAction = XrActionCreateInfo.calloc(stack);
+            ciClickAction.type$Default();
+            ciClickAction.actionName(stack.UTF8("hands_click"));
+            ciClickAction.actionType(XR_ACTION_TYPE_BOOLEAN_INPUT);
+            ciClickAction.countSubactionPaths(2);
+            //noinspection SuspiciousNameCombination
+            ciClickAction.subactionPaths(stack.longs(pathLeftHand, pathRightHand));
+            ciClickAction.localizedActionName(stack.UTF8("Holding hands"));
+
+            var pClickAction = stack.callocPointer(1);
+            assertXrSuccess(xrCreateAction(
+                    actionSet, ciClickAction, pClickAction
+            ), "CreateAction", "hand clicks");
+            handClickAction = new XrAction(pClickAction.get(0), actionSet);
+
+            var pInteractionProfile = stack.callocLong(1);
+            assertXrSuccess(xrStringToPath(
+                    boiler.xr().instance, stack.UTF8("/interaction_profiles/khr/simple_controller"), pInteractionProfile
+            ), "StringToPath", "Khronos simple controller interaction profile");
+            interactionProfile = pInteractionProfile.get(0);
+
+            var suggestedBindings = XrActionSuggestedBinding.calloc(4, stack);
+
+            var pLeftPosePath = stack.callocLong(1);
+            assertXrSuccess(xrStringToPath(
+                    boiler.xr().instance, stack.UTF8("/user/hand/left/input/grip/pose"), pLeftPosePath
+            ), "StringToPath", "left pose");
+            suggestedBindings.get(0).action(handPoseAction);
+            suggestedBindings.get(0).binding(pLeftPosePath.get(0));
+
+            var pRightPosePath = stack.callocLong(1);
+            assertXrSuccess(xrStringToPath(
+                    boiler.xr().instance, stack.UTF8("/user/hand/right/input/grip/pose"), pRightPosePath
+            ), "StringToPath", "rightpose");
+            suggestedBindings.get(1).action(handPoseAction);
+            suggestedBindings.get(1).binding(pRightPosePath.get(0));
+
+            var pLeftClickPath = stack.callocLong(1);
+            assertXrSuccess(xrStringToPath(
+                    boiler.xr().instance, stack.UTF8("/user/hand/left/input/select/click"), pLeftClickPath
+            ), "StringToPath", "left click");
+            suggestedBindings.get(2).action(handClickAction);
+            suggestedBindings.get(2).binding(pLeftClickPath.get(0));
+
+            var pRightClickPath = stack.callocLong(1);
+            assertXrSuccess(xrStringToPath(
+                    boiler.xr().instance, stack.UTF8("/user/hand/right/input/select/click"), pRightClickPath
+            ), "StringToPath", "right click");
+            suggestedBindings.get(3).action(handClickAction);
+            suggestedBindings.get(3).binding(pRightClickPath.get(0));
+
+            var suggestedInteractionBindings = XrInteractionProfileSuggestedBinding.calloc(stack);
+            suggestedInteractionBindings.type$Default();
+            suggestedInteractionBindings.interactionProfile(interactionProfile);
+            suggestedInteractionBindings.suggestedBindings(suggestedBindings);
+
+            assertXrSuccess(xrSuggestInteractionProfileBindings(
+                    boiler.xr().instance, suggestedInteractionBindings
+            ), "SuggestInteractionProfileBindings", null);
+
+            var ciLeftSpace = XrActionSpaceCreateInfo.calloc(stack);
+            ciLeftSpace.type$Default();
+            ciLeftSpace.action(handPoseAction);
+            ciLeftSpace.subactionPath(pathLeftHand);
+            boiler.xr().setIdentity(ciLeftSpace.poseInActionSpace());
+
+            var pLeftSpace = stack.callocPointer(1);
+            assertXrSuccess(xrCreateActionSpace(
+                    session, ciLeftSpace, pLeftSpace
+            ), "CreateActionSpace", "left hand");
+            leftHandSpace = new XrSpace(pLeftSpace.get(0), session);
+
+            var ciRightSpace = XrActionSpaceCreateInfo.calloc(stack);
+            ciRightSpace.type$Default();
+            ciRightSpace.action(handPoseAction);
+            ciRightSpace.subactionPath(pathRightHand);
+            boiler.xr().setIdentity(ciRightSpace.poseInActionSpace());
+
+            var pRightSpace = stack.callocPointer(1);
+            assertXrSuccess(xrCreateActionSpace(
+                    session, ciRightSpace, pRightSpace
+            ), "CreateActionSpace", "right hand");
+            rightHandSpace = new XrSpace(pRightSpace.get(0), session);
+
+            var aiSession = XrSessionActionSetsAttachInfo.calloc(stack);
+            aiSession.type$Default();
+            aiSession.actionSets(stack.pointers(actionSet));
+
+            assertXrSuccess(xrAttachSessionActionSets(
+                    session, aiSession
+            ), "AttachSessionActionSets", null);
+        }
+
         int[] sessionState = { XR_SESSION_STATE_IDLE };
         boolean isSessionRunning = false;
         boolean didRequestExit = false;
@@ -305,7 +470,9 @@ public class HelloXR {
                 if ((didRequestExit && !isSessionRunning)
                         || sessionState[0] == XR_SESSION_STATE_EXITING || sessionState[0] == XR_SESSION_STATE_LOSS_PENDING
                 ) {
-                    assertXrSuccess(xrDestroySession(session), "DestroySession", null);
+                    assertXrSuccess(vkQueueWaitIdle(
+                            boiler.queueFamilies().graphics().queues().get(0).vkQueue()
+                    ), "QueueWaitIdle", "End of last frame");
                     break;
                 }
 
@@ -405,6 +572,76 @@ public class HelloXR {
 
                         lastCameraMatrix = cameraMatrix;
 
+                        var activeActionSets = XrActiveActionSet.calloc(1, stack);
+                        activeActionSets.actionSet(actionSet);
+                        activeActionSets.subactionPath(XR_NULL_PATH);
+
+                        var syncInfo = XrActionsSyncInfo.calloc(stack);
+                        syncInfo.type$Default();
+                        syncInfo.countActiveActionSets(1);
+                        syncInfo.activeActionSets(activeActionSets);
+
+                        assertXrSuccess(xrSyncActions(
+                                session, syncInfo
+                        ), "SyncActions", null);
+
+                        var leftLocation = XrSpaceLocation.calloc(stack);
+                        leftLocation.type$Default();
+
+                        var rightLocation = XrSpaceLocation.calloc(stack);
+                        rightLocation.type$Default();
+
+                        assertXrSuccess(xrLocateSpace(
+                                leftHandSpace, renderSpace, frameState.predictedDisplayTime(), leftLocation
+                        ), "LocateSpace", "left hand");
+                        assertXrSuccess(xrLocateSpace(
+                                rightHandSpace, renderSpace, frameState.predictedDisplayTime(), rightLocation
+                        ), "LocateSpace", "right hand");
+
+                        Vector3f leftPosition = null;
+                        Vector3f rightPosition = null;
+
+                        if ((leftLocation.locationFlags() & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
+                            var pos = leftLocation.pose().position$();
+                            leftPosition = new Vector3f(pos.x(), pos.y(), pos.z());
+                        }
+                        if ((rightLocation.locationFlags() & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
+                            var pos = rightLocation.pose().position$();
+                            rightPosition = new Vector3f(pos.x(), pos.y(), pos.z());
+                        }
+
+                        Quaternionf leftRotation = null;
+                        Quaternionf rightRotation = null;
+                        if ((leftLocation.locationFlags() & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+                            var rot = leftLocation.pose().orientation();
+                            leftRotation = new Quaternionf(rot.x(), rot.y(), rot.z(), rot.w());
+                        }
+
+                        if ((rightLocation.locationFlags() & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+                            var rot = rightLocation.pose().orientation();
+                            rightRotation = new Quaternionf(rot.x(), rot.y(), rot.z(), rot.w());
+                        }
+
+                        Matrix4f leftHandMatrix = null;
+                        if (leftPosition != null) {
+                            leftHandMatrix = new Matrix4f().translate(leftPosition);
+
+                            if (leftRotation != null) {
+                                leftHandMatrix.rotate(leftRotation);
+                            }
+                            leftHandMatrix.scale(0.1f);
+                        }
+
+                        Matrix4f rightHandMatrix = null;
+                        if (rightPosition != null) {
+                            rightHandMatrix = new Matrix4f().translate(rightPosition);
+
+                            if (rightRotation != null) {
+                                rightHandMatrix.rotate(rightRotation);
+                            }
+                            rightHandMatrix.scale(0.1f);
+                        }
+
                         var wiSwapchain = XrSwapchainImageWaitInfo.calloc(stack);
                         wiSwapchain.type$Default();
                         wiSwapchain.timeout(1_000_000_000L); // TODO Configure
@@ -422,6 +659,15 @@ public class HelloXR {
                         colorAttachments.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
                         colorAttachments.clearValue().color().float32(stack.floats(1f, 0f, 0f, 1f));
 
+                        var depthAttachment = VkRenderingAttachmentInfoKHR.calloc(stack);
+                        depthAttachment.sType$Default();
+                        depthAttachment.imageView(depthImage.vkImageView());
+                        depthAttachment.imageLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+                        depthAttachment.resolveMode(VK_RESOLVE_MODE_NONE);
+                        depthAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+                        depthAttachment.storeOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
+                        depthAttachment.clearValue().depthStencil().depth(1f);
+
                         var dynamicRenderingInfo = VkRenderingInfoKHR.calloc(stack);
                         dynamicRenderingInfo.sType$Default();
                         dynamicRenderingInfo.renderArea().offset().set(0, 0);
@@ -429,6 +675,7 @@ public class HelloXR {
                         dynamicRenderingInfo.layerCount(2);
                         dynamicRenderingInfo.viewMask(3); // TODO Configure?
                         dynamicRenderingInfo.pColorAttachments(colorAttachments);
+                        dynamicRenderingInfo.pDepthAttachment(depthAttachment);
 
                         var commands = CommandRecorder.begin(commandBuffer, boiler, stack, "Drawing");
                         vkCmdBeginRenderingKHR(commandBuffer, dynamicRenderingInfo);
@@ -442,12 +689,60 @@ public class HelloXR {
                                 commandBuffer, 0,
                                 stack.longs(vertexBuffer.vkBuffer()), stack.longs(0)
                         );
+                        vkCmdBindIndexBuffer(commandBuffer, indexBuffer.vkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-                        var hostMatrixBuffer = memFloatBuffer(matrixBuffer.hostAddress(), 2 * 16);
+                        var hostMatrixBuffer = memFloatBuffer(matrixBuffer.hostAddress(), 5 * 16);
                         cameraMatrix[0].get(0, hostMatrixBuffer);
                         cameraMatrix[1].get(16, hostMatrixBuffer);
+                        new Matrix4f().get(32, hostMatrixBuffer);
+                        if (leftHandMatrix != null) leftHandMatrix.get(48, hostMatrixBuffer);
+                        if (rightHandMatrix != null) rightHandMatrix.get(64, hostMatrixBuffer);
 
-                        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+                        var pushConstants = stack.callocInt(2);
+
+                        pushConstants.put(0, 0);
+                        pushConstants.put(1, 0);
+                        vkCmdPushConstants(
+                                commandBuffer, pipelineLayout,
+                                VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants
+                        );
+                        vkCmdDrawIndexed(commandBuffer, 3, 1, 0, 0, 0);
+
+                        var pClick = XrActionStateBoolean.calloc(stack);
+                        pClick.type$Default();
+
+                        var giClick = XrActionStateGetInfo.calloc(stack);
+                        giClick.type$Default();
+                        giClick.action(handClickAction);
+                        giClick.subactionPath(pathLeftHand);
+                        if (leftHandMatrix != null) {
+                            assertXrSuccess(xrGetActionStateBoolean(
+                                    session, giClick, pClick
+                            ), "GetActionStateBoolean", "left click");
+
+                            pushConstants.put(0, pClick.currentState() ? 0 : 1);
+                            pushConstants.put(1, 1);
+                            vkCmdPushConstants(
+                                    commandBuffer, pipelineLayout,
+                                    VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants
+                            );
+                            vkCmdDrawIndexed(commandBuffer, 12, 1, 0, 0, 0);
+                        }
+                        if (rightHandMatrix != null) {
+                            giClick.subactionPath(pathRightHand);
+                            assertXrSuccess(xrGetActionStateBoolean(
+                                    session, giClick, pClick
+                            ), "GetActionStateBoolean", "right click");
+
+                            pushConstants.put(0, pClick.currentState() ? 0 : 1);
+                            pushConstants.put(1, 2);
+                            vkCmdPushConstants(
+                                    commandBuffer, pipelineLayout,
+                                    VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants
+                            );
+                            vkCmdDrawIndexed(commandBuffer, 12, 1, 0, 0, 0);
+                        }
+
                         vkCmdEndRenderingKHR(commandBuffer);
                         commands.end();
 
@@ -492,10 +787,21 @@ public class HelloXR {
         }
 
         vertexBuffer.destroy(boiler.vmaAllocator());
+        indexBuffer.destroy(boiler.vmaAllocator());
         matrixBuffer.destroy(boiler.vmaAllocator());
+        vkDestroyImageView(boiler.vkDevice(), depthImage.vkImageView(), null);
+        vmaDestroyImage(boiler.vmaAllocator(), depthImage.vkImage(), depthImage.vmaAllocation());
 
-        xrDestroySpace(renderSpace);
-        xrDestroySwapchain(swapchain);
+        assertXrSuccess(xrDestroySpace(leftHandSpace), "DestroySpace", "left hand");
+        assertXrSuccess(xrDestroySpace(rightHandSpace), "DestroySpace", "right hand");
+        assertXrSuccess(xrDestroyAction(handPoseAction), "DestroyAction", "hand pose");
+        assertXrSuccess(xrDestroyAction(handClickAction), "DestroyAction", "hand click");
+        assertXrSuccess(xrDestroyActionSet(actionSet), "DestroyActionSet", null);
+
+        assertXrSuccess(xrDestroySpace(renderSpace), "DestroySpace", "renderSpace");
+        assertXrSuccess(xrDestroySwapchain(swapchain), "DestroySwapchain", null);
+
+        assertXrSuccess(xrDestroySession(session), "DestroySession", null);
 
         boiler.destroyInitialObjects();
     }
