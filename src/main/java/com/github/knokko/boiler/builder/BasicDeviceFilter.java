@@ -60,7 +60,8 @@ class BasicDeviceFilter {
     }
 
     static VkPhysicalDevice[] getCandidates(
-            BoilerBuilder builder, VkInstance vkInstance, long windowSurface
+            BoilerBuilder builder, VkInstance vkInstance,
+            long windowSurface, boolean printRejectionInfo
     ) {
         try (var stack = stackPush()) {
             var pNumDevices = stack.callocInt(1);
@@ -90,14 +91,33 @@ class BasicDeviceFilter {
                 if (supportedMajorVersion < desiredMajorVersion ||
                         (supportedMajorVersion == desiredMajorVersion && supportedMinorVersion < desiredMinorVersion)
                 ) {
+                    if (printRejectionInfo) {
+                        System.out.println(
+                                "BasicDeviceFilter: rejected " + properties.deviceNameString() +
+                                        " because it doesn't support Vulkan " + desiredMajorVersion +
+                                        "." + desiredMinorVersion
+                        );
+                    }
                     continue;
                 }
 
-                if (!supportsRequiredFeatures(device, builder)) continue;
+                if (!supportsRequiredFeatures(device, builder)) {
+                    if (printRejectionInfo) {
+                        System.out.println("BasicDeviceFilter: rejected " + properties.deviceNameString() +
+                                " because it doesn't support the required features");
+                    }
+                    continue;
+                }
 
                 var supportedExtensions = getSupportedDeviceExtensions(device);
                 for (String extension : builder.requiredVulkanDeviceExtensions) {
-                    if (!supportedExtensions.contains(extension)) continue deviceLoop;
+                    if (!supportedExtensions.contains(extension)) {
+                        if (printRejectionInfo) {
+                            System.out.println("BasicDeviceFilter: rejected " + properties.deviceNameString() +
+                                    " because it doesn't support the extension " + extension);
+                        }
+                        continue deviceLoop;
+                    }
                 }
 
                 boolean hasPresentQueueFamily = false;
@@ -122,14 +142,26 @@ class BasicDeviceFilter {
                     }
                 }
 
-                if (!hasPresentQueueFamily || !hasGraphicsQueueFamily) continue;
+                if (!hasPresentQueueFamily || !hasGraphicsQueueFamily) {
+                    if (printRejectionInfo) {
+                        System.out.println("BasicDeviceFilter: rejected " + properties.deviceNameString()
+                                + " because it doesn't have all required queue families: present = "
+                                + hasPresentQueueFamily + ", graphics = " + hasGraphicsQueueFamily);
+                    }
+                    continue;
+                }
 
                 if (!builder.extraDeviceRequirements.stream().allMatch(
                         requirements -> requirements.satisfiesRequirements(device, windowSurface, stack)
                 )) {
+                    if (printRejectionInfo) {
+                        System.out.println("BasicDeviceFilter: rejected " + properties.deviceNameString()
+                                + " because it didn't satisfy the extra device requirements");
+                    }
                     continue;
                 }
 
+                System.out.println("BasicDeviceFilter: accepted " + properties.deviceNameString());
                 devices.add(device);
             }
 

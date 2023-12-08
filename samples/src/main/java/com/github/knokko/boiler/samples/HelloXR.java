@@ -45,6 +45,7 @@ public class HelloXR {
                         VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
                         VK_KHR_MAINTENANCE_2_EXTENSION_NAME
                 ))
+                .printDeviceRejectionInfo()
                 .extraDeviceRequirements((physicalDevice, windowSurface, stack) -> {
                     var dynamicRendering = VkPhysicalDeviceDynamicRenderingFeaturesKHR.calloc(stack);
                     dynamicRendering.sType$Default();

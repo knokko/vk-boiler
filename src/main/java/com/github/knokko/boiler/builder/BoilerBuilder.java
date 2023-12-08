@@ -98,6 +98,8 @@ public class BoilerBuilder {
 
     Collection<ExtraDeviceRequirements> extraDeviceRequirements = new ArrayList<>();
 
+    boolean printDeviceRejectionInfo = false;
+
     QueueFamilyMapper queueFamilyMapper = new MinimalQueueFamilyMapper();
 
     private boolean didBuild = false;
@@ -290,6 +292,11 @@ public class BoilerBuilder {
 
     public BoilerBuilder extraDeviceRequirements(ExtraDeviceRequirements requirements) {
         this.extraDeviceRequirements.add(requirements);
+        return this;
+    }
+
+    public BoilerBuilder printDeviceRejectionInfo() {
+        this.printDeviceRejectionInfo = true;
         return this;
     }
 
