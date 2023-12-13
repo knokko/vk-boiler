@@ -63,6 +63,29 @@ public class GraphicsPipelineBuilder {
         ciPipeline.pViewportState(ciViewport);
     }
 
+    public void fixedViewport(int width, int height) {
+        var viewportSize = VkViewport.calloc(1, stack);
+        viewportSize.x(0f);
+        viewportSize.y(0f);
+        viewportSize.width(width);
+        viewportSize.height(height);
+        viewportSize.minDepth(0f);
+        viewportSize.maxDepth(1f);
+
+        var scissorSize = VkRect2D.calloc(1, stack);
+        scissorSize.offset().set(0, 0);
+        scissorSize.extent().set(width, height);
+
+        var ciViewport = VkPipelineViewportStateCreateInfo.calloc(stack);
+        ciViewport.sType$Default();
+        ciViewport.viewportCount(1);
+        ciViewport.pViewports(viewportSize);
+        ciViewport.scissorCount(1);
+        ciViewport.pScissors(scissorSize);
+
+        ciPipeline.pViewportState(ciViewport);
+    }
+
     public void simpleRasterization(int cullMode) {
         var ciRaster = VkPipelineRasterizationStateCreateInfo.calloc(stack);
         ciRaster.sType$Default();
