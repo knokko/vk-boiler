@@ -152,23 +152,24 @@ public class HelloXR {
                 4 * vertexSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "VertexBuffer"
         );
         var hostVertexBuffer = memFloatBuffer(vertexBuffer.hostAddress(), 4 * 6);
-        hostVertexBuffer.put(-1f).put(0f).put(-1f); // vertex1.position = (-1, 0, -1)
+        hostVertexBuffer.put(-1f).put(0f).put(1f); // vertex1.position = (-1, 0, 1)
         hostVertexBuffer.put(1f).put(0f).put(0f); // vertex1.color = red
-        hostVertexBuffer.put(1f).put(0f).put(-1f); // vertex2.position = (1, 0, -1)
+        hostVertexBuffer.put(1f).put(0f).put(1f); // vertex2.position = (1, 0, 1)
         hostVertexBuffer.put(0f).put(1f).put(0f); // vertex2.color = green
-        hostVertexBuffer.put(0f).put(0f).put(1f); // vertex3.position = (0, 0, 1)
+        hostVertexBuffer.put(0f).put(0f).put(-1f); // vertex3.position = (0, 0, -1)
         hostVertexBuffer.put(0f).put(0f).put(1f); // vertex3.color = blue
         hostVertexBuffer.put(0f).put(1f).put(0f); // vertex4.position = (0, 1, 0)
         hostVertexBuffer.put(0.5f).put(0.5f).put(0.5f); // vertex4.color = grey
 
         var indexBuffer = boiler.buffers.createMapped(
-                4 * 3 * 4, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "IndexBuffer"
+                5 * 3 * 4, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "IndexBuffer"
         );
-        var hostIndexBuffer = memIntBuffer(indexBuffer.hostAddress(), 4 * 3);
-        hostIndexBuffer.put(0).put(1).put(2); // bottom triangle
-        hostIndexBuffer.put(0).put(1).put(3);
-        hostIndexBuffer.put(1).put(2).put(3);
-        hostIndexBuffer.put(2).put(0).put(3);
+        var hostIndexBuffer = memIntBuffer(indexBuffer.hostAddress(), 5 * 3);
+        hostIndexBuffer.put(0).put(1).put(2); // bottom triangle, pointing up
+        hostIndexBuffer.put(2).put(1).put(0); // bottom triangle, pointing down
+        hostIndexBuffer.put(0).put(1).put(3); // back of the hand triangle
+        hostIndexBuffer.put(1).put(2).put(3); // right of the hand triangle
+        hostIndexBuffer.put(2).put(0).put(3); // left of the hand triangle
 
         var matrixBuffer = boiler.buffers.createMapped(
                 5 * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "MatrixBuffer"
@@ -275,7 +276,7 @@ public class HelloXR {
             pipelineBuilder.ciPipeline.pVertexInputState(ciVertexInput);
             pipelineBuilder.simpleInputAssembly();
             pipelineBuilder.fixedViewport(width, height);
-            pipelineBuilder.simpleRasterization(VK_CULL_MODE_NONE); // TODO Cull back
+            pipelineBuilder.simpleRasterization(VK_CULL_MODE_BACK_BIT);
             pipelineBuilder.noMultisampling();
             pipelineBuilder.simpleDepthStencil(VK_COMPARE_OP_LESS_OR_EQUAL);
             pipelineBuilder.ciPipeline.layout(pipelineLayout);
@@ -319,10 +320,10 @@ public class HelloXR {
             var suggestedBindings = XrActionSuggestedBinding.calloc(4, stack);
 
             suggestedBindings.get(0).action(handPoseAction);
-            suggestedBindings.get(0).binding(boiler.xr().actions.getPath(stack, "/user/hand/left/input/grip/pose"));
+            suggestedBindings.get(0).binding(boiler.xr().actions.getPath(stack, "/user/hand/left/input/aim/pose"));
 
             suggestedBindings.get(1).action(handPoseAction);
-            suggestedBindings.get(1).binding(boiler.xr().actions.getPath(stack, "/user/hand/right/input/grip/pose"));
+            suggestedBindings.get(1).binding(boiler.xr().actions.getPath(stack, "/user/hand/right/input/aim/pose"));
 
             suggestedBindings.get(2).action(handClickAction);
             suggestedBindings.get(2).binding(boiler.xr().actions.getPath(stack, "/user/hand/left/input/select/click"));
@@ -517,7 +518,7 @@ public class HelloXR {
                             commandBuffer, pipelineLayout,
                             VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants
                     );
-                    vkCmdDrawIndexed(commandBuffer, 12, 1, 0, 0, 0);
+                    vkCmdDrawIndexed(commandBuffer, 12, 1, 3, 0, 0);
                 }
                 if (rightHandMatrix != null) {
                     giClick.subactionPath(pathRightHand);
@@ -531,7 +532,7 @@ public class HelloXR {
                             commandBuffer, pipelineLayout,
                             VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants
                     );
-                    vkCmdDrawIndexed(commandBuffer, 12, 1, 0, 0, 0);
+                    vkCmdDrawIndexed(commandBuffer, 12, 1, 3, 0, 0);
                 }
 
                 vkCmdEndRenderingKHR(commandBuffer);
