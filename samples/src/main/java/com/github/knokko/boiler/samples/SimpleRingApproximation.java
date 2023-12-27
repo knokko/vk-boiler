@@ -218,7 +218,7 @@ public class SimpleRingApproximation {
                         commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore()
                 );
 
-                boiler.swapchains.presentImage(swapchainImage);
+                boiler.swapchains.presentImage(swapchainImage, fence);
                 frameCounter += 1;
             }
         }

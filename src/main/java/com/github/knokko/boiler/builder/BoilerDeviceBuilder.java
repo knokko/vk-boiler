@@ -27,7 +27,7 @@ import static org.lwjgl.vulkan.VK10.*;
 
 class BoilerDeviceBuilder {
 
-    static Result createDevice(BoilerBuilder builder, VkInstance vkInstance) {
+    static Result createDevice(BoilerBuilder builder, BoilerInstanceBuilder.Result instanceResult) {
         VkPhysicalDevice vkPhysicalDevice;
         VkDevice vkDevice;
         Set<String> enabledExtensions;
@@ -40,17 +40,19 @@ class BoilerDeviceBuilder {
             if (builder.window != 0L) {
                 var pSurface = stack.callocLong(1);
                 assertVkSuccess(glfwCreateWindowSurface(
-                        vkInstance, builder.window, null, pSurface
+                        instanceResult.vkInstance(), builder.window, null, pSurface
                 ), "glfwCreateWindowSurface", null);
                 windowSurface = pSurface.get(0);
             } else windowSurface = 0L;
 
             VkPhysicalDevice[] candidateDevices = BasicDeviceFilter.getCandidates(
-                    builder, vkInstance, windowSurface, builder.printDeviceRejectionInfo
+                    builder, instanceResult.vkInstance(), windowSurface, builder.printDeviceRejectionInfo
             );
             if (candidateDevices.length == 0) throw new NoVkPhysicalDeviceException();
 
-            vkPhysicalDevice = builder.deviceSelector.choosePhysicalDevice(stack, candidateDevices, vkInstance);
+            vkPhysicalDevice = builder.deviceSelector.choosePhysicalDevice(
+                    stack, candidateDevices, instanceResult.vkInstance()
+            );
             if (vkPhysicalDevice == null) throw new NoVkPhysicalDeviceException();
         }
 
@@ -186,10 +188,12 @@ class BoilerDeviceBuilder {
             if (enabledFeatures2 == null) ciDevice.pEnabledFeatures(enabledFeatures10);
 
             for (var preCreator : builder.preDeviceCreators) {
-                preCreator.beforeDeviceCreation(ciDevice, vkPhysicalDevice, stack);
+                preCreator.beforeDeviceCreation(ciDevice, instanceResult.enabledExtensions(), vkPhysicalDevice, stack);
             }
 
-            vkDevice = builder.vkDeviceCreator.vkCreateDevice(ciDevice, vkPhysicalDevice, stack);
+            vkDevice = builder.vkDeviceCreator.vkCreateDevice(
+                    ciDevice, instanceResult.enabledExtensions(), vkPhysicalDevice, stack
+            );
 
             var queueFamilyMap = new HashMap<Integer, QueueFamily>();
             for (var entry : uniqueQueueFamilies.entrySet()) {
@@ -204,7 +208,7 @@ class BoilerDeviceBuilder {
             );
 
             var vmaVulkanFunctions = VmaVulkanFunctions.calloc(stack);
-            vmaVulkanFunctions.set(vkInstance, vkDevice);
+            vmaVulkanFunctions.set(instanceResult.vkInstance(), vkDevice);
 
             int vmaFlags = getVmaFlags(enabledExtensions);
 
@@ -212,7 +216,7 @@ class BoilerDeviceBuilder {
             ciAllocator.flags(vmaFlags);
             ciAllocator.physicalDevice(vkPhysicalDevice);
             ciAllocator.device(vkDevice);
-            ciAllocator.instance(vkInstance);
+            ciAllocator.instance(instanceResult.vkInstance());
             ciAllocator.pVulkanFunctions(vmaVulkanFunctions);
             ciAllocator.vulkanApiVersion(builder.apiVersion);
 

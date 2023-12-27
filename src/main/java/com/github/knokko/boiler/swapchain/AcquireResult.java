@@ -9,8 +9,10 @@ public record AcquireResult(
         int numSwapchainImages,
         long acquireSemaphore,
         long presentSemaphore,
+        long presentFence,
         int width,
         int height,
+        Object swapchain,
         long swapchainID,
         Consumer<Runnable> addPreDestructionCallback
 ) {

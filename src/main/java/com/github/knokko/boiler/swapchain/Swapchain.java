@@ -16,7 +16,7 @@ class Swapchain {
     final long vkSwapchain;
     final SwapchainImage[] images;
     final int width, height, presentMode;
-    final long[] acquireFences, acquireSemaphores, presentSemaphores;
+    final long[] acquireFences, acquireSemaphores, presentSemaphores, presentFences;
     final Collection<Runnable> destructionCallbacks = new ArrayList<>();
 
     private int acquireIndex;
@@ -47,6 +47,11 @@ class Swapchain {
             this.acquireSemaphores = instance.sync.createSemaphores("AcquireSwapchainImage", numImages);
             this.acquireFences = instance.sync.createFences(true, numImages, "AcquireSwapchainImage");
             this.presentSemaphores = instance.sync.createSemaphores("PresentSwapchainImage", numImages);
+            if (instance.swapchains.hasSwapchainMaintenance) {
+                this.presentFences = instance.sync.createFences(true, numImages, "PresentSwapchainImage");
+            } else {
+                this.presentFences = new long[numImages];
+            }
             for (int index = 0; index < numImages; index++) {
                 long vkImage = pImages.get(index);
                 images[index] = new SwapchainImage(vkImage, index);
@@ -59,6 +64,7 @@ class Swapchain {
         long acquireSemaphore = acquireSemaphores[acquireIndex];
         long acquireFence = acquireFences[acquireIndex];
         long presentSemaphore = presentSemaphores[acquireIndex];
+        long presentFence = presentFences[acquireIndex];
 
         try (var stack = stackPush()) {
             instance.sync.waitAndReset(stack, acquireFence, 2_000_000_000L);
@@ -76,6 +82,7 @@ class Swapchain {
                 image.acquireSemaphore = acquireSemaphore;
                 image.acquireFence = acquireFence;
                 image.presentSemaphore = presentSemaphore;
+                image.presentFence = presentFence;
 
                 acquireIndex = (acquireIndex + 1) % images.length;
                 acquireCounter += 1;
@@ -104,6 +111,7 @@ class Swapchain {
         }
         for (var callback : destructionCallbacks) callback.run();
         for (long fence : acquireFences) vkDestroyFence(instance.vkDevice(), fence, null);
+        for (long fence : presentFences) vkDestroyFence(instance.vkDevice(), fence, null);
         for (long semaphore : acquireSemaphores) vkDestroySemaphore(instance.vkDevice(), semaphore, null);
         for (long semaphore : presentSemaphores) vkDestroySemaphore(instance.vkDevice(), semaphore, null);
         vkDestroySwapchainKHR(instance.vkDevice(), vkSwapchain, null);

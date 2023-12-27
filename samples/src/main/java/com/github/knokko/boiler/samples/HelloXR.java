@@ -66,7 +66,7 @@ public class HelloXR {
                     vkGetPhysicalDeviceFeatures2KHR(physicalDevice, features2);
                     return dynamicRendering.dynamicRendering() && multiview.multiview();
                 })
-                .beforeDeviceCreation((ciDevice, physicalDevice, stack) -> {
+                .beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> {
                     var dynamicRendering = VkPhysicalDeviceDynamicRenderingFeaturesKHR.calloc(stack);
                     dynamicRendering.sType$Default();
                     dynamicRendering.dynamicRendering(true);

@@ -126,7 +126,7 @@ public class TranslucentWindowPlayground {
                         ) }, fence, acquired.presentSemaphore()
                 );
 
-                boiler.swapchains.presentImage(acquired);
+                boiler.swapchains.presentImage(acquired, fence);
             }
 
             counter += 1;

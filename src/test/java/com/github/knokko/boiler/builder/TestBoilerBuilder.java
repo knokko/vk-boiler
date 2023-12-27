@@ -118,7 +118,7 @@ public class TestBoilerBuilder {
 
                     return BoilerBuilder.DEFAULT_VK_INSTANCE_CREATOR.vkCreateInstance(ciInstance, stack);
                 })
-                .vkDeviceCreator((ciDevice, physicalDevice, stack) -> {
+                .vkDeviceCreator((ciDevice, instanceExtensions, physicalDevice, stack) -> {
                     VkPhysicalDeviceVulkan11Features enabledFeatures11 = null;
                     VkPhysicalDeviceVulkan12Features enabledFeatures12 = null;
                     VkPhysicalDeviceVulkan13Features enabledFeatures13 = null;
@@ -144,7 +144,9 @@ public class TestBoilerBuilder {
                     assertTrue(enabledFeatures13.dynamicRendering());
 
                     pDidCallDeviceCreator[0] = true;
-                    return BoilerBuilder.DEFAULT_VK_DEVICE_CREATOR.vkCreateDevice(ciDevice, physicalDevice, stack);
+                    return BoilerBuilder.DEFAULT_VK_DEVICE_CREATOR.vkCreateDevice(
+                            ciDevice, instanceExtensions, physicalDevice, stack
+                    );
                 })
                 .build();
 
@@ -251,9 +253,9 @@ public class TestBoilerBuilder {
 
         assertThrows(TestException.class, () -> {
             new BoilerBuilder(VK_API_VERSION_1_0, "TestPreDevice", 1)
-                    .beforeDeviceCreation((ciDevice, physicalDevice, stack) -> didCall[0] = true)
-                    .beforeDeviceCreation((ciDevice, physicalDevice, stack) -> didCall[1] = true)
-                    .vkDeviceCreator((ciDevice, physicalDevice, stack) -> {
+                    .beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> didCall[0] = true)
+                    .beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> didCall[1] = true)
+                    .vkDeviceCreator((ciDevice, instanceExtensions, physicalDevice, stack) -> {
                         assertTrue(didCall[0]);
                         assertTrue(didCall[1]);
                         throw new TestException();

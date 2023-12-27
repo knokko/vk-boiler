@@ -3,6 +3,7 @@ package com.github.knokko.boiler.swapchain;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
+import org.lwjgl.vulkan.VkSwapchainPresentFenceInfoEXT;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -21,14 +22,16 @@ import static org.lwjgl.vulkan.VK10.*;
 public class BoilerSwapchains {
 
     private final BoilerInstance instance;
+    final boolean hasSwapchainMaintenance;
 
     private final Collection<Swapchain> oldSwapchains = new ArrayList<>();
     private Swapchain currentSwapchain;
     private long currentSwapchainID;
     private boolean isOutOfDate;
 
-    public BoilerSwapchains(BoilerInstance instance) {
+    public BoilerSwapchains(BoilerInstance instance, boolean hasSwapchainMaintenance) {
         this.instance = instance;
+        this.hasSwapchainMaintenance = hasSwapchainMaintenance;
     }
 
     private void recreateSwapchain(int presentMode) {
@@ -40,13 +43,15 @@ public class BoilerSwapchains {
         } else isOutOfDate = true;
     }
 
-    public void presentImage(AcquireResult acquired) {
-        presentImage(acquired, null);
+    public void presentImage(AcquireResult acquired, long drawingFence) {
+        presentImage(acquired, drawingFence, null);
     }
 
-    public void presentImage(AcquireResult acquired, Consumer<VkPresentInfoKHR> beforePresentCallback) {
+    public void presentImage(AcquireResult acquired, long drawingFence, Consumer<VkPresentInfoKHR> beforePresentCallback) {
         if (isOutOfDate) return;
         try (var stack = stackPush()) {
+            var acquiredSwapchain = (Swapchain) acquired.swapchain();
+
             var presentInfo = VkPresentInfoKHR.calloc(stack);
             presentInfo.sType$Default();
             presentInfo.pWaitSemaphores(stack.longs(acquired.presentSemaphore()));
@@ -54,6 +59,16 @@ public class BoilerSwapchains {
             presentInfo.pSwapchains(stack.longs(acquired.vkSwapchain()));
             presentInfo.pImageIndices(stack.ints(acquired.imageIndex()));
             presentInfo.pResults(stack.callocInt(1));
+            if (hasSwapchainMaintenance) {
+                instance.sync.waitAndReset(stack, acquired.presentFence(), 1_000_000_000L);
+                acquiredSwapchain.images[acquired.imageIndex()].drawingFence = drawingFence;
+
+                var fiPresent = VkSwapchainPresentFenceInfoEXT.calloc(stack);
+                fiPresent.sType$Default();
+                fiPresent.pFences(stack.longs(acquired.presentFence()));
+
+                presentInfo.pNext(fiPresent);
+            }
             if (beforePresentCallback != null) beforePresentCallback.accept(presentInfo);
 
             int presentResult = vkQueuePresentKHR(
@@ -98,12 +113,25 @@ public class BoilerSwapchains {
         }
 
         // Prevent the number of swapchains from escalating when the window is being resized quickly
-        if (oldSwapchains.size() > 20) {
+        if (oldSwapchains.size() > 10) {
             assertVkSuccess(vkDeviceWaitIdle(instance.vkDevice()), "DeviceWaitIdle", "SwapchainGarbage");
             destroyOldSwapchains();
         }
 
-        if (currentSwapchain.canDestroyOldSwapchains) destroyOldSwapchains();
+        if (hasSwapchainMaintenance) {
+            oldSwapchains.removeIf(oldSwapchain -> {
+                for (var presentFence : oldSwapchain.presentFences) {
+                    if (vkGetFenceStatus(instance.vkDevice(), presentFence) != VK_SUCCESS) return false;
+                }
+                for (var image : oldSwapchain.images) {
+                    if (image.drawingFence != VK_NULL_HANDLE && vkGetFenceStatus(instance.vkDevice(), image.drawingFence) != VK_SUCCESS) return false;
+                }
+                oldSwapchain.destroy();
+                return true;
+            });
+        } else {
+            if (currentSwapchain.canDestroyOldSwapchains) destroyOldSwapchains();
+        }
 
         return new AcquireResult(
                 currentSwapchain.vkSwapchain,
@@ -112,8 +140,10 @@ public class BoilerSwapchains {
                 currentSwapchain.images.length,
                 swapchainImage.acquireSemaphore,
                 swapchainImage.presentSemaphore,
+                swapchainImage.presentFence,
                 currentSwapchain.width,
                 currentSwapchain.height,
+                currentSwapchain,
                 currentSwapchainID,
                 currentSwapchain.destructionCallbacks::add
         );

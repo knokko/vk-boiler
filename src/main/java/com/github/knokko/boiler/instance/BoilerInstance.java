@@ -51,7 +51,8 @@ public class BoilerInstance {
     private boolean destroyed = false;
 
     public BoilerInstance(
-            long glfwWindow, WindowSurface windowSurface, SwapchainSettings swapchainSettings, XrBoiler xr,
+            long glfwWindow, WindowSurface windowSurface, SwapchainSettings swapchainSettings,
+            boolean hasSwapchainMaintenance, XrBoiler xr,
             VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
             Set<String> instanceExtensions, Set<String> deviceExtensions,
             QueueFamilies queueFamilies, long vmaAllocator
@@ -74,7 +75,7 @@ public class BoilerInstance {
         this.pipelines = new BoilerPipelines(this);
         this.commands = new BoilerCommands(this);
         this.sync = new BoilerSync(this);
-        this.swapchains = swapchainSettings != null ? new BoilerSwapchains(this) : null;
+        this.swapchains = swapchainSettings != null ? new BoilerSwapchains(this, hasSwapchainMaintenance) : null;
         this.debug = new BoilerDebug(this);
     }
 

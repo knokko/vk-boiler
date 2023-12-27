@@ -19,21 +19,27 @@ import java.util.*;
 
 import static com.github.knokko.boiler.builder.BoilerSwapchainBuilder.createSurface;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static com.github.knokko.boiler.util.CollectionHelper.decodeStringSet;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTMemoryBudget.VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
+import static org.lwjgl.vulkan.EXTSurfaceMaintenance1.VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME;
+import static org.lwjgl.vulkan.EXTSwapchainMaintenance1.VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTValidationFeatures.*;
 import static org.lwjgl.vulkan.KHRBindMemory2.VK_KHR_BIND_MEMORY_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRDedicatedAllocation.VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRGetMemoryRequirements2.VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.vkGetPhysicalDeviceFeatures2KHR;
+import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
+import static org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceFeatures2;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 import static org.lwjgl.vulkan.VK13.VK_API_VERSION_1_3;
 
@@ -45,7 +51,7 @@ public class BoilerBuilder {
         return new VkInstance(pInstance.get(0), ciInstance);
     };
 
-    public static final VkDeviceCreator DEFAULT_VK_DEVICE_CREATOR = (ciDevice, physicalDevice, stack) -> {
+    public static final VkDeviceCreator DEFAULT_VK_DEVICE_CREATOR = (ciDevice, instanceExtensions, physicalDevice, stack) -> {
         var pDevice = stack.callocPointer(1);
         assertVkSuccess(vkCreateDevice(physicalDevice, ciDevice, null, pDevice), "CreateDevice", "BoilerBuilder");
         return new VkDevice(pDevice.get(0), physicalDevice, ciDevice);
@@ -351,6 +357,8 @@ public class BoilerBuilder {
             }
         }
 
+        boolean[] pHasSwapchainMaintenance = { false };
+
         if (window != 0L) {
             checkMainThread();
             if (!glfwVulkanSupported()) throw new GLFWFailureException("glfwVulkanSupported() returned false");
@@ -360,6 +368,36 @@ public class BoilerBuilder {
                 this.requiredVulkanInstanceExtensions.add(memUTF8(glfwExtensions.get(extensionIndex)));
             }
             this.requiredVulkanDeviceExtensions.add(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+            this.desiredVulkanDeviceExtensions.add(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+            this.desiredVulkanInstanceExtensions.add(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+            this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+            if (apiVersion == VK_API_VERSION_1_0) {
+                this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+            }
+
+            this.beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> {
+                Set<String> deviceExtensions = decodeStringSet(ciDevice.ppEnabledExtensionNames());
+                if (deviceExtensions.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
+                    var swapchainFeatures = VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT.calloc(stack);
+                    swapchainFeatures.sType$Default();
+
+                    var features = VkPhysicalDeviceFeatures2.calloc(stack);
+                    features.sType$Default();
+                    features.pNext(swapchainFeatures);
+
+                    if (apiVersion != VK_API_VERSION_1_0) {
+                        vkGetPhysicalDeviceFeatures2(physicalDevice, features);
+                    }
+                    if (instanceExtensions.contains(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
+                        vkGetPhysicalDeviceFeatures2KHR(physicalDevice, features);
+                    }
+
+                    if (swapchainFeatures.swapchainMaintenance1()) {
+                        ciDevice.pNext(swapchainFeatures);
+                        pHasSwapchainMaintenance[0] = true;
+                    }
+                }
+            });
         }
 
         XrBoiler xr = null;
@@ -372,7 +410,7 @@ public class BoilerBuilder {
         }
 
         // Nice for VMA
-        if (VK_API_VERSION_MAJOR(apiVersion) == 1 && VK_API_VERSION_MINOR(apiVersion) == 0) {
+        if (apiVersion == VK_API_VERSION_1_0) {
             this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
             this.desiredVulkanDeviceExtensions.add(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
             this.desiredVulkanDeviceExtensions.add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
@@ -387,14 +425,14 @@ public class BoilerBuilder {
         }
 
         var instanceResult = BoilerInstanceBuilder.createInstance(this);
-        var deviceResult = BoilerDeviceBuilder.createDevice(this, instanceResult.vkInstance());
+        var deviceResult = BoilerDeviceBuilder.createDevice(this, instanceResult);
 
         var windowSurface = deviceResult.windowSurface() != 0L ?
                 createSurface(deviceResult.vkPhysicalDevice(), deviceResult.windowSurface()) : null;
         var swapchainSettings = windowSurface != null ? swapchainBuilder.chooseSwapchainSettings(windowSurface) : null;
 
         var instance = new BoilerInstance(
-                window, windowSurface, swapchainSettings, xr,
+                window, windowSurface, swapchainSettings, pHasSwapchainMaintenance[0], xr,
                 instanceResult.vkInstance(), deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
                 instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
                 deviceResult.queueFamilies(), deviceResult.vmaAllocator()

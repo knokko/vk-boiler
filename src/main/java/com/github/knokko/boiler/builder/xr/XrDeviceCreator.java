@@ -9,6 +9,8 @@ import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkDeviceCreateInfo;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 
+import java.util.Set;
+
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.KHRVulkanEnable2.xrCreateVulkanDeviceKHR;
@@ -24,7 +26,10 @@ class XrDeviceCreator implements VkDeviceCreator {
     }
 
     @Override
-    public VkDevice vkCreateDevice(VkDeviceCreateInfo ciDevice, VkPhysicalDevice physicalDevice, MemoryStack stack) {
+    public VkDevice vkCreateDevice(
+            VkDeviceCreateInfo ciDevice, Set<String> instanceExtensions,
+            VkPhysicalDevice physicalDevice, MemoryStack stack
+    ) {
         var xrCiDevice = XrVulkanDeviceCreateInfoKHR.calloc(stack);
         xrCiDevice.type$Default();
         xrCiDevice.systemId(xrSystem);

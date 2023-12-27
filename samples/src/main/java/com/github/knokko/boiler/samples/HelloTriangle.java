@@ -245,7 +245,7 @@ public class HelloTriangle {
                         commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
                 );
 
-                boiler.swapchains.presentImage(swapchainImage);
+                boiler.swapchains.presentImage(swapchainImage, fence);
                 frameCounter += 1;
             }
         }

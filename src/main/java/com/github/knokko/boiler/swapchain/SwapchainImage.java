@@ -5,7 +5,7 @@ class SwapchainImage {
     final long vkImage;
     final int index;
 
-    long acquireSemaphore, acquireFence, presentSemaphore;
+    long acquireSemaphore, acquireFence, presentSemaphore, presentFence, drawingFence;
 
     SwapchainImage(long vkImage, int index) {
         this.vkImage = vkImage;
