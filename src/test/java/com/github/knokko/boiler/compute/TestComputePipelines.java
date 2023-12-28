@@ -22,6 +22,7 @@ public class TestComputePipelines {
                 VK_API_VERSION_1_2, "TestSimpleComputeShader", VK_MAKE_VERSION(0, 1, 0)
         )
                 .validation(new ValidationFeatures(true, true, false, true, true))
+                .forbidValidationErrors()
                 .build();
 
         try (var stack = stackPush()) {

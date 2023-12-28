@@ -21,8 +21,8 @@ import java.util.Set;
 
 import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
 import static org.lwjgl.util.vma.Vma.vmaDestroyAllocator;
-import static org.lwjgl.vulkan.VK10.vkDestroyDevice;
-import static org.lwjgl.vulkan.VK10.vkDestroyInstance;
+import static org.lwjgl.vulkan.EXTDebugUtils.vkDestroyDebugUtilsMessengerEXT;
+import static org.lwjgl.vulkan.VK10.*;
 
 public class BoilerInstance {
 
@@ -40,6 +40,7 @@ public class BoilerInstance {
     public final Set<String> instanceExtensions, deviceExtensions;
     private final QueueFamilies queueFamilies;
     private final long vmaAllocator;
+    private final long validationErrorThrower;
 
     public final BoilerBuffers buffers;
     public final BoilerImages images;
@@ -57,7 +58,7 @@ public class BoilerInstance {
             boolean hasSwapchainMaintenance, XrBoiler xr, long defaultTimeout,
             VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
             Set<String> instanceExtensions, Set<String> deviceExtensions,
-            QueueFamilies queueFamilies, long vmaAllocator
+            QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower
     ) {
         this.glfwWindow = glfwWindow;
         this.windowSurface = windowSurface;
@@ -71,6 +72,7 @@ public class BoilerInstance {
         this.deviceExtensions = Collections.unmodifiableSet(deviceExtensions);
         this.queueFamilies = queueFamilies;
         this.vmaAllocator = vmaAllocator;
+        this.validationErrorThrower = validationErrorThrower;
 
         this.buffers = new BoilerBuffers(this);
         this.images = new BoilerImages(this);
@@ -155,6 +157,9 @@ public class BoilerInstance {
         vmaDestroyAllocator(vmaAllocator);
         vkDestroyDevice(vkDevice, null);
         if (windowSurface != null) windowSurface.destroy(vkInstance);
+        if (validationErrorThrower != VK_NULL_HANDLE) {
+            vkDestroyDebugUtilsMessengerEXT(vkInstance, validationErrorThrower, null);
+        }
         vkDestroyInstance(vkInstance, null);
         if (glfwWindow != 0L) glfwDestroyWindow(glfwWindow);
         if (xr != null) xr.destroyInitialObjects();

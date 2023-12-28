@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.builder;
 
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
+import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.exceptions.NoVkPhysicalDeviceException;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
@@ -10,6 +11,7 @@ import java.util.Objects;
 
 import static com.github.knokko.boiler.util.CollectionHelper.createSet;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTValidationFeatures.*;
@@ -148,6 +150,7 @@ public class TestBoilerBuilder {
                             ciDevice, instanceExtensions, physicalDevice, stack
                     );
                 })
+                .forbidValidationErrors()
                 .build();
 
         boiler.destroyInitialObjects();
@@ -158,6 +161,7 @@ public class TestBoilerBuilder {
     private void testApiVersionCheck(int apiVersion) {
         var builder = new BoilerBuilder(apiVersion, "TestApiVersionCheck", 1)
                 .validation(new ValidationFeatures(false, false, false, false, false))
+                .forbidValidationErrors()
                 .physicalDeviceSelector((stack, candidates, vkInstance) -> fail("There should be no candidates"));
         assertThrows(NoVkPhysicalDeviceException.class, builder::build);
     }
@@ -280,5 +284,23 @@ public class TestBoilerBuilder {
                 .extraDeviceRequirements((device, windowSurface, stack) -> true)
                 .extraDeviceRequirements((device, windowSurface, stack) -> true)
                 .build().destroyInitialObjects();
+    }
+
+    @Test
+    public void testForbidValidationErrors() {
+        var boiler = new BoilerBuilder(VK_API_VERSION_1_0, "TestForbidValidationErrors", 1)
+                .validation(new ValidationFeatures(false, false, false, true, true))
+                .forbidValidationErrors().build();
+
+        try (var stack = stackPush()) {
+            var ciFence = VkFenceCreateInfo.calloc(stack);
+            // Intentionally leave ciFence.sType 0, which should cause a validation error
+            assertThrows(
+                    ValidationException.class,
+                    () -> vkCreateFence(boiler.vkDevice(), ciFence, null, stack.callocLong(1))
+            );
+        }
+
+        boiler.destroyInitialObjects();
     }
 }

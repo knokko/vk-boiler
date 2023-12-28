@@ -20,7 +20,7 @@ public class TestBufferCopies {
         var boiler = new BoilerBuilder(
                 VK_API_VERSION_1_0, "Test buffer copies", VK_MAKE_VERSION(1, 0, 0)
         ).validation(new ValidationFeatures(false, false, true, true, true)
-        ).build();
+        ).forbidValidationErrors().build();
 
         var sourceBuffer = boiler.buffers.createMapped(
                 100, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "source"

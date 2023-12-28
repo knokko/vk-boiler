@@ -40,6 +40,7 @@ public class TestFenceBank {
     public void complexFenceBankTest() {
         var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFenceBank", 1)
                 .validation(new ValidationFeatures(false, false, false, true, true))
+                .forbidValidationErrors()
                 .build();
 
         var fence1 = instance.sync.fenceBank.borrowFence();
@@ -67,6 +68,7 @@ public class TestFenceBank {
     public void testBulkActions() {
         var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFenceBankBulk", 1)
                 .validation(new ValidationFeatures(false, false, false, true, true))
+                .forbidValidationErrors()
                 .build();
 
         var bank = instance.sync.fenceBank;
@@ -96,6 +98,7 @@ public class TestFenceBank {
     public void testBorrowSignaled() {
         var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFenceBankBulk", 1)
                 .validation(new ValidationFeatures(false, false, false, true, true))
+                .forbidValidationErrors()
                 .build();
         var bank = instance.sync.fenceBank;
 

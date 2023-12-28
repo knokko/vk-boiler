@@ -7,6 +7,7 @@ import com.github.knokko.boiler.builder.instance.VkInstanceCreator;
 import com.github.knokko.boiler.builder.queue.MinimalQueueFamilyMapper;
 import com.github.knokko.boiler.builder.queue.QueueFamilyMapper;
 import com.github.knokko.boiler.builder.xr.BoilerXrBuilder;
+import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.exceptions.*;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.util.CollectionHelper;
@@ -24,7 +25,7 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
-import static org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+import static org.lwjgl.vulkan.EXTDebugUtils.*;
 import static org.lwjgl.vulkan.EXTMemoryBudget.VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTSurfaceMaintenance1.VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTSwapchainMaintenance1.VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME;
@@ -84,6 +85,7 @@ public class BoilerBuilder {
     final Set<String> requiredVulkanDeviceExtensions = new HashSet<>();
 
     ValidationFeatures validationFeatures = null;
+    boolean forbidValidationErrors = false;
 
     VkInstanceCreator vkInstanceCreator = DEFAULT_VK_INSTANCE_CREATOR;
     Collection<PreVkInstanceCreator> preInstanceCreators = new ArrayList<>();
@@ -209,6 +211,11 @@ public class BoilerBuilder {
 
     public BoilerBuilder validation(ValidationFeatures validationFeatures) {
         this.validationFeatures = validationFeatures;
+        return this;
+    }
+
+    public BoilerBuilder forbidValidationErrors() {
+        this.forbidValidationErrors = true;
         return this;
     }
 
@@ -438,11 +445,38 @@ public class BoilerBuilder {
                 createSurface(deviceResult.vkPhysicalDevice(), deviceResult.windowSurface()) : null;
         var swapchainSettings = windowSurface != null ? swapchainBuilder.chooseSwapchainSettings(windowSurface) : null;
 
+        long validationErrorThrower = 0;
+        if (forbidValidationErrors) {
+            if (!instanceResult.enabledExtensions().contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+                throw new ValidationException("Debug utils extension is not enabled");
+            }
+            try (var stack = stackPush()) {
+                var ciReporter = VkDebugUtilsMessengerCreateInfoEXT.calloc(stack);
+                ciReporter.sType$Default();
+                ciReporter.flags(0);
+                ciReporter.messageSeverity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT);
+                ciReporter.messageType(VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT);
+                ciReporter.pfnUserCallback((severity, types, data, userData) -> {
+                    String message = VkDebugUtilsMessengerCallbackDataEXT.create(data).pMessageString();
+                    if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
+                        throw new ValidationException(message);
+                    } else System.out.println(message);
+                    return VK_FALSE;
+                });
+
+                var pReporter = stack.callocLong(1);
+                assertVkSuccess(vkCreateDebugUtilsMessengerEXT(
+                        instanceResult.vkInstance(), ciReporter, null, pReporter
+                ), "CreateDebugUtilsMessengerEXT", "Validation error thrower");
+                validationErrorThrower = pReporter.get(0);
+            }
+        }
+
         var instance = new BoilerInstance(
                 window, windowSurface, swapchainSettings, pHasSwapchainMaintenance[0], xr, defaultTimeout,
                 instanceResult.vkInstance(), deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
                 instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
-                deviceResult.queueFamilies(), deviceResult.vmaAllocator()
+                deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower
         );
         if (xr != null) xr.boiler = instance;
         return instance;

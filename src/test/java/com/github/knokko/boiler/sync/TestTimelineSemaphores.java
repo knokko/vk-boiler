@@ -28,6 +28,7 @@ public class TestTimelineSemaphores {
                 VK_API_VERSION_1_2, "TestTimelineSemaphores", 1
         )
                 .validation(new ValidationFeatures(false, false, false, true, true))
+                .forbidValidationErrors()
                 .requiredFeatures12(VkPhysicalDeviceVulkan12Features::timelineSemaphore)
                 .featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
                 .build();
@@ -40,6 +41,7 @@ public class TestTimelineSemaphores {
                 VK_API_VERSION_1_0, "TestTimelineSemaphores", 1
         )
                 .validation(new ValidationFeatures(false, false, false, true, true))
+                .forbidValidationErrors()
                 .requiredVkInstanceExtensions(createSet(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
                 .requiredDeviceExtensions(createSet(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME))
                 .extraDeviceRequirements(((physicalDevice, windowSurface, stack) -> {

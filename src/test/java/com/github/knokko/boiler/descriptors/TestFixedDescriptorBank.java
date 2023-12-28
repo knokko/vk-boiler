@@ -16,6 +16,7 @@ public class TestFixedDescriptorBank {
     public void testFixedDescriptorBank() {
         var boiler = new BoilerBuilder(VK_API_VERSION_1_0, "TestFixedDescriptorBank", 1)
                 .validation(new ValidationFeatures(false, false, false, false, false))
+                .forbidValidationErrors()
                 .build();
 
         long descriptorSetLayout;
