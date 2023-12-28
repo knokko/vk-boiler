@@ -2,6 +2,7 @@ package com.github.knokko.boiler.swapchain;
 
 import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.sync.FatFence;
+import com.github.knokko.boiler.sync.TimelineInstant;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 import org.lwjgl.vulkan.VkSwapchainPresentFenceInfoEXT;
@@ -48,6 +49,10 @@ public class BoilerSwapchains {
         presentImage(acquired, drawingFence, null);
     }
 
+    public void presentImage(AcquireResult acquired, TimelineInstant drawingFinished) {
+        presentImage(acquired, drawingFinished, null);
+    }
+
     public void presentImage(AcquireResult acquired, long drawingFence) {
         presentImage(acquired, drawingFence, null);
     }
@@ -56,7 +61,20 @@ public class BoilerSwapchains {
         presentImage(acquired, new FatFence(drawingFence, false), beforePresentCallback);
     }
 
+    public void presentImage(AcquireResult acquired, TimelineInstant drawingFinished, Consumer<VkPresentInfoKHR> beforePresentCallback) {
+        presentImage(acquired, null, drawingFinished, beforePresentCallback);
+    }
+
     public void presentImage(AcquireResult acquired, FatFence drawingFence, Consumer<VkPresentInfoKHR> beforePresentCallback) {
+        presentImage(acquired, drawingFence, null, beforePresentCallback);
+    }
+
+    public void presentImage(
+            AcquireResult acquired,
+            FatFence drawingFence,
+            TimelineInstant drawingFinished,
+            Consumer<VkPresentInfoKHR> beforePresentCallback
+    ) {
         if (isOutOfDate) return;
         try (var stack = stackPush()) {
             var acquiredSwapchain = (Swapchain) acquired.swapchain();
@@ -71,6 +89,7 @@ public class BoilerSwapchains {
             if (hasSwapchainMaintenance) {
                 acquired.presentFence().waitAndReset(instance, stack);
                 acquiredSwapchain.images[acquired.imageIndex()].drawingFence = drawingFence;
+                acquiredSwapchain.images[acquired.imageIndex()].drawingSemaphore = drawingFinished;
 
                 var fiPresent = VkSwapchainPresentFenceInfoEXT.calloc(stack);
                 fiPresent.sType$Default();
@@ -133,8 +152,17 @@ public class BoilerSwapchains {
                 for (var presentFence : oldSwapchain.presentFences) {
                     if (!presentFence.isSignaled(instance)) return false;
                 }
-                for (var image : oldSwapchain.images) {
-                    if (image.drawingFence != null && !image.drawingFence.isSignaled(instance)) return false;
+                try (var stack = stackPush()) {
+                    for (var image : oldSwapchain.images) {
+                        if (image.drawingFence != null && !image.drawingFence.isSignaled(instance)) return false;
+                        var semaphore = image.drawingSemaphore;
+                        if (semaphore != null) {
+                            long currentValue = instance.sync.getTimelineSemaphoreValue(
+                                    stack, semaphore.timelineSemaphore(), "BoilerSwapchains.removeIf"
+                            );
+                            if (currentValue < semaphore.value()) return false;
+                        }
+                    }
                 }
                 oldSwapchain.destroy(true);
                 return true;

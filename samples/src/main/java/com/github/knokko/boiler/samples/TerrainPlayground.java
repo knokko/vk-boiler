@@ -11,7 +11,9 @@ import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
 import com.github.knokko.boiler.sync.ResourceUsage;
+import com.github.knokko.boiler.sync.TimelineInstant;
 import com.github.knokko.boiler.sync.WaitSemaphore;
+import com.github.knokko.boiler.sync.WaitTimelineSemaphore;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;
@@ -340,6 +342,8 @@ public class TerrainPlayground {
         )
                 .validation(new ValidationFeatures(true, true, false, true, true))
                 .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+                .requiredFeatures12(VkPhysicalDeviceVulkan12Features::timelineSemaphore)
+                .featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
                 .build();
 
         long debugMessenger;
@@ -457,7 +461,7 @@ public class TerrainPlayground {
         var commandBuffers = boiler.commands.createPrimaryBuffers(
                 commandPool, numFramesInFlight, "TerrainCommands"
         );
-        var commandFences = boiler.sync.fenceBank.borrowSignaledFences(numFramesInFlight);
+        var timeline = boiler.sync.createTimelineSemaphore(numFramesInFlight - 1, "TerrainTimeline");
 
         long frameCounter = 0;
         var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
@@ -565,8 +569,7 @@ public class TerrainPlayground {
 
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
-                var fence = commandFences[frameIndex];
-                fence.waitAndReset(boiler, stack);
+                boiler.sync.awaitTimelineSemaphore(stack, timeline, frameCounter, "Commands");
 
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "TerrainDraw");
 
@@ -666,17 +669,20 @@ public class TerrainPlayground {
 
                 recorder.end();
 
+                var timelineFinished = new TimelineInstant(timeline, frameCounter + numFramesInFlight);
                 boiler.queueFamilies().graphics().queues().get(0).submit(
-                        commandBuffer, "TerrainDraw", waitSemaphores, fence.vkFence, swapchainImage.presentSemaphore()
+                        commandBuffer, "TerrainDraw", waitSemaphores, VK_NULL_HANDLE,
+                        new long[] { swapchainImage.presentSemaphore() },
+                        new WaitTimelineSemaphore[0], timelineFinished
                 );
 
-                boiler.swapchains.presentImage(swapchainImage, fence);
+                boiler.swapchains.presentImage(swapchainImage, timelineFinished);
                 frameCounter += 1;
             }
         }
 
         assertVkSuccess(vkDeviceWaitIdle(boiler.vkDevice()), "DeviceWaitIdle", "FinishTerrainPlayground");
-        boiler.sync.fenceBank.returnFences(true, commandFences);
+        vkDestroySemaphore(boiler.vkDevice(), timeline, null);
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 
         vkDestroyDescriptorPool(boiler.vkDevice(), descriptorPool, null);
