@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.swapchain;
 
 import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.sync.FatFence;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 import org.lwjgl.vulkan.VkSwapchainPresentFenceInfoEXT;
@@ -43,11 +44,19 @@ public class BoilerSwapchains {
         } else isOutOfDate = true;
     }
 
+    public void presentImage(AcquireResult acquired, FatFence drawingFence) {
+        presentImage(acquired, drawingFence, null);
+    }
+
     public void presentImage(AcquireResult acquired, long drawingFence) {
         presentImage(acquired, drawingFence, null);
     }
 
     public void presentImage(AcquireResult acquired, long drawingFence, Consumer<VkPresentInfoKHR> beforePresentCallback) {
+        presentImage(acquired, new FatFence(drawingFence, false), beforePresentCallback);
+    }
+
+    public void presentImage(AcquireResult acquired, FatFence drawingFence, Consumer<VkPresentInfoKHR> beforePresentCallback) {
         if (isOutOfDate) return;
         try (var stack = stackPush()) {
             var acquiredSwapchain = (Swapchain) acquired.swapchain();
@@ -60,12 +69,12 @@ public class BoilerSwapchains {
             presentInfo.pImageIndices(stack.ints(acquired.imageIndex()));
             presentInfo.pResults(stack.callocInt(1));
             if (hasSwapchainMaintenance) {
-                instance.sync.waitAndReset(stack, acquired.presentFence(), 1_000_000_000L);
+                acquired.presentFence().waitAndReset(instance, stack, 2_000_000_000L);
                 acquiredSwapchain.images[acquired.imageIndex()].drawingFence = drawingFence;
 
                 var fiPresent = VkSwapchainPresentFenceInfoEXT.calloc(stack);
                 fiPresent.sType$Default();
-                fiPresent.pFences(stack.longs(acquired.presentFence()));
+                fiPresent.pFences(stack.longs(acquired.presentFence().vkFence));
 
                 presentInfo.pNext(fiPresent);
             }
@@ -81,6 +90,7 @@ public class BoilerSwapchains {
     }
 
     public AcquireResult acquireNextImage(int presentMode) {
+        //noinspection resource
         if (currentSwapchain != null && instance.windowSurface().capabilities().currentExtent().width() == -1) {
             try (var stack = stackPush()) {
                 var pWidth = stack.callocInt(1);
@@ -121,12 +131,12 @@ public class BoilerSwapchains {
         if (hasSwapchainMaintenance) {
             oldSwapchains.removeIf(oldSwapchain -> {
                 for (var presentFence : oldSwapchain.presentFences) {
-                    if (vkGetFenceStatus(instance.vkDevice(), presentFence) != VK_SUCCESS) return false;
+                    if (!presentFence.isSignaled(instance)) return false;
                 }
                 for (var image : oldSwapchain.images) {
-                    if (image.drawingFence != VK_NULL_HANDLE && vkGetFenceStatus(instance.vkDevice(), image.drawingFence) != VK_SUCCESS) return false;
+                    if (image.drawingFence != null && !image.drawingFence.isSignaled(instance)) return false;
                 }
-                oldSwapchain.destroy();
+                oldSwapchain.destroy(true);
                 return true;
             });
         } else {
@@ -209,7 +219,7 @@ public class BoilerSwapchains {
 
     private void destroyOldSwapchains() {
         for (var oldSwapchain : oldSwapchains) {
-            oldSwapchain.destroy();
+            oldSwapchain.destroy(hasSwapchainMaintenance);
         }
         oldSwapchains.clear();
     }
@@ -218,7 +228,7 @@ public class BoilerSwapchains {
         if (currentSwapchain != null) {
             assertVkSuccess(vkDeviceWaitIdle(instance.vkDevice()), "DeviceWaitIdle", "SwapchainDestruction");
             destroyOldSwapchains();
-            currentSwapchain.destroy();
+            currentSwapchain.destroy(hasSwapchainMaintenance);
             currentSwapchain = null;
         }
     }

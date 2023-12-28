@@ -7,6 +7,7 @@ import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
+import com.github.knokko.boiler.sync.FatFence;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.lwjgl.vulkan.*;
 
@@ -37,7 +38,7 @@ public class HelloTriangle {
                 "Drawing"
         );
         var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, numFramesInFlight, "Drawing");
-        long[] commandFences = boiler.sync.createFences(true, numFramesInFlight, "Fence");
+        var commandFences = boiler.sync.fenceBank.borrowSignaledFences(numFramesInFlight);
         long graphicsPipeline;
         long pipelineLayout;
         long renderPass;
@@ -214,8 +215,8 @@ public class HelloTriangle {
 
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
-                long fence = commandFences[frameIndex];
-                boiler.sync.waitAndReset(stack, fence, 100_000_000);
+                FatFence fence = commandFences[frameIndex];
+                fence.waitAndReset(boiler, stack, 100_000_000L);
 
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "DrawCommands");
 
@@ -242,7 +243,7 @@ public class HelloTriangle {
                 assertVkSuccess(vkEndCommandBuffer(commandBuffer), "TriangleDrawing", null);
 
                 boiler.queueFamilies().graphics().queues().get(0).submit(
-                        commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
+                        commandBuffer, "SubmitDraw", waitSemaphores, fence.vkFence, swapchainImage.presentSemaphore()
                 );
 
                 boiler.swapchains.presentImage(swapchainImage, fence);
@@ -251,7 +252,7 @@ public class HelloTriangle {
         }
 
         vkDeviceWaitIdle(boiler.vkDevice());
-        for (long fence : commandFences) vkDestroyFence(boiler.vkDevice(), fence, null);
+        boiler.sync.fenceBank.returnFences(true, commandFences);
 
         vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
         vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);

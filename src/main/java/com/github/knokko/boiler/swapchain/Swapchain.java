@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.swapchain;
 
 import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.sync.FatFence;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,7 +17,8 @@ class Swapchain {
     final long vkSwapchain;
     final SwapchainImage[] images;
     final int width, height, presentMode;
-    final long[] acquireFences, acquireSemaphores, presentSemaphores, presentFences;
+    final long[] acquireSemaphores, presentSemaphores;
+    final FatFence[] acquireFences, presentFences;
     final Collection<Runnable> destructionCallbacks = new ArrayList<>();
 
     private int acquireIndex;
@@ -45,12 +47,12 @@ class Swapchain {
 
             this.images = new SwapchainImage[numImages];
             this.acquireSemaphores = instance.sync.createSemaphores("AcquireSwapchainImage", numImages);
-            this.acquireFences = instance.sync.createFences(true, numImages, "AcquireSwapchainImage");
+            this.acquireFences = instance.sync.fenceBank.borrowSignaledFences(numImages);
             this.presentSemaphores = instance.sync.createSemaphores("PresentSwapchainImage", numImages);
             if (instance.swapchains.hasSwapchainMaintenance) {
-                this.presentFences = instance.sync.createFences(true, numImages, "PresentSwapchainImage");
+                this.presentFences = instance.sync.fenceBank.borrowSignaledFences(numImages);
             } else {
-                this.presentFences = new long[numImages];
+                this.presentFences = new FatFence[numImages];
             }
             for (int index = 0; index < numImages; index++) {
                 long vkImage = pImages.get(index);
@@ -62,18 +64,18 @@ class Swapchain {
 
     SwapchainImage acquire() {
         long acquireSemaphore = acquireSemaphores[acquireIndex];
-        long acquireFence = acquireFences[acquireIndex];
+        FatFence acquireFence = acquireFences[acquireIndex];
         long presentSemaphore = presentSemaphores[acquireIndex];
-        long presentFence = presentFences[acquireIndex];
+        FatFence presentFence = presentFences[acquireIndex];
 
         try (var stack = stackPush()) {
-            instance.sync.waitAndReset(stack, acquireFence, 2_000_000_000L);
+            acquireFence.waitAndReset(instance, stack, 2_000_000_000L);
             if (acquireCounter > 2L * acquireFences.length) canDestroyOldSwapchains = true;
 
             var pImageIndex = stack.callocInt(1);
             int acquireResult = vkAcquireNextImageKHR(
                     instance.vkDevice(), vkSwapchain, 1_000_000_000,
-                    acquireSemaphore, acquireFence, pImageIndex
+                    acquireSemaphore, acquireFence.vkFence, pImageIndex
             );
 
             if (acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR) {
@@ -99,19 +101,15 @@ class Swapchain {
         }
     }
 
-    void destroy() {
+    void destroy(boolean hasSwapchainMaintenance) {
         try (var stack = stackPush()) {
             for (int index = 0; index < acquireFences.length; index++) {
-                if (index != outOfDateIndex) {
-                    assertVkSuccess(vkWaitForFences(
-                            instance.vkDevice(), stack.longs(acquireFences[index]), true, 1_000_000_000
-                    ), "WaitForFences", "SwapchainDestruction");
-                }
+                if (index != outOfDateIndex) acquireFences[index].wait(instance, stack, 2_000_000_000L);
             }
         }
         for (var callback : destructionCallbacks) callback.run();
-        for (long fence : acquireFences) vkDestroyFence(instance.vkDevice(), fence, null);
-        for (long fence : presentFences) vkDestroyFence(instance.vkDevice(), fence, null);
+        instance.sync.fenceBank.returnFences(true, acquireFences);
+        if (hasSwapchainMaintenance) instance.sync.fenceBank.returnFences(true, presentFences);
         for (long semaphore : acquireSemaphores) vkDestroySemaphore(instance.vkDevice(), semaphore, null);
         for (long semaphore : presentSemaphores) vkDestroySemaphore(instance.vkDevice(), semaphore, null);
         vkDestroySwapchainKHR(instance.vkDevice(), vkSwapchain, null);

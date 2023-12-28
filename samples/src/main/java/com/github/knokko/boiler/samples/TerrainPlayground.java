@@ -457,7 +457,7 @@ public class TerrainPlayground {
         var commandBuffers = boiler.commands.createPrimaryBuffers(
                 commandPool, numFramesInFlight, "TerrainCommands"
         );
-        var commandFences = boiler.sync.createFences(true, numFramesInFlight, "TerrainCommandFences");
+        var commandFences = boiler.sync.fenceBank.borrowSignaledFences(numFramesInFlight);
 
         long frameCounter = 0;
         var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
@@ -565,8 +565,8 @@ public class TerrainPlayground {
 
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
-                long fence = commandFences[frameIndex];
-                boiler.sync.waitAndReset(stack, fence, 100_000_000);
+                var fence = commandFences[frameIndex];
+                fence.waitAndReset(boiler, stack, 100_000_000L);
 
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "TerrainDraw");
 
@@ -667,7 +667,7 @@ public class TerrainPlayground {
                 recorder.end();
 
                 boiler.queueFamilies().graphics().queues().get(0).submit(
-                        commandBuffer, "TerrainDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
+                        commandBuffer, "TerrainDraw", waitSemaphores, fence.vkFence, swapchainImage.presentSemaphore()
                 );
 
                 boiler.swapchains.presentImage(swapchainImage, fence);
@@ -676,7 +676,7 @@ public class TerrainPlayground {
         }
 
         assertVkSuccess(vkDeviceWaitIdle(boiler.vkDevice()), "DeviceWaitIdle", "FinishTerrainPlayground");
-        for (long fence : commandFences) vkDestroyFence(boiler.vkDevice(), fence, null);
+        boiler.sync.fenceBank.returnFences(true, commandFences);
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 
         vkDestroyDescriptorPool(boiler.vkDevice(), descriptorPool, null);

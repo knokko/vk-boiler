@@ -1,5 +1,7 @@
 package com.github.knokko.boiler.swapchain;
 
+import com.github.knokko.boiler.sync.FatFence;
+
 import java.util.function.Consumer;
 
 public record AcquireResult(
@@ -9,7 +11,7 @@ public record AcquireResult(
         int numSwapchainImages,
         long acquireSemaphore,
         long presentSemaphore,
-        long presentFence,
+        FatFence presentFence,
         int width,
         int height,
         Object swapchain,

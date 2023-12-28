@@ -5,8 +5,8 @@ import com.github.knokko.boiler.instance.BoilerInstance;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
-import static org.lwjgl.vulkan.VK10.vkDestroyFence;
-import static org.lwjgl.vulkan.VK10.vkResetFences;
+import static org.lwjgl.system.MemoryStack.stackPush;
+import static org.lwjgl.vulkan.VK10.*;
 
 public class FenceBank {
 
@@ -27,6 +27,22 @@ public class FenceBank {
         return fence;
     }
 
+    public FatFence borrowSignaledFence() {
+        return new FatFence(borrowFence(), true);
+    }
+
+    public long[] borrowFences(int amount) {
+        long[] fences = new long[amount];
+        for (int index = 0; index < amount; index++) fences[index] = this.borrowFence();
+        return fences;
+    }
+
+    public FatFence[] borrowSignaledFences(int amount) {
+        FatFence[] fences = new FatFence[amount];
+        for (int index = 0; index < amount; index++) fences[index] = this.borrowSignaledFence();
+        return fences;
+    }
+
     public void returnFence(long fence, boolean mightNeedReset) {
         if (!borrowedFences.remove(fence)) {
             throw new IllegalArgumentException("This fence wasn't borrowed");
@@ -35,6 +51,30 @@ public class FenceBank {
             assertVkSuccess(vkResetFences(instance.vkDevice(), fence), "ResetFences", "Bank return");
         }
         unusedFences.add(fence);
+    }
+
+    public void returnFences(boolean mightNeedReset, long... fences) {
+        for (long fence : fences) {
+            if (!borrowedFences.remove(fence)) {
+                throw new IllegalArgumentException("This fence wasn't borrowed");
+            }
+        }
+
+        if (mightNeedReset) {
+            try (var stack = stackPush()) {
+                assertVkSuccess(vkResetFences(
+                        instance.vkDevice(), stack.longs(fences)
+                ), "ResetFences", "Bank bulk return");
+            }
+        }
+
+        for (long fence : fences) unusedFences.add(fence);
+    }
+
+    public void returnFences(boolean mightNeedReset, FatFence... fences) {
+        long[] rawFences = new long[fences.length];
+        for (int index = 0; index < fences.length; index++) rawFences[index] = fences[index].vkFence;
+        returnFences(mightNeedReset, rawFences);
     }
 
     public void destroy() {

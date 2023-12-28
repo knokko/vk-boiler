@@ -6,8 +6,11 @@ import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -57,6 +60,69 @@ public class TestFenceBank {
 
         instance.sync.fenceBank.returnFence(fence1, true);
         instance.sync.fenceBank.returnFence(fence2, false);
+        instance.destroyInitialObjects();
+    }
+
+    @Test
+    public void testBulkActions() {
+        var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFenceBankBulk", 1)
+                .validation(new ValidationFeatures(false, false, false, true, true))
+                .build();
+
+        var bank = instance.sync.fenceBank;
+
+        long[] fences = bank.borrowFences(10);
+
+        assertEquals(VK_NOT_READY, vkGetFenceStatus(instance.vkDevice(), fences[5]));
+        signalFence(instance, fences[3]);
+        assertEquals(VK_SUCCESS, vkGetFenceStatus(instance.vkDevice(), fences[3]));
+
+        bank.returnFences(true, fences[3], fences[5]);
+        assertEquals(VK_NOT_READY, vkGetFenceStatus(instance.vkDevice(), fences[3]));
+
+        long[] newFences = bank.borrowFences(3);
+        assertTrue(Arrays.binarySearch(newFences, fences[3]) >= 0);
+        assertTrue(Arrays.binarySearch(newFences, fences[5]) >= 0);
+        assertTrue(Arrays.binarySearch(newFences, fences[4]) < 0);
+
+        bank.returnFences(false, fences[0], fences[1], fences[2], fences[4]);
+        bank.returnFences(false, newFences);
+        bank.returnFences(false, Arrays.copyOfRange(fences, 6, 10));
+
+        instance.destroyInitialObjects();
+    }
+
+    @Test
+    public void testBorrowSignaled() {
+        var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFenceBankBulk", 1)
+                .validation(new ValidationFeatures(false, false, false, true, true))
+                .build();
+        var bank = instance.sync.fenceBank;
+
+        FatFence[] fences = bank.borrowSignaledFences(5);
+        long[] rawFences = Arrays.stream(fences).mapToLong(fatFence -> fatFence.vkFence).toArray();
+        assertEquals(5, fences.length);
+        for (var fence : fences) {
+            assertTrue(fence.hostSignaled);
+            assertTrue(fence.isSignaled(instance));
+        }
+
+        bank.returnFences(true, fences[0], fences[1], fences[2]);
+
+        FatFence[] newFences = bank.borrowSignaledFences(5);
+        long[] newRawFences = Arrays.stream(newFences).mapToLong(fatFence -> fatFence.vkFence).toArray();
+        assertTrue(Arrays.binarySearch(newRawFences, rawFences[0]) >= 0);
+        assertTrue(Arrays.binarySearch(newRawFences, rawFences[3]) < 0);
+        assertTrue(Arrays.binarySearch(rawFences, newRawFences[0]) >= 0);
+        assertTrue(Arrays.binarySearch(rawFences, newRawFences[4]) < 0);
+
+        for (var fence : newFences) {
+            assertTrue(fence.hostSignaled);
+            assertTrue(fence.isSignaled(instance));
+        }
+        bank.returnFences(false, newFences);
+        bank.returnFences(false, fences[3], fences[4]);
+
         instance.destroyInitialObjects();
     }
 }
