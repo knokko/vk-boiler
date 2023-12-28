@@ -30,12 +30,20 @@ public class FatFence {
         this.hostSignaled = false;
     }
 
+    public void wait(BoilerInstance instance, MemoryStack stack) {
+        wait(instance, stack, instance.defaultTimeout);
+    }
+
     public void wait(BoilerInstance instance, MemoryStack stack, long timeout) {
         if (!hostSignaled) {
             assertVkSuccess(vkWaitForFences(
                     instance.vkDevice(), stack.longs(vkFence), true, timeout
             ), "WaitForFences", "FatFence");
         }
+    }
+
+    public void waitAndReset(BoilerInstance instance, MemoryStack stack) {
+        waitAndReset(instance, stack, instance.defaultTimeout);
     }
 
     public void waitAndReset(BoilerInstance instance, MemoryStack stack, long timeout) {

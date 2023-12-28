@@ -216,7 +216,7 @@ public class HelloTriangle {
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
                 FatFence fence = commandFences[frameIndex];
-                fence.waitAndReset(boiler, stack, 100_000_000L);
+                fence.waitAndReset(boiler, stack);
 
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "DrawCommands");
 

@@ -546,7 +546,7 @@ public class HelloXR {
                 );
 
                 assertVkSuccess(vkWaitForFences(
-                        xr.boiler.vkDevice(), stack.longs(fence), true, 1_000_000_000L
+                        xr.boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
                 ), "WaitForFences", "Drawing");
                 assertVkSuccess(vkResetFences(
                         xr.boiler.vkDevice(), stack.longs(fence)

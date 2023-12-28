@@ -69,7 +69,7 @@ public class BoilerSwapchains {
             presentInfo.pImageIndices(stack.ints(acquired.imageIndex()));
             presentInfo.pResults(stack.callocInt(1));
             if (hasSwapchainMaintenance) {
-                acquired.presentFence().waitAndReset(instance, stack, 2_000_000_000L);
+                acquired.presentFence().waitAndReset(instance, stack);
                 acquiredSwapchain.images[acquired.imageIndex()].drawingFence = drawingFence;
 
                 var fiPresent = VkSwapchainPresentFenceInfoEXT.calloc(stack);

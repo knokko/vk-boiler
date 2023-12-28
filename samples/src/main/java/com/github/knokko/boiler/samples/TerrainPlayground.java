@@ -321,7 +321,7 @@ public class TerrainPlayground {
                     commandBuffer, "CopyHeightImage", new WaitSemaphore[0], fence
             );
             assertVkSuccess(vkWaitForFences(
-                    boiler.vkDevice(), stack.longs(fence), true, 100_000_000
+                    boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
             ), "WaitForFences", "CopyHeightImage");
 
             vkDestroyFence(boiler.vkDevice(), fence, null);
@@ -566,7 +566,7 @@ public class TerrainPlayground {
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
                 var fence = commandFences[frameIndex];
-                fence.waitAndReset(boiler, stack, 100_000_000L);
+                fence.waitAndReset(boiler, stack);
 
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "TerrainDraw");
 

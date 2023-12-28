@@ -61,6 +61,8 @@ public class BoilerBuilder {
     final String applicationName;
     final int applicationVersion;
 
+    long defaultTimeout = 1_000_000_000L;
+
     long window = 0;
     int windowWidth = 0;
     int windowHeight = 0;
@@ -119,6 +121,11 @@ public class BoilerBuilder {
         this.applicationVersion = applicationVersion;
 
         this.desiredVulkanInstanceExtensions.add(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    }
+
+    public BoilerBuilder defaultTimeout(long defaultTimeout) {
+        this.defaultTimeout = defaultTimeout;
+        return this;
     }
 
     /**
@@ -432,7 +439,7 @@ public class BoilerBuilder {
         var swapchainSettings = windowSurface != null ? swapchainBuilder.chooseSwapchainSettings(windowSurface) : null;
 
         var instance = new BoilerInstance(
-                window, windowSurface, swapchainSettings, pHasSwapchainMaintenance[0], xr,
+                window, windowSurface, swapchainSettings, pHasSwapchainMaintenance[0], xr, defaultTimeout,
                 instanceResult.vkInstance(), deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
                 instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
                 deviceResult.queueFamilies(), deviceResult.vmaAllocator()

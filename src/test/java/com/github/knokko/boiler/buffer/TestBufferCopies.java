@@ -63,7 +63,7 @@ public class TestBufferCopies {
                     commandBuffer, "Copying", new WaitSemaphore[0], fence
             );
             assertVkSuccess(vkWaitForFences(
-                    boiler.vkDevice(), stack.longs(fence), true, 100_000_000
+                    boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
             ), "WaitForFences", "Copying");
 
             vkDestroyFence(boiler.vkDevice(), fence, null);

@@ -29,7 +29,7 @@ public class TestFenceBank {
                     commandBuffer, "Signal", new WaitSemaphore[0], fence
             );
             assertVkSuccess(vkWaitForFences(
-                    instance.vkDevice(), stack.longs(fence), true, 100_000_000L
+                    instance.vkDevice(), stack.longs(fence), true, instance.defaultTimeout
             ), "WaitForFences", "Signal");
         }
 

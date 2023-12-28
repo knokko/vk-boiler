@@ -91,7 +91,7 @@ public class TranslucentWindowPlayground {
 
                 long fence = commandFences[commandIndex];
                 assertVkSuccess(vkWaitForFences(
-                        boiler.vkDevice(), stack.longs(fence), true, 100_000_000
+                        boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
                 ), "WaitForFences", "Acquire" + counter);
                 assertVkSuccess(vkResetFences(boiler.vkDevice(), stack.longs(fence)), "ResetFences", "Acquire" + counter);
 

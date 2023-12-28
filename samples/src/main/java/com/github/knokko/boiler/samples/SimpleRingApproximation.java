@@ -180,7 +180,7 @@ public class SimpleRingApproximation {
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
                 long fence = commandFences[frameIndex];
-                boiler.sync.waitAndReset(stack, fence, 100_000_000);
+                boiler.sync.waitAndReset(stack, fence);
 
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 

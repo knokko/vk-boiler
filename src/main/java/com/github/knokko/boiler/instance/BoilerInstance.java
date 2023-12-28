@@ -26,6 +26,8 @@ import static org.lwjgl.vulkan.VK10.vkDestroyInstance;
 
 public class BoilerInstance {
 
+    public final long defaultTimeout;
+
     private final long glfwWindow;
     private final WindowSurface windowSurface;
     public final SwapchainSettings swapchainSettings;
@@ -52,7 +54,7 @@ public class BoilerInstance {
 
     public BoilerInstance(
             long glfwWindow, WindowSurface windowSurface, SwapchainSettings swapchainSettings,
-            boolean hasSwapchainMaintenance, XrBoiler xr,
+            boolean hasSwapchainMaintenance, XrBoiler xr, long defaultTimeout,
             VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
             Set<String> instanceExtensions, Set<String> deviceExtensions,
             QueueFamilies queueFamilies, long vmaAllocator
@@ -61,6 +63,7 @@ public class BoilerInstance {
         this.windowSurface = windowSurface;
         this.swapchainSettings = swapchainSettings;
         this.xr = xr;
+        this.defaultTimeout = defaultTimeout;
         this.vkInstance = vkInstance;
         this.vkPhysicalDevice = vkPhysicalDevice;
         this.vkDevice = vkDevice;

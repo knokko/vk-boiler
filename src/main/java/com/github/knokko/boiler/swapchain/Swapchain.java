@@ -69,12 +69,12 @@ class Swapchain {
         FatFence presentFence = presentFences[acquireIndex];
 
         try (var stack = stackPush()) {
-            acquireFence.waitAndReset(instance, stack, 2_000_000_000L);
+            acquireFence.waitAndReset(instance, stack);
             if (acquireCounter > 2L * acquireFences.length) canDestroyOldSwapchains = true;
 
             var pImageIndex = stack.callocInt(1);
             int acquireResult = vkAcquireNextImageKHR(
-                    instance.vkDevice(), vkSwapchain, 1_000_000_000,
+                    instance.vkDevice(), vkSwapchain, instance.defaultTimeout,
                     acquireSemaphore, acquireFence.vkFence, pImageIndex
             );
 
@@ -104,7 +104,7 @@ class Swapchain {
     void destroy(boolean hasSwapchainMaintenance) {
         try (var stack = stackPush()) {
             for (int index = 0; index < acquireFences.length; index++) {
-                if (index != outOfDateIndex) acquireFences[index].wait(instance, stack, 2_000_000_000L);
+                if (index != outOfDateIndex) acquireFences[index].wait(instance, stack);
             }
         }
         for (var callback : destructionCallbacks) callback.run();

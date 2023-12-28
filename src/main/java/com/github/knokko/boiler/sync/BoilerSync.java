@@ -59,6 +59,10 @@ public class BoilerSync {
         }
     }
 
+    public void waitAndReset(MemoryStack stack, long fence) {
+        waitAndReset(stack, fence, instance.defaultTimeout);
+    }
+
     public void waitAndReset(MemoryStack stack, long fence, long timeout) {
         assertVkSuccess(vkWaitForFences(
                 instance.vkDevice(), stack.longs(fence), true, timeout

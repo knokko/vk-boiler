@@ -115,7 +115,7 @@ public class TestComputePipelines {
             );
 
             assertVkSuccess(vkWaitForFences(
-                    boiler.vkDevice(), stack.longs(fence), true, 1_000_000_000L
+                    boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
             ), "WaitForFences", "Filling");
             System.out.println("Submission took " + (System.currentTimeMillis() - startTime) + " ms");
 

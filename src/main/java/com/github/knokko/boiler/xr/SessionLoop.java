@@ -225,6 +225,7 @@ public abstract class SessionLoop {
         for (int index = 0; index < desiredActionSets.length; index++) {
             //noinspection resource
             activeActionSets.get(index).actionSet(desiredActionSets[index]);
+            //noinspection resource
             activeActionSets.get(index).subactionPath(XR_NULL_PATH);
         }
 
@@ -265,7 +266,7 @@ public abstract class SessionLoop {
     }
 
     protected long getSwapchainWaitTimeout() {
-        return 1_000_000_000L;
+        return xr.boiler.defaultTimeout;
     }
 
     protected abstract void update();
