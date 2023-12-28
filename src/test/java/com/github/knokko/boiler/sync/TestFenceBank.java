@@ -9,8 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -64,6 +63,10 @@ public class TestFenceBank {
         instance.destroyInitialObjects();
     }
 
+    private boolean contains(long[] array, long target) {
+        return Arrays.stream(array).anyMatch(candidate -> candidate == target);
+    }
+
     @Test
     public void testBulkActions() {
         var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFenceBankBulk", 1)
@@ -83,9 +86,9 @@ public class TestFenceBank {
         assertEquals(VK_NOT_READY, vkGetFenceStatus(instance.vkDevice(), fences[3]));
 
         long[] newFences = bank.borrowFences(3);
-        assertTrue(Arrays.binarySearch(newFences, fences[3]) >= 0);
-        assertTrue(Arrays.binarySearch(newFences, fences[5]) >= 0);
-        assertTrue(Arrays.binarySearch(newFences, fences[4]) < 0);
+        assertTrue(contains(newFences, fences[3]));
+        assertTrue(contains(newFences, fences[5]));
+        assertFalse(contains(newFences, fences[4]));
 
         bank.returnFences(false, fences[0], fences[1], fences[2], fences[4]);
         bank.returnFences(false, newFences);
@@ -114,10 +117,10 @@ public class TestFenceBank {
 
         FatFence[] newFences = bank.borrowSignaledFences(5);
         long[] newRawFences = Arrays.stream(newFences).mapToLong(fatFence -> fatFence.vkFence).toArray();
-        assertTrue(Arrays.binarySearch(newRawFences, rawFences[0]) >= 0);
-        assertTrue(Arrays.binarySearch(newRawFences, rawFences[3]) < 0);
-        assertTrue(Arrays.binarySearch(rawFences, newRawFences[0]) >= 0);
-        assertTrue(Arrays.binarySearch(rawFences, newRawFences[4]) < 0);
+        assertTrue(contains(newRawFences, rawFences[0]));
+        assertFalse(contains(newRawFences, rawFences[3]));
+        assertTrue(contains(rawFences, newRawFences[0]));
+        assertFalse(contains(rawFences, newRawFences[4]));
 
         for (var fence : newFences) {
             assertTrue(fence.hostSignaled);
