@@ -15,11 +15,13 @@ public class BoilerSync {
     private final BoilerInstance instance;
     private final boolean usesTimelineSemaphoreExtension;
     public final FenceBank fenceBank;
+    public final SemaphoreBank semaphoreBank;
 
     public BoilerSync(BoilerInstance instance) {
         this.instance = instance;
         this.usesTimelineSemaphoreExtension = instance.deviceExtensions.contains(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
         this.fenceBank = new FenceBank(instance);
+        this.semaphoreBank = new SemaphoreBank(instance);
     }
 
     public long[] createFences(boolean startSignaled, int amount, String name) {

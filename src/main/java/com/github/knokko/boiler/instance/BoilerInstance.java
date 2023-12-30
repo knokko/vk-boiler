@@ -141,9 +141,12 @@ public class BoilerInstance {
      * destroyed:
      * <ul>
      *     <li>The swapchain (if applicable)</li>
+     *     <li>The unused fences in the fence bank</li>
+     *     <li>The unused semaphores in the semaphore bank</li>
      *     <li>The VMA allocator</li>
      *     <li>The VkDevice</li>
      *     <li>The window surface (if applicable)</li>
+     *     <li>The validation error thrower (if applicable)</li>
      *     <li>The VkInstance</li>
      *     <li>The GLFW window (if applicable)</li>
      *     <li>The OpenXR instance (if applicable)</li>
@@ -154,6 +157,7 @@ public class BoilerInstance {
 
         if (swapchains != null) swapchains.destroy();
         sync.fenceBank.destroy();
+        sync.semaphoreBank.destroy();
         vmaDestroyAllocator(vmaAllocator);
         vkDestroyDevice(vkDevice, null);
         if (windowSurface != null) windowSurface.destroy(vkInstance);

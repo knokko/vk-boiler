@@ -46,9 +46,9 @@ class Swapchain {
             ), "GetSwapchainImagesKHR", "images");
 
             this.images = new SwapchainImage[numImages];
-            this.acquireSemaphores = instance.sync.createSemaphores("AcquireSwapchainImage", numImages);
+            this.acquireSemaphores = instance.sync.semaphoreBank.borrowSemaphores(numImages);
             this.acquireFences = instance.sync.fenceBank.borrowSignaledFences(numImages);
-            this.presentSemaphores = instance.sync.createSemaphores("PresentSwapchainImage", numImages);
+            this.presentSemaphores = instance.sync.semaphoreBank.borrowSemaphores(numImages);
             if (instance.swapchains.hasSwapchainMaintenance) {
                 this.presentFences = instance.sync.fenceBank.borrowSignaledFences(numImages);
             } else {
@@ -110,8 +110,8 @@ class Swapchain {
         for (var callback : destructionCallbacks) callback.run();
         instance.sync.fenceBank.returnFences(true, acquireFences);
         if (hasSwapchainMaintenance) instance.sync.fenceBank.returnFences(true, presentFences);
-        for (long semaphore : acquireSemaphores) vkDestroySemaphore(instance.vkDevice(), semaphore, null);
-        for (long semaphore : presentSemaphores) vkDestroySemaphore(instance.vkDevice(), semaphore, null);
+        instance.sync.semaphoreBank.returnSemaphores(acquireSemaphores);
+        instance.sync.semaphoreBank.returnSemaphores(presentSemaphores);
         vkDestroySwapchainKHR(instance.vkDevice(), vkSwapchain, null);
     }
 }

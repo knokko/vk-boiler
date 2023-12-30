@@ -62,7 +62,7 @@ public class TestFenceBank {
         instance.destroyInitialObjects();
     }
 
-    private boolean contains(long[] array, long target) {
+    static boolean contains(long[] array, long target) {
         return Arrays.stream(array).anyMatch(candidate -> candidate == target);
     }
 
