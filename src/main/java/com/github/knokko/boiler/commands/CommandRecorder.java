@@ -13,7 +13,13 @@ public class CommandRecorder {
     public static CommandRecorder begin(
             VkCommandBuffer commandBuffer, BoilerInstance boiler, MemoryStack stack, String context
     ) {
-        boiler.commands.begin(commandBuffer, stack, context);
+        return begin(commandBuffer, boiler, stack, 0, context);
+    }
+
+    public static CommandRecorder begin(
+            VkCommandBuffer commandBuffer, BoilerInstance boiler, MemoryStack stack, int flags, String context
+    ) {
+        boiler.commands.begin(commandBuffer, stack, flags, context);
         return new CommandRecorder(commandBuffer, boiler, stack, context);
     }
 

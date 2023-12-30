@@ -96,7 +96,11 @@ public class TranslucentWindowPlayground {
                 assertVkSuccess(vkResetFences(boiler.vkDevice(), stack.longs(fence)), "ResetFences", "Acquire" + counter);
 
                 var commandBuffer = commandBuffers[commandIndex];
-                var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Fill");
+                var recorder = CommandRecorder.begin(
+                        commandBuffer, boiler, stack,
+                        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+                        "Fill"
+                );
 
                 recorder.transitionColorLayout(
                         acquired.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,

@@ -55,8 +55,13 @@ public class BoilerCommands {
     }
 
     public void begin(VkCommandBuffer commandBuffer, MemoryStack stack, String context) {
+        begin(commandBuffer, stack, 0, context);
+    }
+
+    public void begin(VkCommandBuffer commandBuffer, MemoryStack stack, int flags, String context) {
         var biCommands = VkCommandBufferBeginInfo.calloc(stack);
         biCommands.sType$Default();
+        biCommands.flags(flags);
 
         assertVkSuccess(vkBeginCommandBuffer(
                 commandBuffer, biCommands

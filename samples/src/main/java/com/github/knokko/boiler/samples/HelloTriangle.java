@@ -33,9 +33,8 @@ public class HelloTriangle {
 
         int numFramesInFlight = 3;
         var commandPool = boiler.commands.createPool(
-                VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-                boiler.queueFamilies().graphics().index(),
-                "Drawing"
+                VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+                boiler.queueFamilies().graphics().index(), "Drawing"
         );
         var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, numFramesInFlight, "Drawing");
         var commandFences = boiler.sync.fenceBank.borrowSignaledFences(numFramesInFlight);
@@ -218,7 +217,11 @@ public class HelloTriangle {
                 FatFence fence = commandFences[frameIndex];
                 fence.waitAndReset(boiler, stack);
 
-                var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "DrawCommands");
+                var recorder = CommandRecorder.begin(
+                        commandBuffer, boiler, stack,
+                        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+                        "DrawCommands"
+                );
 
                 var pColorClear = VkClearValue.calloc(1, stack);
                 pColorClear.color().float32(stack.floats(0.2f, 0.2f, 0.2f, 1f));

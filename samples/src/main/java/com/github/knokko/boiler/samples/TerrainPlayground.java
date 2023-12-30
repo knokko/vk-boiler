@@ -242,7 +242,11 @@ public class TerrainPlayground {
             );
             var stagingHostBuffer = memShortBuffer(stagingBuffer.hostAddress(), numValues);
             var normalHostBuffer = memByteBuffer(normalStagingBuffer.hostAddress(), (int) normalStagingBuffer.size());
-            var commandPool = boiler.commands.createPool(0, boiler.queueFamilies().graphics().index(), "HeightImageCopyPool");
+            var commandPool = boiler.commands.createPool(
+                    VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+                    boiler.queueFamilies().graphics().index(),
+                    "HeightImageCopyPool"
+            );
             var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "HeightImageCopyCommands")[0];
             var fence = boiler.sync.createFences(false, 1, "WaitHeightImageCopy")[0];
 
@@ -288,7 +292,11 @@ public class TerrainPlayground {
 
             coarseDeltaHeightLookup = new HeightLookup(600, HEIGHT_IMAGE_NUM_PIXELS, deltaHeightBuffer);
 
-            var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "CopyHeightImage");
+            var recorder = CommandRecorder.begin(
+                    commandBuffer, boiler, stack,
+                    VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+                    "CopyHeightImage"
+            );
             recorder.transitionColorLayout(
                     image.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     null, new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
