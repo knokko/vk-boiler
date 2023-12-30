@@ -156,15 +156,23 @@ class BoilerDeviceBuilder {
                 } else queueFamilyPresentSupport[familyIndex] = true;
             }
 
-            var queueFamilyMapping = builder.queueFamilyMapper.mapQueueFamilies(pQueueFamilies, queueFamilyPresentSupport);
+            var queueFamilyMapping = builder.queueFamilyMapper.mapQueueFamilies(
+                    pQueueFamilies, enabledExtensions, queueFamilyPresentSupport
+            );
             queueFamilyMapping.validate();
 
             var uniqueQueueFamilies = new HashMap<Integer, float[]>();
             // Do presentFamily first so that it will be overwritten by the others if the queue family is shared
             uniqueQueueFamilies.put(queueFamilyMapping.presentFamilyIndex(), new float[] { 1f });
-            uniqueQueueFamilies.put(queueFamilyMapping.graphicsFamilyIndex(), queueFamilyMapping.graphicsPriorities());
-            uniqueQueueFamilies.put(queueFamilyMapping.computeFamilyIndex(), queueFamilyMapping.computePriorities());
-            uniqueQueueFamilies.put(queueFamilyMapping.transferFamilyIndex(), queueFamilyMapping.transferPriorities());
+            uniqueQueueFamilies.put(queueFamilyMapping.graphics().index(), queueFamilyMapping.graphics().priorities());
+            uniqueQueueFamilies.put(queueFamilyMapping.compute().index(), queueFamilyMapping.compute().priorities());
+            uniqueQueueFamilies.put(queueFamilyMapping.transfer().index(), queueFamilyMapping.transfer().priorities());
+            if (queueFamilyMapping.videoEncode() != null) {
+                uniqueQueueFamilies.put(queueFamilyMapping.videoEncode().index(), queueFamilyMapping.videoEncode().priorities());
+            }
+            if (queueFamilyMapping.videoDecode() != null) {
+                uniqueQueueFamilies.put(queueFamilyMapping.videoDecode().index(), queueFamilyMapping.videoDecode().priorities());
+            }
 
             var pQueueCreateInfos = VkDeviceQueueCreateInfo.calloc(uniqueQueueFamilies.size(), stack);
             int ciQueueIndex = 0;
@@ -200,11 +208,15 @@ class BoilerDeviceBuilder {
                 queueFamilyMap.put(entry.getKey(), getQueueFamily(stack, vkDevice, entry.getKey(), entry.getValue().length));
             }
 
+            int videoEncodeIndex = queueFamilyMapping.videoEncode() != null ? queueFamilyMapping.videoEncode().index() : -1;
+            int videoDecodeIndex = queueFamilyMapping.videoDecode() != null ? queueFamilyMapping.videoDecode().index() : -1;
             queueFamilies = new QueueFamilies(
-                    queueFamilyMap.get(queueFamilyMapping.graphicsFamilyIndex()),
-                    queueFamilyMap.get(queueFamilyMapping.computeFamilyIndex()),
-                    queueFamilyMap.get(queueFamilyMapping.transferFamilyIndex()),
-                    queueFamilyMap.get(queueFamilyMapping.presentFamilyIndex())
+                    queueFamilyMap.get(queueFamilyMapping.graphics().index()),
+                    queueFamilyMap.get(queueFamilyMapping.compute().index()),
+                    queueFamilyMap.get(queueFamilyMapping.transfer().index()),
+                    queueFamilyMap.get(queueFamilyMapping.presentFamilyIndex()),
+                    queueFamilyMap.get(videoEncodeIndex),
+                    queueFamilyMap.get(videoDecodeIndex)
             );
 
             var vmaVulkanFunctions = VmaVulkanFunctions.calloc(stack);

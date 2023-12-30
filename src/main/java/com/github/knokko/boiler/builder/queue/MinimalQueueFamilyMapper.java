@@ -2,17 +2,49 @@ package com.github.knokko.boiler.builder.queue;
 
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
 
+import java.util.Set;
+
+import static org.lwjgl.vulkan.KHRVideoDecodeQueue.VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRVideoDecodeQueue.VK_QUEUE_VIDEO_DECODE_BIT_KHR;
+import static org.lwjgl.vulkan.KHRVideoEncodeQueue.VK_KHR_VIDEO_ENCODE_QUEUE_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRVideoEncodeQueue.VK_QUEUE_VIDEO_ENCODE_BIT_KHR;
 import static org.lwjgl.vulkan.VK10.VK_QUEUE_COMPUTE_BIT;
 import static org.lwjgl.vulkan.VK10.VK_QUEUE_GRAPHICS_BIT;
 
 public class MinimalQueueFamilyMapper implements QueueFamilyMapper {
 
     @Override
-    public QueueFamilyMapping mapQueueFamilies(VkQueueFamilyProperties.Buffer queueFamilies, boolean[] presentSupport) {
+    public QueueFamilyMapping mapQueueFamilies(
+            VkQueueFamilyProperties.Buffer queueFamilies,
+            Set<String> deviceExtensions,
+            boolean[] presentSupport
+    ) {
         float[] priorities = { 1f };
-        int graphicsFamilyIndex = -1;
-        int computeFamilyIndex = -1;
-        int presentFamilyIndex = -1;
+
+        boolean shouldTryEncode = deviceExtensions.contains(VK_KHR_VIDEO_ENCODE_QUEUE_EXTENSION_NAME);
+        boolean shouldTryDecode = deviceExtensions.contains(VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME);
+        int encodeIndex = -1;
+        int decodeIndex = -1;
+        for (int familyIndex = 0; familyIndex < queueFamilies.limit(); familyIndex++) {
+            int queueFlags = queueFamilies.get(familyIndex).queueFlags();
+            boolean hasEncode = shouldTryEncode && (queueFlags & VK_QUEUE_VIDEO_ENCODE_BIT_KHR) != 0;
+            boolean hasDecode = shouldTryDecode && (queueFlags & VK_QUEUE_VIDEO_DECODE_BIT_KHR) != 0;
+            if (hasEncode && hasDecode) {
+                encodeIndex = familyIndex;
+                decodeIndex = familyIndex;
+                break;
+            }
+
+            if (encodeIndex == -1 && hasEncode) encodeIndex = familyIndex;
+            if (decodeIndex == -1 && hasDecode) decodeIndex = familyIndex;
+        }
+
+        var videoEncode = encodeIndex != -1 ? new QueueFamilyAllocation(encodeIndex, priorities) : null;
+        var videoDecode = decodeIndex != -1 ? new QueueFamilyAllocation(decodeIndex, priorities) : null;
+
+        int graphicsIndex = -1;
+        int computeIndex = -1;
+        int presentIndex = -1;
 
         for (int familyIndex = 0; familyIndex < queueFamilies.limit(); familyIndex++) {
             int queueFlags = queueFamilies.get(familyIndex).queueFlags();
@@ -21,26 +53,27 @@ public class MinimalQueueFamilyMapper implements QueueFamilyMapper {
             boolean hasPresent = presentSupport[familyIndex];
 
             if (hasGraphics && hasCompute && hasPresent) {
-                return new QueueFamilyMapping(
-                        familyIndex, priorities, familyIndex, priorities, familyIndex, priorities, familyIndex
-                );
+                var allocation = new QueueFamilyAllocation(familyIndex, priorities);
+                return new QueueFamilyMapping(allocation, allocation, allocation, videoEncode, videoDecode, familyIndex);
             }
 
-            if (graphicsFamilyIndex == -1 && hasGraphics) graphicsFamilyIndex = familyIndex;
-            if (computeFamilyIndex == -1 && hasCompute) computeFamilyIndex = familyIndex;
+            if (graphicsIndex == -1 && hasGraphics) graphicsIndex = familyIndex;
+            if (computeIndex == -1 && hasCompute) computeIndex = familyIndex;
             if (hasGraphics && hasCompute) {
-                graphicsFamilyIndex = familyIndex;
-                computeFamilyIndex = familyIndex;
+                graphicsIndex = familyIndex;
+                computeIndex = familyIndex;
             }
 
-            if (presentFamilyIndex == -1 && hasPresent) presentFamilyIndex = familyIndex;
-            if ((hasGraphics || hasCompute) && hasPresent) presentFamilyIndex = familyIndex;
+            if (presentIndex == -1 && hasPresent) presentIndex = familyIndex;
+            if ((hasGraphics || hasCompute) && hasPresent) presentIndex = familyIndex;
         }
 
+
         return new QueueFamilyMapping(
-                graphicsFamilyIndex, priorities,
-                computeFamilyIndex, priorities,
-                graphicsFamilyIndex, priorities, presentFamilyIndex
+                new QueueFamilyAllocation(graphicsIndex, priorities),
+                new QueueFamilyAllocation(computeIndex, priorities),
+                new QueueFamilyAllocation(graphicsIndex, priorities),
+                videoEncode, videoDecode, presentIndex
         );
     }
 }

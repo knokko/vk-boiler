@@ -4,13 +4,25 @@ import com.github.knokko.boiler.builder.queue.MinimalQueueFamilyMapper;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.HashSet;
+import java.util.Set;
+
+import static com.github.knokko.boiler.util.CollectionHelper.createSet;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memPutInt;
+import static org.lwjgl.vulkan.KHRVideoDecodeQueue.VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRVideoDecodeQueue.VK_QUEUE_VIDEO_DECODE_BIT_KHR;
+import static org.lwjgl.vulkan.KHRVideoEncodeQueue.VK_KHR_VIDEO_ENCODE_QUEUE_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRVideoEncodeQueue.VK_QUEUE_VIDEO_ENCODE_BIT_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class TestMinimalQueueMapper {
+
+    private static final Set<String> VIDEO_EXTENSIONS = createSet(
+            VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
+            VK_KHR_VIDEO_ENCODE_QUEUE_EXTENSION_NAME
+    );
 
     @Test
     public void testAllCombined() {
@@ -19,7 +31,7 @@ public class TestMinimalQueueMapper {
             memPutInt(pQueueFamilies.get(0).address() + VkQueueFamilyProperties.QUEUEFLAGS, VK_QUEUE_GRAPHICS_BIT);
             memPutInt(
                     pQueueFamilies.get(1).address() + VkQueueFamilyProperties.QUEUEFLAGS,
-                    VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT
+                    VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_VIDEO_DECODE_BIT_KHR
             );
             memPutInt(
                     pQueueFamilies.get(2).address() + VkQueueFamilyProperties.QUEUEFLAGS,
@@ -28,36 +40,50 @@ public class TestMinimalQueueMapper {
 
             boolean[] presentSupport = { true, true, false };
 
-            var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(pQueueFamilies, presentSupport);
+            var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
+                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupport
+            );
             mapping.validate();
-            assertEquals(1, mapping.graphicsFamilyIndex());
-            assertEquals(1, mapping.computeFamilyIndex());
-            assertEquals(1, mapping.transferFamilyIndex());
+            assertEquals(1, mapping.graphics().index());
+            assertEquals(1, mapping.compute().index());
+            assertEquals(1, mapping.transfer().index());
             assertEquals(1, mapping.presentFamilyIndex());
-            assertArrayEquals(new float[] { 1f }, mapping.graphicsPriorities());
+            assertNull(mapping.videoEncode());
+            assertEquals(1, mapping.videoDecode().index());
+            assertArrayEquals(new float[] { 1f }, mapping.graphics().priorities());
         }
     }
 
     @Test
     public void testAllDistinct() {
         try (var stack = stackPush()) {
-            var pQueueFamilies = VkQueueFamilyProperties.calloc(3, stack);
+            var pQueueFamilies = VkQueueFamilyProperties.calloc(4, stack);
             memPutInt(pQueueFamilies.get(0).address() + VkQueueFamilyProperties.QUEUEFLAGS, VK_QUEUE_GRAPHICS_BIT);
             memPutInt(
                     pQueueFamilies.get(1).address() + VkQueueFamilyProperties.QUEUEFLAGS,
                     VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT
             );
             memPutInt(pQueueFamilies.get(2).address() + VkQueueFamilyProperties.QUEUEFLAGS, VK_QUEUE_TRANSFER_BIT);
+            memPutInt(pQueueFamilies.get(3).address() + VkQueueFamilyProperties.QUEUEFLAGS, VK_QUEUE_VIDEO_ENCODE_BIT_KHR);
 
-            boolean[] presentSupport = { false, false, true };
+            boolean[] presentSupport = { false, false, true, true };
 
-            var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(pQueueFamilies, presentSupport);
+            var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
+                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupport
+            );
             mapping.validate();
-            assertEquals(0, mapping.graphicsFamilyIndex());
-            assertEquals(1, mapping.computeFamilyIndex());
-            assertEquals(0, mapping.transferFamilyIndex());
+            assertEquals(0, mapping.graphics().index());
+            assertEquals(1, mapping.compute().index());
+            assertEquals(0, mapping.transfer().index());
             assertEquals(2, mapping.presentFamilyIndex());
-            for (var priorities : new float[][] { mapping.graphicsPriorities(), mapping.computePriorities(), mapping.transferPriorities() }) {
+            assertEquals(3, mapping.videoEncode().index());
+            assertNull(mapping.videoDecode());
+            for (var priorities : new float[][] {
+                    mapping.graphics().priorities(),
+                    mapping.compute().priorities(),
+                    mapping.transfer().priorities(),
+                    mapping.videoEncode().priorities()
+            }) {
                 assertArrayEquals(new float[] { 1f }, priorities);
             }
         }
@@ -66,7 +92,7 @@ public class TestMinimalQueueMapper {
     @Test
     public void testPartiallyCombined() {
         try (var stack = stackPush()) {
-            var pQueueFamilies = VkQueueFamilyProperties.calloc(4, stack);
+            var pQueueFamilies = VkQueueFamilyProperties.calloc(5, stack);
             memPutInt(pQueueFamilies.get(0).address() + VkQueueFamilyProperties.QUEUEFLAGS, VK_QUEUE_GRAPHICS_BIT);
             memPutInt(
                     pQueueFamilies.get(1).address() + VkQueueFamilyProperties.QUEUEFLAGS,
@@ -77,18 +103,82 @@ public class TestMinimalQueueMapper {
                     VK_QUEUE_COMPUTE_BIT | VK_QUEUE_GRAPHICS_BIT
             );
             memPutInt(pQueueFamilies.get(3).address() + VkQueueFamilyProperties.QUEUEFLAGS, VK_QUEUE_TRANSFER_BIT);
+            memPutInt(
+                    pQueueFamilies.get(4).address() + VkQueueFamilyProperties.QUEUEFLAGS,
+                    VK_QUEUE_VIDEO_ENCODE_BIT_KHR | VK_QUEUE_VIDEO_DECODE_BIT_KHR
+            );
 
-            boolean[] presentSupport = { true, false, false, true };
+            boolean[] presentSupport = { true, false, false, true, false };
 
-            var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(pQueueFamilies, presentSupport);
+            var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
+                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupport
+            );
             mapping.validate();
-            assertEquals(2, mapping.graphicsFamilyIndex());
-            assertEquals(2, mapping.computeFamilyIndex());
-            assertEquals(2, mapping.transferFamilyIndex());
+            assertEquals(2, mapping.graphics().index());
+            assertEquals(2, mapping.compute().index());
+            assertEquals(2, mapping.transfer().index());
             assertEquals(0, mapping.presentFamilyIndex());
-            for (var priorities : new float[][] { mapping.graphicsPriorities(), mapping.computePriorities(), mapping.transferPriorities() }) {
+            assertEquals(4, mapping.videoEncode().index());
+            assertEquals(4, mapping.videoDecode().index());
+            for (var priorities : new float[][] {
+                    mapping.graphics().priorities(),
+                    mapping.compute().priorities(),
+                    mapping.transfer().priorities(),
+                    mapping.videoEncode().priorities(),
+                    mapping.videoDecode().priorities()
+            }) {
                 assertArrayEquals(new float[] { 1f }, priorities);
             }
+        }
+    }
+
+    @Test
+    public void testIgnoreVideoQueueFamiliesWhenExtensionsAreNotEnabled() {
+        try (var stack = stackPush()) {
+            var pQueueFamilies = VkQueueFamilyProperties.calloc(2, stack);
+            memPutInt(
+                    pQueueFamilies.get(0).address() + VkQueueFamilyProperties.QUEUEFLAGS,
+                    VK_QUEUE_VIDEO_ENCODE_BIT_KHR | VK_QUEUE_VIDEO_DECODE_BIT_KHR
+            );
+            memPutInt(
+                    pQueueFamilies.get(1).address() + VkQueueFamilyProperties.QUEUEFLAGS,
+                    VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT
+            );
+
+            boolean[] presentSupport = { true, true };
+
+            var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
+                    pQueueFamilies, new HashSet<>(), presentSupport
+            );
+            mapping.validate();
+            assertEquals(1, mapping.graphics().index());
+            assertEquals(1, mapping.compute().index());
+            assertEquals(1, mapping.transfer().index());
+            assertNull(mapping.videoDecode());
+            assertNull(mapping.videoEncode());
+        }
+    }
+
+    @Test
+    public void testWithoutAnyVideoFamilies() {
+        try (var stack = stackPush()) {
+            var pQueueFamilies = VkQueueFamilyProperties.calloc(1, stack);
+            memPutInt(
+                    pQueueFamilies.get(0).address() + VkQueueFamilyProperties.QUEUEFLAGS,
+                    VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT
+            );
+
+            boolean[] presentSupport = { true };
+
+            var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
+                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupport
+            );
+            mapping.validate();
+            assertEquals(0, mapping.graphics().index());
+            assertEquals(0, mapping.compute().index());
+            assertEquals(0, mapping.transfer().index());
+            assertNull(mapping.videoDecode());
+            assertNull(mapping.videoEncode());
         }
     }
 }
