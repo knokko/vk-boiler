@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkDescriptorPoolSize;
 import org.lwjgl.vulkan.VkDescriptorSetLayoutBinding;
@@ -18,7 +17,7 @@ public class TestGrowingDescriptorBank {
     @Test
     public void testGrowingDescriptorBank() {
         var boiler = new BoilerBuilder(VK_API_VERSION_1_0, "TestFixedDescriptorBank", 1)
-                .validation(new ValidationFeatures(false, false, false, false, false))
+                .validation()
                 .forbidValidationErrors()
                 .build();
 

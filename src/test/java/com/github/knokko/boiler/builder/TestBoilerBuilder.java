@@ -160,7 +160,7 @@ public class TestBoilerBuilder {
 
     private void testApiVersionCheck(int apiVersion) {
         var builder = new BoilerBuilder(apiVersion, "TestApiVersionCheck", 1)
-                .validation(new ValidationFeatures(false, false, false, false, false))
+                .validation()
                 .forbidValidationErrors()
                 .physicalDeviceSelector((stack, candidates, vkInstance) -> fail("There should be no candidates"));
         assertThrows(NoVkPhysicalDeviceException.class, builder::build);
@@ -237,7 +237,7 @@ public class TestBoilerBuilder {
 
         boolean[] didCall = { false, false };
 
-        assertThrows(TestException.class, () -> {
+        assertThrows(TestException.class, () ->
             new BoilerBuilder(VK_API_VERSION_1_0, "TestPreInstance", 1)
                     .beforeInstanceCreation((ciInstance, stack) -> didCall[0] = true)
                     .beforeInstanceCreation((ciInstance, stack) -> didCall[1] = true)
@@ -245,8 +245,8 @@ public class TestBoilerBuilder {
                         assertTrue(didCall[0]);
                         assertTrue(didCall[1]);
                         throw new TestException();
-                    }).build();
-        });
+                    }).build()
+        );
     }
 
     @Test
@@ -255,7 +255,7 @@ public class TestBoilerBuilder {
 
         boolean[] didCall = { false, false };
 
-        assertThrows(TestException.class, () -> {
+        assertThrows(TestException.class, () ->
             new BoilerBuilder(VK_API_VERSION_1_0, "TestPreDevice", 1)
                     .beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> didCall[0] = true)
                     .beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> didCall[1] = true)
@@ -263,23 +263,23 @@ public class TestBoilerBuilder {
                         assertTrue(didCall[0]);
                         assertTrue(didCall[1]);
                         throw new TestException();
-                    }).build();
-        });
+                    }).build()
+        );
     }
 
     @Test
     public void testExtraDeviceRequirements() {
-        assertThrows(NoVkPhysicalDeviceException.class, () -> {
+        assertThrows(NoVkPhysicalDeviceException.class, () ->
             new BoilerBuilder(VK_API_VERSION_1_0, "TestExtraDeviceRequirements", 1)
                     .extraDeviceRequirements((device, windowSurface, stack) -> false)
-                    .build();
-        });
-        assertThrows(NoVkPhysicalDeviceException.class, () -> {
+                    .build()
+        );
+        assertThrows(NoVkPhysicalDeviceException.class, () ->
             new BoilerBuilder(VK_API_VERSION_1_0, "TestExtraDeviceRequirements", 1)
                     .extraDeviceRequirements((device, windowSurface, stack) -> false)
                     .extraDeviceRequirements((device, windowSurface, stack) -> true)
-                    .build();
-        });
+                    .build()
+        );
         new BoilerBuilder(VK_API_VERSION_1_0, "TestExtraDeviceRequirements", 1)
                 .extraDeviceRequirements((device, windowSurface, stack) -> true)
                 .extraDeviceRequirements((device, windowSurface, stack) -> true)
@@ -289,7 +289,7 @@ public class TestBoilerBuilder {
     @Test
     public void testForbidValidationErrors() {
         var boiler = new BoilerBuilder(VK_API_VERSION_1_0, "TestForbidValidationErrors", 1)
-                .validation(new ValidationFeatures(false, false, false, true, true))
+                .validation()
                 .forbidValidationErrors().build();
 
         try (var stack = stackPush()) {

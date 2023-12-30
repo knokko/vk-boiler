@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.buffer;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
@@ -19,8 +18,7 @@ public class TestBufferCopies {
     public void testBufferCopies() {
         var boiler = new BoilerBuilder(
                 VK_API_VERSION_1_0, "Test buffer copies", VK_MAKE_VERSION(1, 0, 0)
-        ).validation(new ValidationFeatures(false, false, true, true, true)
-        ).forbidValidationErrors().build();
+        ).validation().forbidValidationErrors().build();
 
         var sourceBuffer = boiler.buffers.createMapped(
                 100, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "source"

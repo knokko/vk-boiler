@@ -214,6 +214,18 @@ public class BoilerBuilder {
         return this;
     }
 
+    public BoilerBuilder validation() {
+        if (this.apiVersion == VK_API_VERSION_1_0) {
+            return this.validation(new ValidationFeatures(
+                    false, false, true, true, true
+            ));
+        } else {
+            return this.validation(new ValidationFeatures(
+                    true, true, false, true, true
+            ));
+        }
+    }
+
     public BoilerBuilder forbidValidationErrors() {
         this.forbidValidationErrors = true;
         return this;

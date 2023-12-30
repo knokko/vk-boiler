@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.compute;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
@@ -21,7 +20,7 @@ public class TestComputePipelines {
         var boiler = new BoilerBuilder(
                 VK_API_VERSION_1_2, "TestSimpleComputeShader", VK_MAKE_VERSION(0, 1, 0)
         )
-                .validation(new ValidationFeatures(true, true, false, true, true))
+                .validation()
                 .forbidValidationErrors()
                 .build();
 

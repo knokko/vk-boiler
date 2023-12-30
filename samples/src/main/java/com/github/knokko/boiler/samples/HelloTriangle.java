@@ -2,7 +2,6 @@ package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
-import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
@@ -27,7 +26,7 @@ public class HelloTriangle {
         var boiler = new BoilerBuilder(
                 VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
         )
-                .validation(new ValidationFeatures(false, false, false, true, true))
+                .validation()
                 .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
                 .build();
 

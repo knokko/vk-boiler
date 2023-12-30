@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.sync;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.exceptions.VulkanFailureException;
 import com.github.knokko.boiler.instance.BoilerInstance;
@@ -27,7 +26,7 @@ public class TestTimelineSemaphores {
         var instance = new BoilerBuilder(
                 VK_API_VERSION_1_2, "TestTimelineSemaphores", 1
         )
-                .validation(new ValidationFeatures(false, false, false, true, true))
+                .validation()
                 .forbidValidationErrors()
                 .requiredFeatures12(VkPhysicalDeviceVulkan12Features::timelineSemaphore)
                 .featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
@@ -40,7 +39,7 @@ public class TestTimelineSemaphores {
         var instance = new BoilerBuilder(
                 VK_API_VERSION_1_0, "TestTimelineSemaphores", 1
         )
-                .validation(new ValidationFeatures(false, false, false, true, true))
+                .validation()
                 .forbidValidationErrors()
                 .requiredVkInstanceExtensions(createSet(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
                 .requiredDeviceExtensions(createSet(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME))

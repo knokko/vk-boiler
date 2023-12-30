@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.builder.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.images.VmaImage;
@@ -41,7 +40,7 @@ public class HelloXR {
         var boiler = new BoilerBuilder(
                 VK_API_VERSION_1_0, "HelloXR", 1
         )
-                .validation(new ValidationFeatures(false, false, false, true, true))
+                .validation()
                 .requiredVkInstanceExtensions(createSet(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
                 .requiredDeviceExtensions(createSet(
                         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,

@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.sync;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import org.junit.jupiter.api.Test;
@@ -38,7 +37,7 @@ public class TestFenceBank {
     @Test
     public void complexFenceBankTest() {
         var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFenceBank", 1)
-                .validation(new ValidationFeatures(false, false, false, true, true))
+                .validation()
                 .forbidValidationErrors()
                 .build();
 
@@ -70,7 +69,7 @@ public class TestFenceBank {
     @Test
     public void testBulkActions() {
         var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFenceBankBulk", 1)
-                .validation(new ValidationFeatures(false, false, false, true, true))
+                .validation()
                 .forbidValidationErrors()
                 .build();
 
@@ -100,7 +99,7 @@ public class TestFenceBank {
     @Test
     public void testBorrowSignaled() {
         var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFenceBankBulk", 1)
-                .validation(new ValidationFeatures(false, false, false, true, true))
+                .validation()
                 .forbidValidationErrors()
                 .build();
         var bank = instance.sync.fenceBank;

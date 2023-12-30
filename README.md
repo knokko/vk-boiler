@@ -82,7 +82,7 @@ this:
 var boiler = new BoilerBuilder(
     VK_API_VERSION_1_1, "SimpleRingApproximation", VK_MAKE_VERSION(0, 2, 0)
 )
-    .validation(new ValidationFeatures(true, true, false, true, true))
+    .validation()
     .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
     .build();
 ```
