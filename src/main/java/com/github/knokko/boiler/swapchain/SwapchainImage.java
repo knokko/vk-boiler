@@ -1,7 +1,8 @@
 package com.github.knokko.boiler.swapchain;
 
 import com.github.knokko.boiler.sync.FatFence;
-import com.github.knokko.boiler.sync.TimelineInstant;
+
+import java.util.function.BooleanSupplier;
 
 class SwapchainImage {
 
@@ -9,8 +10,8 @@ class SwapchainImage {
     final int index;
 
     long acquireSemaphore, presentSemaphore;
-    FatFence acquireFence, presentFence, drawingFence;
-    TimelineInstant drawingSemaphore;
+    FatFence acquireFence, presentFence;
+    BooleanSupplier didDrawingFinish;
 
     SwapchainImage(long vkImage, int index) {
         this.vkImage = vkImage;

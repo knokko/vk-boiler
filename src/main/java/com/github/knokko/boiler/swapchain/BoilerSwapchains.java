@@ -10,6 +10,7 @@ import org.lwjgl.vulkan.VkSwapchainPresentFenceInfoEXT;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
@@ -53,6 +54,10 @@ public class BoilerSwapchains {
         presentImage(acquired, drawingFinished, null);
     }
 
+    public void presentImage(AcquireResult acquired, BooleanSupplier drawingFinished) {
+        presentImage(acquired, drawingFinished, null);
+    }
+
     public void presentImage(AcquireResult acquired, long drawingFence) {
         presentImage(acquired, drawingFence, null);
     }
@@ -62,17 +67,22 @@ public class BoilerSwapchains {
     }
 
     public void presentImage(AcquireResult acquired, TimelineInstant drawingFinished, Consumer<VkPresentInfoKHR> beforePresentCallback) {
-        presentImage(acquired, null, drawingFinished, beforePresentCallback);
+        presentImage(acquired, () -> {
+            try (var stack = stackPush()) {
+                return instance.sync.getTimelineSemaphoreValue(
+                        stack, drawingFinished.timelineSemaphore(), "TestDrawingFinished"
+                ) >= drawingFinished.value();
+            }
+        }, beforePresentCallback);
     }
 
     public void presentImage(AcquireResult acquired, FatFence drawingFence, Consumer<VkPresentInfoKHR> beforePresentCallback) {
-        presentImage(acquired, drawingFence, null, beforePresentCallback);
+        presentImage(acquired, () -> drawingFence.isSignaled(instance), beforePresentCallback);
     }
 
     public void presentImage(
             AcquireResult acquired,
-            FatFence drawingFence,
-            TimelineInstant drawingFinished,
+            BooleanSupplier didDrawingFinish,
             Consumer<VkPresentInfoKHR> beforePresentCallback
     ) {
         if (isOutOfDate) return;
@@ -88,8 +98,7 @@ public class BoilerSwapchains {
             presentInfo.pResults(stack.callocInt(1));
             if (hasSwapchainMaintenance) {
                 acquired.presentFence().waitAndReset(instance, stack);
-                acquiredSwapchain.images[acquired.imageIndex()].drawingFence = drawingFence;
-                acquiredSwapchain.images[acquired.imageIndex()].drawingSemaphore = drawingFinished;
+                acquiredSwapchain.images[acquired.imageIndex()].didDrawingFinish = didDrawingFinish;
 
                 var fiPresent = VkSwapchainPresentFenceInfoEXT.calloc(stack);
                 fiPresent.sType$Default();
@@ -152,17 +161,8 @@ public class BoilerSwapchains {
                 for (var presentFence : oldSwapchain.presentFences) {
                     if (!presentFence.isSignaled(instance)) return false;
                 }
-                try (var stack = stackPush()) {
-                    for (var image : oldSwapchain.images) {
-                        if (image.drawingFence != null && !image.drawingFence.isSignaled(instance)) return false;
-                        var semaphore = image.drawingSemaphore;
-                        if (semaphore != null) {
-                            long currentValue = instance.sync.getTimelineSemaphoreValue(
-                                    stack, semaphore.timelineSemaphore(), "BoilerSwapchains.removeIf"
-                            );
-                            if (currentValue < semaphore.value()) return false;
-                        }
-                    }
+                for (var image : oldSwapchain.images) {
+                    if (!image.didDrawingFinish.getAsBoolean()) return false;
                 }
                 oldSwapchain.destroy(true);
                 return true;
