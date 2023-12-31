@@ -142,10 +142,11 @@ while (renderLoop) {
         // Do something (probably wait on some fence and start rendering)
 
         boiler.queueFamilies().graphics().queues().get(0).submit(
-            commandBuffer,"RingApproximation",waitSemaphores,fence,swapchainImage.presentSemaphore()
+            commandBuffer, "RingApproximation", waitSemaphores,
+            fence, swapchainImage.presentSemaphore()
         );
 
-        boiler.swapchains.presentImage(swapchainImage);
+        boiler.swapchains.presentImage(swapchainImage, fence);
 }
 ```
 While this is still rather verbose, it's a lot better than handling all the
@@ -193,7 +194,7 @@ repositories {
 ...
 dependencies {
   ...
-  implementation 'com.github.knokko:vk-boiler:v2.1.0'
+  implementation 'com.github.knokko:vk-boiler:v3.1.0'
 }
 ```
 
@@ -211,7 +212,7 @@ dependencies {
 <dependency>
   <groupId>com.github.knokko</groupId>
   <artifactId>vk-boiler</artifactId>
-  <version>v2.1.0</version>
+  <version>v3.1.0</version>
 </dependency>
 ```
 
