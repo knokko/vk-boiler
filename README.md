@@ -194,7 +194,7 @@ repositories {
 ...
 dependencies {
   ...
-  implementation 'com.github.knokko:vk-boiler:v3.1.0'
+  implementation 'com.github.knokko:vk-boiler:v3.1.2'
 }
 ```
 
@@ -212,7 +212,7 @@ dependencies {
 <dependency>
   <groupId>com.github.knokko</groupId>
   <artifactId>vk-boiler</artifactId>
-  <version>v3.1.0</version>
+  <version>v3.1.2</version>
 </dependency>
 ```
 
