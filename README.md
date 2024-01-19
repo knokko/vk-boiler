@@ -177,7 +177,7 @@ suggestions :)
 
 ## Add to your build
 ### Java version
-This project requires Java 17 or later (Java 17 and 20 are tested in CI).
+This project requires Java 17 or later (Java 17 and 21 are tested in CI).
 ### LWJGL
 While this project is compiled against LWJGL, it does **not** bundle LWJGL, so you
 still need to declare the LWJGL dependencies yourself 

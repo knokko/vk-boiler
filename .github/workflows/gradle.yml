@@ -1,4 +1,4 @@
-name: Testing with Java 17 and Java 20 on Linux
+name: Testing with Java 17 and Java 21 on Linux
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        jdk: [ 17, 20 ]
+        jdk: [ 17, 21 ]
     steps:
       - uses: actions/checkout@v3
       - run: sudo apt install vulkan-validationlayers
