@@ -12,10 +12,8 @@ import com.github.knokko.boiler.exceptions.*;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.util.CollectionHelper;
 import com.github.knokko.boiler.xr.XrBoiler;
-import org.lwjgl.system.Platform;
 import org.lwjgl.vulkan.*;
 
-import java.lang.management.ManagementFactory;
 import java.util.*;
 
 import static com.github.knokko.boiler.builder.BoilerSwapchainBuilder.createSurface;
@@ -332,41 +330,12 @@ public class BoilerBuilder {
         return this;
     }
 
-    private boolean checkedMainThread = false;
-
-    private void checkMainThread() {
-
-        // Ensure that this warning is reported at most once
-        if (!checkedMainThread) {
-            String thread = Thread.currentThread().getName();
-            if (!thread.equals("main")) {
-                System.out.println(
-                        "Warning: you are creating the Boiler instance on thread " + thread + ", "
-                                + "but GLFW requires this to happen on the main thread. " +
-                                "While this will probably work fine on Windows and Linux, " +
-                                "it will fail miserable on MacOS because the OS kills all processes " +
-                                "that attempt to perform windowing operations on any thread other than " +
-                                "the main thread."
-                );
-            }
-
-            if (Platform.get() == Platform.MACOSX) {
-                if (!ManagementFactory.getRuntimeMXBean().getInputArguments().contains("-XstartOnFirstThread")) {
-                    System.out.println("Warning: you are running on MacOS without the JVM argument -XstartOnFirstThread, " +
-                            "which will probably cause the OS to kill your app.");
-                }
-            }
-            checkedMainThread = true;
-        }
-    }
-
     public BoilerInstance build() throws GLFWFailureException, VulkanFailureException, MissingVulkanLayerException,
             MissingVulkanExtensionException, NoVkPhysicalDeviceException {
         if (didBuild) throw new IllegalStateException("This builder has been used already");
         didBuild = true;
 
         if (window == 0L && windowWidth != 0 && windowHeight != 0) {
-            checkMainThread();
             if (initGLFW && !glfwInit()) throw new GLFWFailureException("glfwInit() returned false");
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
             window = glfwCreateWindow(windowWidth, windowHeight, applicationName, 0L, 0L);
@@ -386,7 +355,6 @@ public class BoilerBuilder {
         boolean[] pHasSwapchainMaintenance = { false };
 
         if (window != 0L) {
-            checkMainThread();
             if (!glfwVulkanSupported()) throw new GLFWFailureException("glfwVulkanSupported() returned false");
             var glfwExtensions = glfwGetRequiredInstanceExtensions();
             if (glfwExtensions == null) throw new GLFWFailureException("glfwGetRequiredInstanceExtensions() returned null");
