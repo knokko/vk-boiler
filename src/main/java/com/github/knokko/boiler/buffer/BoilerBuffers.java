@@ -19,7 +19,7 @@ public class BoilerBuffers {
         this.instance = instance;
     }
 
-    public VmaBuffer create(long size, int usage, String name) {
+    public DeviceOnlyVmaBuffer create(long size, int usage, String name) {
         try (var stack = stackPush()) {
             var ciBuffer = VkBufferCreateInfo.calloc(stack);
             ciBuffer.sType$Default();
@@ -38,7 +38,7 @@ public class BoilerBuffers {
                     instance.vmaAllocator(), ciBuffer, ciAllocation, pBuffer, pAllocation, null
             ), "CreateBuffer", name);
             instance.debug.name(stack, pBuffer.get(0), VK_OBJECT_TYPE_BUFFER, name);
-            return new VmaBuffer(pBuffer.get(0), pAllocation.get(0), size);
+            return new DeviceOnlyVmaBuffer(pBuffer.get(0), pAllocation.get(0), size);
         }
     }
 
