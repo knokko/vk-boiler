@@ -440,7 +440,7 @@ public class TerrainPlayground {
             uniformWrite.dstArrayElement(0);
             uniformWrite.descriptorCount(1);
             uniformWrite.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            uniformWrite.pBufferInfo(boiler.descriptors.bufferInfo(stack, uniformBuffer.asBuffer()));
+            uniformWrite.pBufferInfo(boiler.descriptors.bufferInfo(stack, uniformBuffer));
             var heightMapWrite = descriptorWrites.get(1);
             heightMapWrite.sType$Default();
             heightMapWrite.dstSet(descriptorSet);

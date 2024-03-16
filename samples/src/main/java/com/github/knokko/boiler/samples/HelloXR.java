@@ -218,7 +218,7 @@ public class HelloXR {
             matrixWrite.dstArrayElement(0);
             matrixWrite.descriptorCount(1);
             matrixWrite.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            matrixWrite.pBufferInfo(boiler.descriptors.bufferInfo(stack, matrixBuffer.asBuffer()));
+            matrixWrite.pBufferInfo(boiler.descriptors.bufferInfo(stack, matrixBuffer));
 
             vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
 
