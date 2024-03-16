@@ -83,7 +83,7 @@ public class TestComputePipelines {
             descriptorWrites.dstArrayElement(0);
             descriptorWrites.descriptorCount(1);
             descriptorWrites.descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-            descriptorWrites.pBufferInfo(boiler.descriptors.bufferInfo(stack, buffer.asBuffer()));
+            descriptorWrites.pBufferInfo(boiler.descriptors.bufferInfo(stack, buffer));
 
             vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
 
