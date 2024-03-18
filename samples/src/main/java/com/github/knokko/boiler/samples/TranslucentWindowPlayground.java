@@ -2,6 +2,7 @@ package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
+import com.github.knokko.boiler.builder.device.SimpleDeviceSelector;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.builder.swapchain.SimpleCompositeAlphaPicker;
 import com.github.knokko.boiler.commands.CommandRecorder;
@@ -18,6 +19,7 @@ import static java.lang.Math.sin;
 import static java.lang.Thread.sleep;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
+import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -25,6 +27,11 @@ import static org.lwjgl.vulkan.VK10.*;
 public class TranslucentWindowPlayground {
 
     public static void main(String[] args) throws InterruptedException {
+        //noinspection resource
+        glfwSetErrorCallback(
+                (error, description) -> System.out.println("[GLFW]: " + memUTF8(description) + " (" + error + ")")
+        );
+
         // Wayland's windows have cool transparency support
         if (glfwPlatformSupported(GLFW_PLATFORM_WAYLAND)) glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
         if (!glfwInit()) {
@@ -53,6 +60,8 @@ public class TranslucentWindowPlayground {
                         VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
                         VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
                 )))
+                // Avoid annoying crashes on laptops with multiple GPUs by preferring the integrated GPU
+                .physicalDeviceSelector(new SimpleDeviceSelector(VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU))
                 .build();
 
         System.out.printf(
