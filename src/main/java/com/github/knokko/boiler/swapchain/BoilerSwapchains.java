@@ -111,7 +111,10 @@ public class BoilerSwapchains {
             int presentResult = vkQueuePresentKHR(
                     instance.queueFamilies().present().queues().get(0).vkQueue(), presentInfo
             );
-            if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) return;
+            if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
+                recreateSwapchain(currentSwapchain.presentMode);
+                return;
+            }
             assertVkSuccess(presentResult, "QueuePresentKHR", null);
             assertVkSuccess(Objects.requireNonNull(presentInfo.pResults()).get(0), "QueuePresentKHR", null);
         }

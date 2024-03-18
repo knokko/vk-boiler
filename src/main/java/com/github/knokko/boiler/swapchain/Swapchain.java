@@ -89,8 +89,7 @@ class Swapchain {
                 acquireIndex = (acquireIndex + 1) % images.length;
                 acquireCounter += 1;
 
-                if (acquireResult == VK_SUCCESS) return image;
-                else return null;
+                return image;
             } else outOfDateIndex = acquireIndex;
 
             if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) return null;
