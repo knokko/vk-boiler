@@ -217,7 +217,11 @@ public class SimpleRingApproximation {
                         commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore()
                 );
 
-                boiler.swapchains.presentImage(swapchainImage, fence);
+                // Note that we could just use boiler.swapchains.presentImage(swapchainImage, fence),
+                // but this is a nice way to test a different overload of BoilerSwapchains.presentImage
+                boiler.swapchains.presentImage(swapchainImage, () ->
+                    vkGetFenceStatus(boiler.vkDevice(), fence) == VK_SUCCESS
+                );
                 frameCounter += 1;
             }
         }
