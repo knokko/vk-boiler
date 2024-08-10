@@ -31,7 +31,7 @@ public class TestFixedDescriptorBank {
         var bank = new FixedDescriptorBank(boiler, descriptorSetLayout, "Test", (stack, ciPool) -> {
             var poolSizes = VkDescriptorPoolSize.calloc(1, stack);
             poolSizes.type(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            poolSizes.descriptorCount(5);
+            poolSizes.descriptorCount(2 * 5);
 
             ciPool.flags(0);
             ciPool.maxSets(2);
@@ -40,6 +40,8 @@ public class TestFixedDescriptorBank {
 
         long descriptorSet1 = bank.borrowDescriptorSet();
         long descriptorSet2 = bank.borrowDescriptorSet();
+        assertNotEquals(0, descriptorSet1);
+        assertNotEquals(0, descriptorSet2);
         assertNotEquals(descriptorSet1, descriptorSet2);
         assertNull(bank.borrowDescriptorSet());
 
@@ -56,6 +58,8 @@ public class TestFixedDescriptorBank {
 
         long descriptorSet12 = bank.borrowDescriptorSet();
         long descriptorSet21 = bank.borrowDescriptorSet();
+        assertNotEquals(0, descriptorSet12);
+        assertNotEquals(0, descriptorSet21);
         assertNull(bank.borrowDescriptorSet());
         assertNotEquals(descriptorSet12, descriptorSet21);
         assertTrue(descriptorSet12 == descriptorSet1 || descriptorSet12 == descriptorSet2);

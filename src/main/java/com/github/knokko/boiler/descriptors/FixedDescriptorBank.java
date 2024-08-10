@@ -53,10 +53,13 @@ public class FixedDescriptorBank {
             ), "CreateDescriptorPool", "DescriptorBank" + context);
             this.descriptorPool = pPool.get(0);
 
+            var pSetLayouts = stack.callocLong(capacity);
+            for (int index = 0; index < capacity; index++) pSetLayouts.put(index, descriptorSetLayout);
+
             var aiSets = VkDescriptorSetAllocateInfo.calloc(stack);
             aiSets.sType$Default();
             aiSets.descriptorPool(descriptorPool);
-            aiSets.pSetLayouts(stack.longs(descriptorSetLayout));
+            aiSets.pSetLayouts(pSetLayouts);
 
             var pSets = stack.callocLong(capacity);
             assertVkSuccess(vkAllocateDescriptorSets(
