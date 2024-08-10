@@ -38,7 +38,7 @@ public class BoilerInstance {
     private final VkInstance vkInstance;
     private final VkPhysicalDevice vkPhysicalDevice;
     private final VkDevice vkDevice;
-    public final Set<String> instanceExtensions, deviceExtensions;
+    public final Set<String> explicitLayers, instanceExtensions, deviceExtensions;
     private final QueueFamilies queueFamilies;
     private final long vmaAllocator;
     private final long validationErrorThrower;
@@ -58,7 +58,7 @@ public class BoilerInstance {
             long glfwWindow, WindowSurface windowSurface, SwapchainSettings swapchainSettings,
             boolean hasSwapchainMaintenance, XrBoiler xr, long defaultTimeout,
             int apiVersion, VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
-            Set<String> instanceExtensions, Set<String> deviceExtensions,
+            Set<String> explicitLayers, Set<String> instanceExtensions, Set<String> deviceExtensions,
             QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower
     ) {
         this.glfwWindow = glfwWindow;
@@ -70,6 +70,7 @@ public class BoilerInstance {
         this.vkInstance = vkInstance;
         this.vkPhysicalDevice = vkPhysicalDevice;
         this.vkDevice = vkDevice;
+        this.explicitLayers = Collections.unmodifiableSet(explicitLayers);
         this.instanceExtensions = Collections.unmodifiableSet(instanceExtensions);
         this.deviceExtensions = Collections.unmodifiableSet(deviceExtensions);
         this.queueFamilies = queueFamilies;

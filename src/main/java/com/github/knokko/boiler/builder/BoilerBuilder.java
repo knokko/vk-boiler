@@ -506,7 +506,7 @@ public class BoilerBuilder {
         var instance = new BoilerInstance(
                 window, windowSurface, swapchainSettings, pHasSwapchainMaintenance[0], xr, defaultTimeout,
                 apiVersion, instanceResult.vkInstance(), deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
-                instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
+                instanceResult.enabledLayers(), instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
                 deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower
         );
         if (xr != null) xr.boiler = instance;

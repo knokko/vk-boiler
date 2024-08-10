@@ -121,8 +121,8 @@ class BoilerInstanceBuilder {
 
             vkInstance = builder.vkInstanceCreator.vkCreateInstance(ciInstance, stack);
         }
-        return new Result(vkInstance, enabledExtensions);
+        return new Result(vkInstance, enabledLayers, enabledExtensions);
     }
 
-    record Result(VkInstance vkInstance, Set<String> enabledExtensions) {}
+    record Result(VkInstance vkInstance, Set<String> enabledLayers, Set<String> enabledExtensions) {}
 }
