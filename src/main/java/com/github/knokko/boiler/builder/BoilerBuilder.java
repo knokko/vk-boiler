@@ -419,11 +419,6 @@ public class BoilerBuilder {
         }
 
         var instanceResult = BoilerInstanceBuilder.createInstance(this);
-        var deviceResult = BoilerDeviceBuilder.createDevice(this, instanceResult);
-
-        var windowSurface = deviceResult.windowSurface() != 0L ?
-                createSurface(deviceResult.vkPhysicalDevice(), deviceResult.windowSurface()) : null;
-        var swapchainSettings = windowSurface != null ? swapchainBuilder.chooseSwapchainSettings(windowSurface) : null;
 
         long validationErrorThrower = 0;
         if (forbidValidationErrors) {
@@ -451,6 +446,12 @@ public class BoilerBuilder {
                 validationErrorThrower = pReporter.get(0);
             }
         }
+
+        var deviceResult = BoilerDeviceBuilder.createDevice(this, instanceResult);
+
+        var windowSurface = deviceResult.windowSurface() != 0L ?
+                createSurface(deviceResult.vkPhysicalDevice(), deviceResult.windowSurface()) : null;
+        var swapchainSettings = windowSurface != null ? swapchainBuilder.chooseSwapchainSettings(windowSurface) : null;
 
         var instance = new BoilerInstance(
                 window, windowSurface, swapchainSettings, pHasSwapchainMaintenance[0], xr, defaultTimeout,

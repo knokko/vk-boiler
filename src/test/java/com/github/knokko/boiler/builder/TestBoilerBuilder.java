@@ -15,6 +15,7 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTValidationFeatures.*;
+import static org.lwjgl.vulkan.KHRDynamicRendering.VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
@@ -284,6 +285,17 @@ public class TestBoilerBuilder {
                 .extraDeviceRequirements((device, windowSurface, stack) -> true)
                 .extraDeviceRequirements((device, windowSurface, stack) -> true)
                 .build().destroyInitialObjects();
+    }
+
+    @Test
+    public void testForbidValidationErrorsDuringDeviceCreation() {
+        var builder = new BoilerBuilder(
+                VK_API_VERSION_1_0, "TestForbidValidationErrorsDuringDeviceCreation", 1
+        ).validation().forbidValidationErrors()
+                .requiredDeviceExtensions(createSet(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME));
+
+        String message = assertThrows(ValidationException.class, builder::build).getMessage();
+        assertTrue(message.contains("VUID-vkCreateDevice-ppEnabledExtensionNames"), "Message was " + message);
     }
 
     @Test
