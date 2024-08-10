@@ -1,25 +1,22 @@
 name: Testing with Java 17 and Java 21 on Linux
 
-on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+on: [push, pull_request]
 
 permissions:
   contents: read
 
 jobs:
   test_ubuntu:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         jdk: [ 17, 21 ]
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt update
-      - run: sudo apt install vulkan-validationlayers
-      - run: sudo apt install mesa-vulkan-drivers
+      - run: sudo apt install -y vulkan-validationlayers
+      - run: sudo apt install -y mesa-vulkan-drivers
+      - run: sudo apt install -y vulkan-tools
       - name: Set up JDK ${{ matrix.jdk }}
         uses: actions/setup-java@v3
         with:
