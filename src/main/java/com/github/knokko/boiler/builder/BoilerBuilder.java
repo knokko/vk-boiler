@@ -29,11 +29,16 @@ import static org.lwjgl.vulkan.EXTSurfaceMaintenance1.VK_EXT_SURFACE_MAINTENANCE
 import static org.lwjgl.vulkan.EXTSwapchainMaintenance1.VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTValidationFeatures.*;
 import static org.lwjgl.vulkan.KHRBindMemory2.VK_KHR_BIND_MEMORY_2_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRCreateRenderpass2.VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRDedicatedAllocation.VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRDepthStencilResolve.VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRDynamicRendering.VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRGetMemoryRequirements2.VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.vkGetPhysicalDeviceFeatures2KHR;
 import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRMaintenance2.VK_KHR_MAINTENANCE_2_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRMultiview.VK_KHR_MULTIVIEW_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
@@ -84,6 +89,8 @@ public class BoilerBuilder {
 
     ValidationFeatures validationFeatures = null;
     boolean forbidValidationErrors = false;
+
+    boolean dynamicRendering = false;
 
     VkInstanceCreator vkInstanceCreator = DEFAULT_VK_INSTANCE_CREATOR;
     Collection<PreVkInstanceCreator> preInstanceCreators = new ArrayList<>();
@@ -174,6 +181,11 @@ public class BoilerBuilder {
     public BoilerBuilder engine(String engineName, int engineVersion) {
         this.engineName = engineName;
         this.engineVersion = engineVersion;
+        return this;
+    }
+
+    public BoilerBuilder enableDynamicRendering() {
+        this.dynamicRendering = true;
         return this;
     }
 
@@ -416,6 +428,44 @@ public class BoilerBuilder {
             this.requiredVulkanInstanceExtensions.add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
             this.requiredVulkanInstanceExtensions.add(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
             this.requiredVulkanLayers.add("VK_LAYER_KHRONOS_validation");
+        }
+
+        if (dynamicRendering) {
+            if (apiVersion < VK_API_VERSION_1_1) {
+                this.requiredVulkanInstanceExtensions.add(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+                this.requiredVulkanDeviceExtensions.add(VK_KHR_MULTIVIEW_EXTENSION_NAME);
+                this.requiredVulkanDeviceExtensions.add(VK_KHR_MAINTENANCE_2_EXTENSION_NAME);
+            }
+            if (apiVersion < VK_API_VERSION_1_2) {
+                this.requiredVulkanDeviceExtensions.add(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
+                this.requiredVulkanDeviceExtensions.add(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME);
+            }
+            if (apiVersion < VK_API_VERSION_1_3) {
+                this.requiredVulkanDeviceExtensions.add(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+                this.extraDeviceRequirements.add((physicalDevice, x, stack) -> {
+                    var dynamicRendering = VkPhysicalDeviceDynamicRenderingFeaturesKHR.calloc(stack);
+                    dynamicRendering.sType$Default();
+
+                    var features2 = VkPhysicalDeviceFeatures2.calloc(stack);
+                    features2.sType$Default();
+                    features2.pNext(dynamicRendering);
+
+                    if (apiVersion >= VK_API_VERSION_1_1) vkGetPhysicalDeviceFeatures2(physicalDevice, features2);
+                    else vkGetPhysicalDeviceFeatures2KHR(physicalDevice, features2);
+
+                    return dynamicRendering.dynamicRendering();
+                });
+                this.preDeviceCreators.add((ciDevice, instanceExtensions, physicalDevice, stack) -> {
+                    var dynamicRendering = VkPhysicalDeviceDynamicRenderingFeatures.calloc(stack);
+                    dynamicRendering.sType$Default();
+                    dynamicRendering.dynamicRendering(true);
+
+                    ciDevice.pNext(dynamicRendering);
+                });
+            } else {
+                this.vkRequiredFeatures13.add(VkPhysicalDeviceVulkan13Features::dynamicRendering);
+                this.vkDeviceFeaturePicker13.add((stack, supported, toEnable) -> toEnable.dynamicRendering(true));
+            }
         }
 
         var instanceResult = BoilerInstanceBuilder.createInstance(this);

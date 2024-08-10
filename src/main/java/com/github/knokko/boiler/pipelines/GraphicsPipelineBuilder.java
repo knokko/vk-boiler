@@ -215,6 +215,19 @@ public class GraphicsPipelineBuilder {
         ciPipeline.pColorBlendState(ciColorBlend);
     }
 
+    public void dynamicRendering(int viewMask, int depthFormat, int stencilFormat, int... colorFormats) {
+        var ciRendering = VkPipelineRenderingCreateInfo.calloc(stack);
+        ciRendering.sType$Default();
+        ciRendering.viewMask(viewMask);
+        ciRendering.colorAttachmentCount(colorFormats.length);
+        ciRendering.pColorAttachmentFormats(stack.ints(colorFormats));
+        ciRendering.depthAttachmentFormat(depthFormat);
+        ciRendering.stencilAttachmentFormat(stencilFormat);
+
+        ciPipeline.renderPass(VK_NULL_HANDLE);
+        ciPipeline.pNext(ciRendering);
+    }
+
     public long build(String name) {
         var pPipeline = stack.callocLong(1);
         assertVkSuccess(vkCreateGraphicsPipelines(

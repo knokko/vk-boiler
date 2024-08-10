@@ -56,7 +56,7 @@ public class TestComputePipelines {
                     stack, pushConstants, "FillBuffer-PipelineLayout", descriptorSetLayout
             );
             long computePipeline = boiler.pipelines.createComputePipeline(
-                    stack, pipelineLayout, "com/github/knokko/boiler/compute/fill.comp.spv", "FillBuffer"
+                    stack, pipelineLayout, "shaders/fill.comp.spv", "FillBuffer"
             );
 
             var descriptorPoolSizes = VkDescriptorPoolSize.calloc(1, stack);

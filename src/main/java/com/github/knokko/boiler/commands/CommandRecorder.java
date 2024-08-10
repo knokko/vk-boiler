@@ -6,7 +6,12 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static org.lwjgl.system.MemoryUtil.NULL;
+import static org.lwjgl.vulkan.KHRDynamicRendering.vkCmdBeginRenderingKHR;
+import static org.lwjgl.vulkan.KHRDynamicRendering.vkCmdEndRenderingKHR;
 import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK12.VK_RESOLVE_MODE_NONE;
+import static org.lwjgl.vulkan.VK13.*;
 
 public class CommandRecorder {
 
@@ -175,6 +180,74 @@ public class CommandRecorder {
                 newUsage != null ? newUsage.stageMask() : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                 0, null, null, pImageBarrier
         );
+    }
+
+    public void simpleColorRenderingAttachment(
+            VkRenderingAttachmentInfo attachment, long imageView, int loadOp, int storeOp,
+            float clearRed, float clearGreen, float clearBlue, float clearAlpha
+    ) {
+        attachment.sType$Default();
+        attachment.pNext(NULL);
+        attachment.imageView(imageView);
+        attachment.imageLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        attachment.resolveMode(VK_RESOLVE_MODE_NONE);
+        attachment.resolveImageView(VK_NULL_HANDLE);
+        attachment.resolveImageLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+        attachment.loadOp(loadOp);
+        attachment.storeOp(storeOp);
+
+        var color = attachment.clearValue().color();
+        color.float32(0, clearRed);
+        color.float32(1, clearGreen);
+        color.float32(2, clearBlue);
+        color.float32(3, clearAlpha);
+    }
+
+    public VkRenderingAttachmentInfo simpleDepthRenderingAttachment(
+            MemoryStack stack, long imageView, int imageLayout, int storeOp, Float depthClear, Integer stencilClear
+    ) {
+        if ((depthClear == null) != (stencilClear == null)) {
+            throw new IllegalArgumentException("depthClear must be null if and only if stencilClear is null");
+        }
+
+        var attachment = VkRenderingAttachmentInfo.calloc(stack);
+        attachment.sType$Default();
+        attachment.imageView(imageView);
+        attachment.imageLayout(imageLayout);
+        attachment.resolveMode(VK_RESOLVE_MODE_NONE);
+        if (depthClear != null) attachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+        else attachment.loadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+        attachment.storeOp(storeOp);
+        if (depthClear != null) attachment.clearValue().depthStencil().set(depthClear, stencilClear);
+        else attachment.clearValue().depthStencil().set(0f, 0);
+
+        return attachment;
+    }
+
+    public void beginSimpleDynamicRendering(
+            int width, int height,
+            VkRenderingAttachmentInfo.Buffer colorAttachments,
+            VkRenderingAttachmentInfo depthAttachment,
+            VkRenderingAttachmentInfo stencilAttachment
+    ) {
+        var renderingInfo = VkRenderingInfo.calloc(stack);
+        renderingInfo.sType$Default();
+        renderingInfo.flags(0);
+        renderingInfo.renderArea().offset().set(0, 0);
+        renderingInfo.renderArea().extent().set(width, height);
+        renderingInfo.layerCount(1);
+        renderingInfo.viewMask(0);
+        renderingInfo.pColorAttachments(colorAttachments);
+        renderingInfo.pDepthAttachment(depthAttachment);
+        renderingInfo.pStencilAttachment(stencilAttachment);
+
+        if (boiler.apiVersion >= VK_API_VERSION_1_3) vkCmdBeginRendering(commandBuffer, renderingInfo);
+        else vkCmdBeginRenderingKHR(commandBuffer, renderingInfo);
+    }
+
+    public void endDynamicRendering() {
+        if (boiler.apiVersion >= VK_API_VERSION_1_3) vkCmdEndRendering(commandBuffer);
+        else vkCmdEndRenderingKHR(commandBuffer);
     }
 
     public void dynamicViewportAndScissor(int width, int height) {
