@@ -118,8 +118,8 @@ public class TerrainPlayground {
         var depthDependency = dependencies.get(1);
         depthDependency.srcSubpass(VK_SUBPASS_EXTERNAL);
         depthDependency.dstSubpass(0);
-        depthDependency.srcStageMask(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
-        depthDependency.srcAccessMask(0);
+        depthDependency.srcStageMask(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
+        depthDependency.srcAccessMask(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
         depthDependency.dstStageMask(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
         depthDependency.dstAccessMask(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
 
