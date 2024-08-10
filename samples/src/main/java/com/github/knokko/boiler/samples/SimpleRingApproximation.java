@@ -120,7 +120,8 @@ public class SimpleRingApproximation {
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 
                 recorder.transitionColorLayout(
-                        swapchainImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, null,
+                        swapchainImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                        new ResourceUsage(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
                         new ResourceUsage(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
                 );
 
