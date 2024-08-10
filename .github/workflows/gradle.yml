@@ -16,7 +16,8 @@ jobs:
       matrix:
         jdk: [ 17, 21 ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - run: sudo apt update
       - run: sudo apt install vulkan-validationlayers
       - run: sudo apt install mesa-vulkan-drivers
       - name: Set up JDK ${{ matrix.jdk }}
@@ -24,13 +25,6 @@ jobs:
         with:
           java-version: ${{ matrix.jdk }}
           distribution: 'temurin'
-      - name: Build with Gradle
-        uses: gradle/gradle-build-action@bd5760595778326ba7f1441bcf7e88b49de61a25 # v2.6.0
-        with:
-          arguments: build
-      - name: Store test results
-        if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results
-          path: build/reports
+      - name: Setup gradle
+        uses: gradle/actions/setup-gradle@v3
+      - run: ./gradlew test --no-daemon
