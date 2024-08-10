@@ -63,9 +63,9 @@ public class CommandRecorder {
     ) {
         var imageCopyRegions = VkImageCopy.calloc(1, stack);
         var copyRegion = imageCopyRegions.get(0);
-        boiler.images.subresourceLayers(stack, copyRegion.srcSubresource(), aspectMask);
+        boiler.images.subresourceLayers(copyRegion.srcSubresource(), aspectMask);
         copyRegion.srcOffset().set(0, 0, 0);
-        boiler.images.subresourceLayers(stack, copyRegion.dstSubresource(), aspectMask);
+        boiler.images.subresourceLayers(copyRegion.dstSubresource(), aspectMask);
         copyRegion.dstOffset().set(0, 0, 0);
         copyRegion.extent().set(width, height, 1);
 
@@ -75,16 +75,17 @@ public class CommandRecorder {
         );
     }
 
+    @SuppressWarnings("resource")
     public void blitImage(
             int aspectMask, int filter, long vkSourceImage, int sourceWidth, int sourceHeight,
             long vkDestImage, int destWidth, int destHeight
     ) {
         var imageBlitRegions = VkImageBlit.calloc(1, stack);
         var blitRegion = imageBlitRegions.get(0);
-        boiler.images.subresourceLayers(stack, blitRegion.srcSubresource(), aspectMask);
+        boiler.images.subresourceLayers(blitRegion.srcSubresource(), aspectMask);
         blitRegion.srcOffsets().get(0).set(0, 0, 0);
         blitRegion.srcOffsets().get(1).set(sourceWidth, sourceHeight, 1);
-        boiler.images.subresourceLayers(stack, blitRegion.dstSubresource(), aspectMask);
+        boiler.images.subresourceLayers(blitRegion.dstSubresource(), aspectMask);
         blitRegion.dstOffsets().get(0).set(0, 0, 0);
         blitRegion.dstOffsets().get(1).set(destWidth, destHeight, 1);
 
@@ -102,7 +103,7 @@ public class CommandRecorder {
         copyRegion.bufferOffset(0);
         copyRegion.bufferRowLength(width);
         copyRegion.bufferImageHeight(height);
-        boiler.images.subresourceLayers(stack, copyRegion.imageSubresource(), aspectMask);
+        boiler.images.subresourceLayers(copyRegion.imageSubresource(), aspectMask);
         copyRegion.imageOffset().set(0, 0, 0);
         copyRegion.imageExtent().set(width, height, 1);
 
@@ -119,7 +120,7 @@ public class CommandRecorder {
         copyRegion.bufferOffset(0);
         copyRegion.bufferRowLength(width);
         copyRegion.bufferImageHeight(height);
-        boiler.images.subresourceLayers(stack, copyRegion.imageSubresource(), aspectMask);
+        boiler.images.subresourceLayers(copyRegion.imageSubresource(), aspectMask);
         copyRegion.imageOffset().set(0, 0, 0);
         copyRegion.imageExtent().set(width, height, 1);
 

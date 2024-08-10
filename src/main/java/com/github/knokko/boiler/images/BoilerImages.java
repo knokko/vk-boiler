@@ -29,13 +29,11 @@ public class BoilerImages {
         return range;
     }
 
-    public VkImageSubresourceLayers subresourceLayers(MemoryStack stack, VkImageSubresourceLayers range, int aspectMask) {
-        if (range == null) range = VkImageSubresourceLayers.calloc(stack);
+    public void subresourceLayers(VkImageSubresourceLayers range, int aspectMask) {
         range.aspectMask(aspectMask);
         range.mipLevel(0);
         range.baseArrayLayer(0);
         range.layerCount(1);
-        return range;
     }
 
     public VmaImage createSimple(
