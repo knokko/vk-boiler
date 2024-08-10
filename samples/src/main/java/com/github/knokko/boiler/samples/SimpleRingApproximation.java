@@ -4,12 +4,11 @@ import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
-import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
+import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.lwjgl.vulkan.*;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static java.lang.Thread.sleep;
 import static org.lwjgl.glfw.GLFW.glfwPollEvents;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
@@ -26,6 +25,7 @@ public class SimpleRingApproximation {
                 VK_API_VERSION_1_1, "SimpleRingApproximation", VK_MAKE_VERSION(0, 2, 0)
         )
                 .validation()
+                .enableDynamicRendering()
                 .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
                 .build();
 
@@ -39,7 +39,6 @@ public class SimpleRingApproximation {
         long[] commandFences = boiler.sync.createFences(true, numFramesInFlight, "Fence");
         long graphicsPipeline;
         long pipelineLayout;
-        long renderPass;
 
         try (var stack = stackPush()) {
             var pushConstants = VkPushConstantRange.calloc(1, stack);
@@ -48,71 +47,15 @@ public class SimpleRingApproximation {
             pushConstants.size(20);
 
             pipelineLayout = boiler.pipelines.createLayout(stack, pushConstants, "DrawingLayout");
-
-            var attachments = VkAttachmentDescription.calloc(1, stack);
-            var colorAttachment = attachments.get(0);
-            colorAttachment.format(boiler.swapchainSettings.surfaceFormat().format());
-            colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
-            colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
-            colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
-            colorAttachment.stencilLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
-            colorAttachment.stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
-            colorAttachment.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
-            colorAttachment.finalLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-            var colorReference = VkAttachmentReference.calloc(1, stack);
-            colorReference.attachment(0);
-            colorReference.layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-            var subpass = VkSubpassDescription.calloc(1, stack);
-            subpass.pipelineBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
-            subpass.pInputAttachments(null);
-            subpass.colorAttachmentCount(1);
-            subpass.pColorAttachments(colorReference);
-            subpass.pResolveAttachments(null);
-            subpass.pDepthStencilAttachment(null);
-            subpass.pPreserveAttachments(null);
-
-            var dependency = VkSubpassDependency.calloc(1, stack);
-            dependency.srcSubpass(VK_SUBPASS_EXTERNAL);
-            dependency.dstSubpass(0);
-            dependency.srcStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-            dependency.srcAccessMask(0);
-            dependency.dstStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-            dependency.dstAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-            var ciRenderPass = VkRenderPassCreateInfo.calloc(stack);
-            ciRenderPass.sType$Default();
-            ciRenderPass.pAttachments(attachments);
-            ciRenderPass.pSubpasses(subpass);
-            ciRenderPass.pDependencies(dependency);
-
-            var pRenderPass = stack.callocLong(1);
-            assertVkSuccess(vkCreateRenderPass(
-                    boiler.vkDevice(), ciRenderPass, null, pRenderPass
-            ), "CreateRenderPass", "RingApproximation");
-            renderPass = pRenderPass.get(0);
         }
 
         try (var stack = stackPush()) {
-            var vertexModule = boiler.pipelines.createShaderModule(
-                    stack, "com/github/knokko/boiler/samples/graphics/ring.vert.spv", "RingVertices"
-            );
-            var fragmentModule = boiler.pipelines.createShaderModule(
-                    stack, "com/github/knokko/boiler/samples/graphics/ring.frag.spv", "RingFragments"
-            );
-
-            var ciVertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack);
-            ciVertexInput.sType$Default();
-            ciVertexInput.pVertexBindingDescriptions(null);
-            ciVertexInput.pVertexAttributeDescriptions(null);
-
             var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
-            pipelineBuilder.shaderStages(
-                    new ShaderInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexModule, null),
-                    new ShaderInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentModule, null)
+            pipelineBuilder.simpleShaderStages(
+                    "Ring", "com/github/knokko/boiler/samples/graphics/ring.vert.spv",
+                    "com/github/knokko/boiler/samples/graphics/ring.frag.spv"
             );
-            pipelineBuilder.ciPipeline.pVertexInputState(ciVertexInput);
+            pipelineBuilder.noVertexInput();
             pipelineBuilder.simpleInputAssembly();
             pipelineBuilder.dynamicViewports(1);
             pipelineBuilder.simpleRasterization(VK_CULL_MODE_NONE);
@@ -120,14 +63,13 @@ public class SimpleRingApproximation {
             pipelineBuilder.noDepthStencil();
             pipelineBuilder.noColorBlending(1);
             pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-
-            pipelineBuilder.ciPipeline.renderPass(renderPass);
+            pipelineBuilder.dynamicRendering(
+                    0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED,
+                    boiler.swapchainSettings.surfaceFormat().format()
+            );
             pipelineBuilder.ciPipeline.layout(pipelineLayout);
 
             graphicsPipeline = pipelineBuilder.build("RingApproximation");
-
-            vkDestroyShaderModule(boiler.vkDevice(), vertexModule, null);
-            vkDestroyShaderModule(boiler.vkDevice(), fragmentModule, null);
         }
 
         long frameCounter = 0;
@@ -138,15 +80,9 @@ public class SimpleRingApproximation {
                         VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.imageIndex()
                 );
 
-                long framebuffer = boiler.images.createFramebuffer(
-                        stack, renderPass, swapchainImage.width(), swapchainImage.height(),
-                        "RingFramebuffer", imageView
-                );
-
-                return new AssociatedSwapchainResources(framebuffer, imageView);
+                return new AssociatedSwapchainResources(imageView);
             }
         }, resources -> {
-            vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
             vkDestroyImageView(boiler.vkDevice(), resources.imageView, null);
         });
 
@@ -183,19 +119,23 @@ public class SimpleRingApproximation {
 
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 
-                var pColorClear = VkClearValue.calloc(1, stack);
-                pColorClear.color().float32(stack.floats(0.07f, 0.4f, 0.6f, 1f));
+                recorder.transitionColorLayout(
+                        swapchainImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, null,
+                        new ResourceUsage(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                );
 
-                var biRenderPass = VkRenderPassBeginInfo.calloc(stack);
-                biRenderPass.sType$Default();
-                biRenderPass.renderPass(renderPass);
-                biRenderPass.framebuffer(imageResources.framebuffer);
-                biRenderPass.renderArea().offset().set(0, 0);
-                biRenderPass.renderArea().extent().set(swapchainImage.width(), swapchainImage.height());
-                biRenderPass.clearValueCount(1);
-                biRenderPass.pClearValues(pColorClear);
+                var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
+                recorder.simpleColorRenderingAttachment(
+                        colorAttachments.get(0), imageResources.imageView(),
+                        VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
+                        0.07f, 0.4f, 0.6f, 1f
+                );
 
-                vkCmdBeginRenderPass(commandBuffer, biRenderPass, VK_SUBPASS_CONTENTS_INLINE);
+                recorder.beginSimpleDynamicRendering(
+                        swapchainImage.width(), swapchainImage.height(),
+                        colorAttachments, null, null
+                );
+
                 recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
@@ -210,8 +150,15 @@ public class SimpleRingApproximation {
                 vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants);
 
                 vkCmdDraw(commandBuffer, 6 * numTriangles, 1, 0, 0);
-                vkCmdEndRenderPass(commandBuffer);
-                assertVkSuccess(vkEndCommandBuffer(commandBuffer), "RingApproximation", null);
+                recorder.endDynamicRendering();
+
+                recorder.transitionColorLayout(
+                        swapchainImage.vkImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                        new ResourceUsage(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+                        null
+                );
+
+                recorder.end();
 
                 boiler.queueFamilies().graphics().queues().get(0).submit(
                         commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore()
@@ -231,13 +178,9 @@ public class SimpleRingApproximation {
 
         vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
         vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
-        vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
         boiler.destroyInitialObjects();
     }
 
-    private record AssociatedSwapchainResources(
-            long framebuffer,
-            long imageView
-    ) {}
+    private record AssociatedSwapchainResources(long imageView) {}
 }
