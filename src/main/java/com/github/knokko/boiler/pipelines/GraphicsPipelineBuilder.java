@@ -4,6 +4,9 @@ import com.github.knokko.boiler.instance.BoilerInstance;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -12,6 +15,8 @@ public class GraphicsPipelineBuilder {
     public final VkGraphicsPipelineCreateInfo ciPipeline;
     private final BoilerInstance boiler;
     private final MemoryStack stack;
+
+    private final List<Long> shaderModules = new ArrayList<>();
 
     public long pipelineCache = VK_NULL_HANDLE;
 
@@ -42,6 +47,27 @@ public class GraphicsPipelineBuilder {
 
         ciPipeline.stageCount(shaders.length);
         ciPipeline.pStages(ciShaderStages);
+    }
+
+    public void simpleShaderStages(String description, String vertexPath, String fragmentPath) {
+        long vertexModule = boiler.pipelines.createShaderModule(stack, vertexPath, description + "-VertexShader");
+        long fragmentModule = boiler.pipelines.createShaderModule(stack, fragmentPath, description + "-FragmentShader");
+        shaderStages(
+                new ShaderInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexModule, null),
+                new ShaderInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentModule, null)
+        );
+        shaderModules.add(vertexModule);
+        shaderModules.add(fragmentModule);
+    }
+
+    public void noVertexInput() {
+        var vertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack);
+        vertexInput.sType$Default();
+        vertexInput.flags(0);
+        vertexInput.pVertexBindingDescriptions(null);
+        vertexInput.pVertexAttributeDescriptions(null);
+
+        ciPipeline.pVertexInputState(vertexInput);
     }
 
     public void dynamicStates(int... dynamicStates) {
@@ -198,6 +224,11 @@ public class GraphicsPipelineBuilder {
         ), "CreateGraphicsPipelines", name);
         long pipeline = pPipeline.get(0);
         boiler.debug.name(stack, pipeline, VK_OBJECT_TYPE_PIPELINE, name);
+
+        for (long module : shaderModules) {
+            vkDestroyShaderModule(boiler.vkDevice(), module, null);
+        }
+
         return pipeline;
     }
 }
