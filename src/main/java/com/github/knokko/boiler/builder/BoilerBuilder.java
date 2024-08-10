@@ -227,7 +227,7 @@ public class BoilerBuilder {
     public BoilerBuilder validation() {
         if (this.apiVersion == VK_API_VERSION_1_0) {
             return this.validation(new ValidationFeatures(
-                    false, false, true, true, true
+                    false, false, false, true, true
             ));
         } else {
             return this.validation(new ValidationFeatures(
