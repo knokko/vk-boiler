@@ -113,7 +113,7 @@ public class TranslucentWindowPlayground {
 
                 recorder.transitionColorLayout(
                         acquired.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        new ResourceUsage(0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT),
+                        new ResourceUsage(0, VK_PIPELINE_STAGE_TRANSFER_BIT),
                         new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
                 );
 
@@ -128,8 +128,7 @@ public class TranslucentWindowPlayground {
 
                 recorder.transitionColorLayout(
                         acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                        new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
-                        new ResourceUsage(0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT)
+                        new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT), null
                 );
 
                 assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Fill");
