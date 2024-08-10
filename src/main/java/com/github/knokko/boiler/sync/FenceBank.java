@@ -18,28 +18,31 @@ public class FenceBank {
         this.instance = instance;
     }
 
-    public long borrowFence() {
+    public long borrowFence(String name) {
         Long fence = unusedFences.pollFirst();
         if (fence == null) {
             fence = instance.sync.createFences(false, 1, "Borrowed")[0];
+        }
+        try (var stack = stackPush()) {
+            instance.debug.name(stack, fence, VK_OBJECT_TYPE_FENCE, name);
         }
         borrowedFences.add(fence);
         return fence;
     }
 
-    public FatFence borrowSignaledFence() {
-        return new FatFence(borrowFence(), true);
+    public FatFence borrowSignaledFence(String name) {
+        return new FatFence(borrowFence(name), true);
     }
 
-    public long[] borrowFences(int amount) {
+    public long[] borrowFences(int amount, String name) {
         long[] fences = new long[amount];
-        for (int index = 0; index < amount; index++) fences[index] = this.borrowFence();
+        for (int index = 0; index < amount; index++) fences[index] = this.borrowFence(name + "-" + index);
         return fences;
     }
 
-    public FatFence[] borrowSignaledFences(int amount) {
+    public FatFence[] borrowSignaledFences(int amount, String name) {
         FatFence[] fences = new FatFence[amount];
-        for (int index = 0; index < amount; index++) fences[index] = this.borrowSignaledFence();
+        for (int index = 0; index < amount; index++) fences[index] = this.borrowSignaledFence(name + "-" + index);
         return fences;
     }
 

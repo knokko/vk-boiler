@@ -36,7 +36,7 @@ public class HelloTriangle {
                 boiler.queueFamilies().graphics().index(), "Drawing"
         );
         var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, numFramesInFlight, "Drawing");
-        var commandFences = boiler.sync.fenceBank.borrowSignaledFences(numFramesInFlight);
+        var commandFences = boiler.sync.fenceBank.borrowSignaledFences(numFramesInFlight, "CommandFence");
         long graphicsPipeline;
         long pipelineLayout;
         long renderPass;

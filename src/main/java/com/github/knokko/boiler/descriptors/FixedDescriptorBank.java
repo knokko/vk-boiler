@@ -77,9 +77,14 @@ public class FixedDescriptorBank {
     /**
      * Note: this method returns null when all descriptor sets are currently borrowed.
      */
-    public Long borrowDescriptorSet() {
+    public Long borrowDescriptorSet(String name) {
         Long result = unusedDescriptorSets.pollFirst();
-        if (result != null) borrowedDescriptorSets.add(result);
+        if (result != null) {
+            borrowedDescriptorSets.add(result);
+            try (var stack = stackPush()) {
+                instance.debug.name(stack, result, VK_OBJECT_TYPE_DESCRIPTOR_SET, name);
+            }
+        }
         return result;
     }
 

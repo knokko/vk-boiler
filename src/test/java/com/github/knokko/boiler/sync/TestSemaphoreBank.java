@@ -17,14 +17,14 @@ public class TestSemaphoreBank {
         ).validation().forbidValidationErrors().build();
 
         var bank = instance.sync.semaphoreBank;
-        long semaphore1 = bank.borrowSemaphore();
-        long[] semaphores = bank.borrowSemaphores(5);
+        long semaphore1 = bank.borrowSemaphore("Semaphore1");
+        long[] semaphores = bank.borrowSemaphores(5, "OldSemaphore");
 
         assertFalse(contains(semaphores, semaphore1));
 
         bank.returnSemaphores(semaphores[3], semaphore1);
 
-        long[] newSemaphores = bank.borrowSemaphores(3);
+        long[] newSemaphores = bank.borrowSemaphores(3, "NewSemaphore");
         assertTrue(contains(newSemaphores, semaphore1));
         assertTrue(contains(newSemaphores, semaphores[3]));
         assertFalse(contains(semaphores, newSemaphores[2]));

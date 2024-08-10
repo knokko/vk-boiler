@@ -42,7 +42,7 @@ public class TestGrowingDescriptorBank {
 
         var initialSets = new long[15];
         for (int index = 0; index < initialSets.length; index++) {
-            initialSets[index] = bank.borrowDescriptorSet();
+            initialSets[index] = bank.borrowDescriptorSet("InitialSet");
         }
         assertUnique(initialSets);
 
@@ -52,7 +52,7 @@ public class TestGrowingDescriptorBank {
 
         var finalSets = new HashSet<Long>();
         for (int index = 0; index < 200; index++) {
-            finalSets.add(bank.borrowDescriptorSet());
+            finalSets.add(bank.borrowDescriptorSet("FinalSet"));
         }
         assertEquals(200, finalSets.size());
 

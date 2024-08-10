@@ -4,6 +4,7 @@ import com.github.knokko.boiler.instance.BoilerInstance;
 
 import java.util.concurrent.ConcurrentSkipListSet;
 
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class SemaphoreBank {
@@ -16,18 +17,21 @@ public class SemaphoreBank {
         this.instance = instance;
     }
 
-    public long borrowSemaphore() {
+    public long borrowSemaphore(String name) {
         Long semaphore = unusedSemaphores.pollFirst();
         if (semaphore == null) {
             semaphore = instance.sync.createSemaphores("Borrowed", 1)[0];
+        }
+        try (var stack = stackPush()) {
+            instance.debug.name(stack, semaphore, VK_OBJECT_TYPE_SEMAPHORE, name);
         }
         borrowedSemaphores.add(semaphore);
         return semaphore;
     }
 
-    public long[] borrowSemaphores(int amount) {
+    public long[] borrowSemaphores(int amount, String name) {
         long[] semaphores = new long[amount];
-        for (int index = 0; index < amount; index++) semaphores[index] = this.borrowSemaphore();
+        for (int index = 0; index < amount; index++) semaphores[index] = this.borrowSemaphore(name + "-" + index);
         return semaphores;
     }
 

@@ -65,7 +65,7 @@ public class GrowingDescriptorBank {
         this.borrowedDescriptorSets = new ConcurrentSkipListSet<>();
     }
 
-    public long borrowDescriptorSet() {
+    public long borrowDescriptorSet(String name) {
         Long maybeResult = unusedDescriptorSets.pollFirst();
         if (maybeResult == null) {
             synchronized (this) {
@@ -86,7 +86,7 @@ public class GrowingDescriptorBank {
                         var pPool = stack.callocLong(1);
                         assertVkSuccess(vkCreateDescriptorPool(
                                 instance.vkDevice(), ciPool, null, pPool
-                        ), "CreateDescriptorPool", "GrowingDescriptorBank-" + name + "-" + nextCapacity);
+                        ), "CreateDescriptorPool", "GrowingDescriptorBank-" + this.name + "-" + nextCapacity);
                         long newDescriptorPool = pPool.get(0);
 
                         descriptorPools.add(newDescriptorPool);
@@ -103,7 +103,7 @@ public class GrowingDescriptorBank {
                         var pSets = stack.callocLong(nextCapacity);
                         assertVkSuccess(vkAllocateDescriptorSets(
                                 instance.vkDevice(), aiSets, pSets
-                        ), "AllocateDescriptorSets", "GrowingDescriptorBank-" + name + "-" + nextCapacity);
+                        ), "AllocateDescriptorSets", "GrowingDescriptorBank-" + this.name + "-" + nextCapacity);
 
                         maybeResult = pSets.get(0);
                         for (int index = 1; index < nextCapacity; index++) {
@@ -115,6 +115,9 @@ public class GrowingDescriptorBank {
             }
         }
         borrowedDescriptorSets.add(maybeResult);
+        try (var stack = stackPush()) {
+            instance.debug.name(stack, maybeResult, VK_OBJECT_TYPE_DESCRIPTOR_SET, name);
+        }
         return maybeResult;
     }
 

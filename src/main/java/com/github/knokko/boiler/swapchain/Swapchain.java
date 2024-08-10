@@ -46,11 +46,11 @@ class Swapchain {
             ), "GetSwapchainImagesKHR", "images");
 
             this.images = new SwapchainImage[numImages];
-            this.acquireSemaphores = instance.sync.semaphoreBank.borrowSemaphores(numImages);
-            this.acquireFences = instance.sync.fenceBank.borrowSignaledFences(numImages);
-            this.presentSemaphores = instance.sync.semaphoreBank.borrowSemaphores(numImages);
+            this.acquireSemaphores = instance.sync.semaphoreBank.borrowSemaphores(numImages, "AcquireSemaphore");
+            this.acquireFences = instance.sync.fenceBank.borrowSignaledFences(numImages, "AcquireFence");
+            this.presentSemaphores = instance.sync.semaphoreBank.borrowSemaphores(numImages, "PresentSemaphore");
             if (instance.swapchains.hasSwapchainMaintenance) {
-                this.presentFences = instance.sync.fenceBank.borrowSignaledFences(numImages);
+                this.presentFences = instance.sync.fenceBank.borrowSignaledFences(numImages, "PresentFence");
             } else {
                 this.presentFences = new FatFence[numImages];
             }

@@ -38,29 +38,29 @@ public class TestFixedDescriptorBank {
             ciPool.pPoolSizes(poolSizes);
         });
 
-        long descriptorSet1 = bank.borrowDescriptorSet();
-        long descriptorSet2 = bank.borrowDescriptorSet();
+        long descriptorSet1 = bank.borrowDescriptorSet("DS1");
+        long descriptorSet2 = bank.borrowDescriptorSet("DS2");
         assertNotEquals(0, descriptorSet1);
         assertNotEquals(0, descriptorSet2);
         assertNotEquals(descriptorSet1, descriptorSet2);
-        assertNull(bank.borrowDescriptorSet());
+        assertNull(bank.borrowDescriptorSet("ShouldBeNull"));
 
         bank.returnDescriptorSet(descriptorSet1);
-        assertEquals(descriptorSet1, bank.borrowDescriptorSet());
+        assertEquals(descriptorSet1, bank.borrowDescriptorSet("DS1"));
 
         bank.returnDescriptorSet(descriptorSet2);
-        assertEquals(descriptorSet2, bank.borrowDescriptorSet());
+        assertEquals(descriptorSet2, bank.borrowDescriptorSet("DS2"));
 
-        assertNull(bank.borrowDescriptorSet());
+        assertNull(bank.borrowDescriptorSet("ShouldBeNull"));
 
         bank.returnDescriptorSet(descriptorSet1);
         bank.returnDescriptorSet(descriptorSet2);
 
-        long descriptorSet12 = bank.borrowDescriptorSet();
-        long descriptorSet21 = bank.borrowDescriptorSet();
+        long descriptorSet12 = bank.borrowDescriptorSet("DS12");
+        long descriptorSet21 = bank.borrowDescriptorSet("DS21");
         assertNotEquals(0, descriptorSet12);
         assertNotEquals(0, descriptorSet21);
-        assertNull(bank.borrowDescriptorSet());
+        assertNull(bank.borrowDescriptorSet("ShouldBeNull"));
         assertNotEquals(descriptorSet12, descriptorSet21);
         assertTrue(descriptorSet12 == descriptorSet1 || descriptorSet12 == descriptorSet2);
         assertTrue(descriptorSet21 == descriptorSet1 || descriptorSet21 == descriptorSet2);
