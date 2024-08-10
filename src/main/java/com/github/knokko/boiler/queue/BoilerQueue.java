@@ -23,6 +23,10 @@ public record BoilerQueue(VkQueue vkQueue) {
             WaitSemaphore[] waitSemaphores, long fence, long[] vkSignalSemaphores,
             WaitTimelineSemaphore[] timelineWaits, TimelineInstant... timelineSignals
     ) {
+        if (waitSemaphores == null) waitSemaphores = new WaitSemaphore[0];
+        if (vkSignalSemaphores == null) vkSignalSemaphores = new long[0];
+        if (timelineWaits == null) timelineWaits = new WaitTimelineSemaphore[0];
+
         try (var stack = stackPush()) {
 
             var submission = VkSubmitInfo.calloc(stack);
