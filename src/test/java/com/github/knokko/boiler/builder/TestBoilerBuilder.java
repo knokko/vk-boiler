@@ -1,6 +1,8 @@
 package com.github.knokko.boiler.builder;
 
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
+import com.github.knokko.boiler.builder.queue.QueueFamilyAllocation;
+import com.github.knokko.boiler.builder.queue.QueueFamilyMapping;
 import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.exceptions.NoVkPhysicalDeviceException;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,7 @@ import static org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTValidationFeatures.*;
 import static org.lwjgl.vulkan.KHRDynamicRendering.VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRMaintenance1.VK_KHR_MAINTENANCE_1_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRSurface.VK_KHR_SURFACE_EXTENSION_NAME;
@@ -312,6 +315,49 @@ public class TestBoilerBuilder {
                     () -> vkCreateFence(boiler.vkDevice(), ciFence, null, stack.callocLong(1))
             );
         }
+
+        boiler.destroyInitialObjects();
+    }
+
+    @Test
+    public void testDesiredLayers() {
+        var boiler = new BoilerBuilder(
+                VK_API_VERSION_1_0, "TestDesiredLayers", 1
+        ).desiredVkLayers(createSet("bullshit", "VK_LAYER_KHRONOS_validation")).build();
+
+        assertEquals(createSet("VK_LAYER_KHRONOS_validation"), boiler.explicitLayers);
+
+        boiler.destroyInitialObjects();
+    }
+
+    @Test
+    public void testDesiredDeviceExtensions() {
+        var boiler = new BoilerBuilder(
+                VK_API_VERSION_1_0, "TestDesiredDeviceExtensions", 1
+        )
+                .desiredVkDeviceExtensions(createSet("bullshit", VK_KHR_MAINTENANCE_1_EXTENSION_NAME))
+                .validation().forbidValidationErrors().build();
+
+        assertTrue(boiler.deviceExtensions.contains(VK_KHR_MAINTENANCE_1_EXTENSION_NAME));
+        assertFalse(boiler.deviceExtensions.contains("bullshit"));
+
+        boiler.destroyInitialObjects();
+    }
+
+    @Test
+    public void testQueueFamilyMapper() {
+        var boiler = new BoilerBuilder(
+                VK_API_VERSION_1_3, "TestQueueFamilyMapper", 1
+        ).validation().forbidValidationErrors().queueFamilyMapper((queueFamilies, deviceExtensions, presentSupport) -> {
+            QueueFamilyAllocation allocations = new QueueFamilyAllocation(0, new float[] { 0.25f });
+            return new QueueFamilyMapping(allocations, allocations, allocations, allocations, allocations, 0);
+        }).build();
+
+        // This test is somewhat crappy because I can't assume that multiple queues or queue families are supported...
+        assertEquals(0, boiler.queueFamilies().graphics().index());
+        assertEquals(1, boiler.queueFamilies().graphics().queues().size());
+        assertEquals(0, boiler.queueFamilies().videoEncode().index());
+        assertEquals(1, boiler.queueFamilies().videoEncode().queues().size());
 
         boiler.destroyInitialObjects();
     }
