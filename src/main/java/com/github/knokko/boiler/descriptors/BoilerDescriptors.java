@@ -52,6 +52,7 @@ public class BoilerDescriptors {
         return results;
     }
 
+    @SuppressWarnings("resource")
     public VkDescriptorBufferInfo.Buffer bufferInfo(MemoryStack stack, VmaBuffer... buffers) {
         var descriptorBufferInfo = VkDescriptorBufferInfo.calloc(buffers.length, stack);
         for (int index = 0; index < buffers.length; index++) {

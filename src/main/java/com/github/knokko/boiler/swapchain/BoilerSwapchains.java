@@ -121,7 +121,6 @@ public class BoilerSwapchains {
     }
 
     public AcquireResult acquireNextImage(int presentMode) {
-        //noinspection resource
         if (currentSwapchain != null && instance.windowSurface().capabilities().currentExtent().width() == -1) {
             try (var stack = stackPush()) {
                 var pWidth = stack.callocInt(1);
