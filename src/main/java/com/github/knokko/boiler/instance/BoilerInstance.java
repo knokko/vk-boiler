@@ -34,6 +34,7 @@ public class BoilerInstance {
 
     private final XrBoiler xr;
 
+    public final int apiVersion;
     private final VkInstance vkInstance;
     private final VkPhysicalDevice vkPhysicalDevice;
     private final VkDevice vkDevice;
@@ -56,7 +57,7 @@ public class BoilerInstance {
     public BoilerInstance(
             long glfwWindow, WindowSurface windowSurface, SwapchainSettings swapchainSettings,
             boolean hasSwapchainMaintenance, XrBoiler xr, long defaultTimeout,
-            VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
+            int apiVersion, VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
             Set<String> instanceExtensions, Set<String> deviceExtensions,
             QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower
     ) {
@@ -65,6 +66,7 @@ public class BoilerInstance {
         this.swapchainSettings = swapchainSettings;
         this.xr = xr;
         this.defaultTimeout = defaultTimeout;
+        this.apiVersion = apiVersion;
         this.vkInstance = vkInstance;
         this.vkPhysicalDevice = vkPhysicalDevice;
         this.vkDevice = vkDevice;
