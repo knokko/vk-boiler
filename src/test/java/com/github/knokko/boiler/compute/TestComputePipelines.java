@@ -77,13 +77,7 @@ public class TestComputePipelines {
             long descriptorSet = boiler.descriptors.allocate(stack, 1, descriptorPool, "Filling", descriptorSetLayout)[0];
 
             var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
-            descriptorWrites.sType$Default();
-            descriptorWrites.dstSet(descriptorSet);
-            descriptorWrites.dstBinding(0);
-            descriptorWrites.dstArrayElement(0);
-            descriptorWrites.descriptorCount(1);
-            descriptorWrites.descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-            descriptorWrites.pBufferInfo(boiler.descriptors.bufferInfo(stack, buffer));
+            boiler.descriptors.writeBuffer(stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer);
 
             vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
 

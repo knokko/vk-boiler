@@ -63,4 +63,18 @@ public class BoilerDescriptors {
 
         return descriptorBufferInfo;
     }
+
+    public void writeBuffer(
+            MemoryStack stack, VkWriteDescriptorSet.Buffer descriptorWrites,
+            long descriptorSet, int binding, int type, VmaBuffer buffer
+    ) {
+        var write = descriptorWrites.get(binding);
+        write.sType$Default();
+        write.dstSet(descriptorSet);
+        write.dstBinding(binding);
+        write.dstArrayElement(0);
+        write.descriptorCount(1);
+        write.descriptorType(type);
+        write.pBufferInfo(instance.descriptors.bufferInfo(stack, buffer));
+    }
 }

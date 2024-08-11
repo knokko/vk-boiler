@@ -423,14 +423,9 @@ public class TerrainPlayground {
             normalMapInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
             var descriptorWrites = VkWriteDescriptorSet.calloc(3, stack);
-            var uniformWrite = descriptorWrites.get(0);
-            uniformWrite.sType$Default();
-            uniformWrite.dstSet(descriptorSet);
-            uniformWrite.dstBinding(0);
-            uniformWrite.dstArrayElement(0);
-            uniformWrite.descriptorCount(1);
-            uniformWrite.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            uniformWrite.pBufferInfo(boiler.descriptors.bufferInfo(stack, uniformBuffer));
+            boiler.descriptors.writeBuffer(
+                    stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer
+            );
             var heightMapWrite = descriptorWrites.get(1);
             heightMapWrite.sType$Default();
             heightMapWrite.dstSet(descriptorSet);
