@@ -426,22 +426,12 @@ public class TerrainPlayground {
             boiler.descriptors.writeBuffer(
                     stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer
             );
-            var heightMapWrite = descriptorWrites.get(1);
-            heightMapWrite.sType$Default();
-            heightMapWrite.dstSet(descriptorSet);
-            heightMapWrite.dstBinding(1);
-            heightMapWrite.dstArrayElement(0);
-            heightMapWrite.descriptorCount(1);
-            heightMapWrite.descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            heightMapWrite.pImageInfo(heightMapInfo);
-            var normalMapWrite = descriptorWrites.get(2);
-            normalMapWrite.sType$Default();
-            normalMapWrite.dstSet(descriptorSet);
-            normalMapWrite.dstBinding(2);
-            normalMapWrite.dstArrayElement(0);
-            normalMapWrite.descriptorCount(1);
-            normalMapWrite.descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            normalMapWrite.pImageInfo(normalMapInfo);
+            boiler.descriptors.writeImage(
+                    descriptorWrites, descriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, heightMapInfo
+            );
+            boiler.descriptors.writeImage(
+                    descriptorWrites, descriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, normalMapInfo
+            );
 
             vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
         }

@@ -77,4 +77,18 @@ public class BoilerDescriptors {
         write.descriptorType(type);
         write.pBufferInfo(instance.descriptors.bufferInfo(stack, buffer));
     }
+
+    public void writeImage(
+            VkWriteDescriptorSet.Buffer descriptorWrites,
+            long descriptorSet, int binding, int type, VkDescriptorImageInfo.Buffer image
+    ) {
+        var write = descriptorWrites.get(binding);
+        write.sType$Default();
+        write.dstSet(descriptorSet);
+        write.dstBinding(binding);
+        write.dstArrayElement(0);
+        write.descriptorCount(1);
+        write.descriptorType(type);
+        write.pImageInfo(image);
+    }
 }
