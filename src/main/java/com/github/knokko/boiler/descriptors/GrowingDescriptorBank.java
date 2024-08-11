@@ -1,17 +1,9 @@
 package com.github.knokko.boiler.descriptors;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkDescriptorPoolCreateInfo;
-import org.lwjgl.vulkan.VkDescriptorSetAllocateInfo;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.function.BiConsumer;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -34,33 +26,17 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class GrowingDescriptorBank {
 
-    private final BoilerInstance instance;
-    private final long descriptorSetLayout;
-    private final String name;
-    private final BiConsumer<MemoryStack, VkDescriptorPoolCreateInfo> configureDescriptorPool;
+    private final DescriptorSetLayout layout;
+    private final int flags;
 
-    private final List<Long> descriptorPools = new ArrayList<>();
+    private final List<HomogeneousDescriptorPool> descriptorPools = new ArrayList<>();
     private int nextCapacity = 2;
-
 
     private final ConcurrentSkipListSet<Long> unusedDescriptorSets, borrowedDescriptorSets;
 
-    /**
-     * @param name Debugging purposes only
-     * @param configureDescriptorPool Populate the given <i>VkDescriptorPoolCreateInfo</i>. You should use this to
-     *                                set <i>pPoolSizes</i> for a descriptor pool that can hold exactly <b>1</b>
-     *                                descriptor set. (The <i>descriptorCount</i>s will automatically be multiplied
-     *                                with the capacity of the descriptor pool.) You should ignore <i>maxSets</i> and
-     *                                you can optionally set the <i>flags</i>.
-     */
-    public GrowingDescriptorBank(
-            BoilerInstance instance, long descriptorSetLayout, String name,
-            BiConsumer<MemoryStack, VkDescriptorPoolCreateInfo> configureDescriptorPool
-    ) {
-        this.instance = instance;
-        this.descriptorSetLayout = descriptorSetLayout;
-        this.name = name;
-        this.configureDescriptorPool = configureDescriptorPool;
+    public GrowingDescriptorBank(DescriptorSetLayout layout, int flags) {
+        this.layout = layout;
+        this.flags = flags;
         this.unusedDescriptorSets = new ConcurrentSkipListSet<>();
         this.borrowedDescriptorSets = new ConcurrentSkipListSet<>();
     }
@@ -75,40 +51,14 @@ public class GrowingDescriptorBank {
                 if (maybeResult == null) {
 
                     try (var stack = stackPush()) {
-                        var ciPool = VkDescriptorPoolCreateInfo.calloc(stack);
-                        ciPool.sType$Default();
-                        configureDescriptorPool.accept(stack, ciPool);
-                        ciPool.maxSets(nextCapacity);
-                        for (var poolSize : Objects.requireNonNull(ciPool.pPoolSizes())) {
-                            poolSize.descriptorCount(nextCapacity * poolSize.descriptorCount());
-                        }
-
-                        var pPool = stack.callocLong(1);
-                        assertVkSuccess(vkCreateDescriptorPool(
-                                instance.vkDevice(), ciPool, null, pPool
-                        ), "CreateDescriptorPool", "GrowingDescriptorBank-" + this.name + "-" + nextCapacity);
-                        long newDescriptorPool = pPool.get(0);
+                        var newDescriptorPool = layout.createPool(nextCapacity, flags, name + "-" + nextCapacity);
 
                         descriptorPools.add(newDescriptorPool);
 
-                        var pSetLayouts = stack.callocLong(nextCapacity);
-                        for (int index = 0; index < nextCapacity; index++) {
-                            pSetLayouts.put(index, descriptorSetLayout);
-                        }
-                        var aiSets = VkDescriptorSetAllocateInfo.calloc(stack);
-                        aiSets.sType$Default();
-                        aiSets.descriptorPool(newDescriptorPool);
-                        aiSets.pSetLayouts(pSetLayouts);
+                        var newSets = newDescriptorPool.allocate(stack, nextCapacity);
+                        maybeResult = newSets[0];
+                        for (int index = 1; index < nextCapacity; index++) unusedDescriptorSets.add(newSets[index]);
 
-                        var pSets = stack.callocLong(nextCapacity);
-                        assertVkSuccess(vkAllocateDescriptorSets(
-                                instance.vkDevice(), aiSets, pSets
-                        ), "AllocateDescriptorSets", "GrowingDescriptorBank-" + this.name + "-" + nextCapacity);
-
-                        maybeResult = pSets.get(0);
-                        for (int index = 1; index < nextCapacity; index++) {
-                            unusedDescriptorSets.add(pSets.get(index));
-                        }
                         nextCapacity *= 2;
                     }
                 }
@@ -116,7 +66,7 @@ public class GrowingDescriptorBank {
         }
         borrowedDescriptorSets.add(maybeResult);
         try (var stack = stackPush()) {
-            instance.debug.name(stack, maybeResult, VK_OBJECT_TYPE_DESCRIPTOR_SET, name);
+            layout.instance.debug.name(stack, maybeResult, VK_OBJECT_TYPE_DESCRIPTOR_SET, name);
         }
         return maybeResult;
     }
@@ -132,8 +82,8 @@ public class GrowingDescriptorBank {
         if (checkBorrows && !borrowedDescriptorSets.isEmpty()) {
             throw new IllegalStateException("Not all borrowed descriptor sets have been returned");
         }
-        for (long descriptorPool : descriptorPools) {
-            vkDestroyDescriptorPool(instance.vkDevice(), descriptorPool, null);
+        for (var descriptorPool : descriptorPools) {
+            descriptorPool.destroy();
         }
     }
 }

@@ -5,6 +5,8 @@ import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.cull.FrustumCuller;
+import com.github.knokko.boiler.descriptors.DescriptorSetLayout;
+import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
 import com.github.knokko.boiler.images.VmaImage;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
@@ -138,7 +140,7 @@ public class TerrainPlayground {
         return renderPass;
     }
 
-    private static long createDescriptorSetLayout(MemoryStack stack, BoilerInstance boiler) {
+    private static DescriptorSetLayout createDescriptorSetLayout(MemoryStack stack, BoilerInstance boiler) {
         var bindings = VkDescriptorSetLayoutBinding.calloc(3, stack);
         var camera = bindings.get(0);
         camera.binding(0);
@@ -361,10 +363,10 @@ public class TerrainPlayground {
                 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "UniformBuffer"
         );
         long renderPass;
-        long descriptorSetLayout;
+        DescriptorSetLayout descriptorSetLayout;
         long pipelineLayout;
         long groundPipeline;
-        long descriptorPool;
+        HomogeneousDescriptorPool descriptorPool;
         long descriptorSet;
         int depthFormat;
         long heightSampler;
@@ -377,33 +379,12 @@ public class TerrainPlayground {
             renderPass = createRenderPass(stack, boiler, depthFormat);
 
             descriptorSetLayout = createDescriptorSetLayout(stack, boiler);
-            pipelineLayout = createGroundPipelineLayout(stack, boiler, descriptorSetLayout);
+            pipelineLayout = createGroundPipelineLayout(stack, boiler, descriptorSetLayout.vkDescriptorSetLayout);
             groundPipeline = createGroundPipeline(stack, boiler, pipelineLayout, renderPass);
 
-            var poolSizes = VkDescriptorPoolSize.calloc(3, stack);
-            var uniformPoolSize = poolSizes.get(0);
-            uniformPoolSize.type(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            uniformPoolSize.descriptorCount(1);
-            var heightMapPoolSize = poolSizes.get(1);
-            heightMapPoolSize.type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            heightMapPoolSize.descriptorCount(1);
-            var normalMapPoolSize = poolSizes.get(2);
-            normalMapPoolSize.type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            normalMapPoolSize.descriptorCount(2);
+            descriptorPool = descriptorSetLayout.createPool(1, 0, "TerrainDescriptorPool");
 
-            var ciDescriptorPool = VkDescriptorPoolCreateInfo.calloc(stack);
-            ciDescriptorPool.sType$Default();
-            ciDescriptorPool.maxSets(1);
-            ciDescriptorPool.pPoolSizes(poolSizes);
-
-            var pDescriptorPool = stack.callocLong(1);
-            assertVkSuccess(vkCreateDescriptorPool(
-                    boiler.vkDevice(), ciDescriptorPool, null, pDescriptorPool
-            ), "CreateDescriptorPool", "TerrainPlayground");
-            descriptorPool = pDescriptorPool.get(0);
-            boiler.debug.name(stack, descriptorPool, VK_OBJECT_TYPE_DESCRIPTOR_POOL, "TerrainDescriptorPool");
-
-            descriptorSet = boiler.descriptors.allocate(stack, 1, descriptorPool, "TerrainDescriptor", descriptorSetLayout)[0];
+            descriptorSet = descriptorPool.allocate(stack, 1)[0];
 
             heightSampler = boiler.images.createSampler(
                     stack, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
@@ -668,10 +649,10 @@ public class TerrainPlayground {
         vkDestroySemaphore(boiler.vkDevice(), timeline, null);
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 
-        vkDestroyDescriptorPool(boiler.vkDevice(), descriptorPool, null);
+        descriptorPool.destroy();
         vkDestroyPipeline(boiler.vkDevice(), groundPipeline, null);
         vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-        vkDestroyDescriptorSetLayout(boiler.vkDevice(), descriptorSetLayout, null);
+        descriptorSetLayout.destroy();
         vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
         vmaDestroyBuffer(boiler.vmaAllocator(), uniformBuffer.vkBuffer(), uniformBuffer.vmaAllocation());
         vkDestroyImageView(boiler.vkDevice(), heightImage.vkImageView(), null);

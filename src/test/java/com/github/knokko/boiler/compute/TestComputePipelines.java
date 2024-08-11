@@ -19,10 +19,7 @@ public class TestComputePipelines {
     public void testSimpleComputeShader() {
         var boiler = new BoilerBuilder(
                 VK_API_VERSION_1_2, "TestSimpleComputeShader", VK_MAKE_VERSION(0, 1, 0)
-        )
-                .validation()
-                .forbidValidationErrors()
-                .build();
+        ).validation().forbidValidationErrors().build();
 
         try (var stack = stackPush()) {
             int valuesPerInvocation = 16;
@@ -42,7 +39,7 @@ public class TestComputePipelines {
             fillBufferLayoutBinding.descriptorCount(1);
             fillBufferLayoutBinding.stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
 
-            long descriptorSetLayout = boiler.descriptors.createLayout(
+            var descriptorSetLayout = boiler.descriptors.createLayout(
                     stack, fillLayoutBindings, "FillBuffer-DescriptorSetLayout"
             );
 
@@ -53,28 +50,14 @@ public class TestComputePipelines {
             sizePushConstant.size(8);
 
             long pipelineLayout = boiler.pipelines.createLayout(
-                    stack, pushConstants, "FillBuffer-PipelineLayout", descriptorSetLayout
+                    stack, pushConstants, "FillBuffer-PipelineLayout", descriptorSetLayout.vkDescriptorSetLayout
             );
             long computePipeline = boiler.pipelines.createComputePipeline(
                     stack, pipelineLayout, "shaders/fill.comp.spv", "FillBuffer"
             );
 
-            var descriptorPoolSizes = VkDescriptorPoolSize.calloc(1, stack);
-            descriptorPoolSizes.type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-            descriptorPoolSizes.descriptorCount(1);
-
-            var ciDescriptorPool = VkDescriptorPoolCreateInfo.calloc(stack);
-            ciDescriptorPool.sType$Default();
-            ciDescriptorPool.flags(0);
-            ciDescriptorPool.maxSets(1);
-            ciDescriptorPool.pPoolSizes(descriptorPoolSizes);
-
-            var pDescriptorPool = stack.callocLong(1);
-            assertVkSuccess(vkCreateDescriptorPool(
-                    boiler.vkDevice(), ciDescriptorPool, null, pDescriptorPool
-            ), "CreateDescriptorPool", "Filling");
-            long descriptorPool = pDescriptorPool.get(0);
-            long descriptorSet = boiler.descriptors.allocate(stack, 1, descriptorPool, "Filling", descriptorSetLayout)[0];
+            var descriptorPool = descriptorSetLayout.createPool(1, 0, "FillPool");
+            long descriptorSet = descriptorPool.allocate(stack, 1)[0];
 
             var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
             boiler.descriptors.writeBuffer(stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer);
@@ -89,6 +72,7 @@ public class TestComputePipelines {
             var commandBuffer = boiler.commands.createPrimaryBuffers(
                     commandPool, 1, "Filling"
             )[0];
+
             boiler.commands.begin(commandBuffer, stack, "Filling");
 
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
@@ -118,10 +102,10 @@ public class TestComputePipelines {
             }
 
             vkDestroyFence(boiler.vkDevice(), fence, null);
-            vkDestroyDescriptorPool(boiler.vkDevice(), descriptorPool, null);
+            descriptorPool.destroy();
             vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
             vkDestroyPipeline(boiler.vkDevice(), computePipeline, null);
-            vkDestroyDescriptorSetLayout(boiler.vkDevice(), descriptorSetLayout, null);
+            descriptorSetLayout.destroy();
             vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
             vmaDestroyBuffer(boiler.vmaAllocator(), buffer.vkBuffer(), buffer.vmaAllocation());
         }

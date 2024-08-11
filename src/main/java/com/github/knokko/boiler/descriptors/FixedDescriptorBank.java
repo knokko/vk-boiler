@@ -1,14 +1,7 @@
 package com.github.knokko.boiler.descriptors;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkDescriptorPoolCreateInfo;
-import org.lwjgl.vulkan.VkDescriptorSetAllocateInfo;
-
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.function.BiConsumer;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -30,46 +23,18 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class FixedDescriptorBank {
 
-    private final BoilerInstance instance;
-    private final long descriptorPool;
+    private final HomogeneousDescriptorPool pool;
 
     private final ConcurrentSkipListSet<Long> borrowedDescriptorSets;
     private final ConcurrentSkipListSet<Long> unusedDescriptorSets;
 
-    public FixedDescriptorBank(
-            BoilerInstance instance, long descriptorSetLayout, String context,
-            BiConsumer<MemoryStack, VkDescriptorPoolCreateInfo> configureDescriptorPool
-    ) {
-        this.instance = instance;
+    public FixedDescriptorBank(DescriptorSetLayout layout, int capacity, int flags, String name) {
         try (var stack = stackPush()) {
-            var ciPool = VkDescriptorPoolCreateInfo.calloc(stack);
-            ciPool.sType$Default();
-            configureDescriptorPool.accept(stack, ciPool);
-            int capacity = ciPool.maxSets();
-
-            var pPool = stack.callocLong(1);
-            assertVkSuccess(vkCreateDescriptorPool(
-                    instance.vkDevice(), ciPool, null, pPool
-            ), "CreateDescriptorPool", "DescriptorBank" + context);
-            this.descriptorPool = pPool.get(0);
-
-            var pSetLayouts = stack.callocLong(capacity);
-            for (int index = 0; index < capacity; index++) pSetLayouts.put(index, descriptorSetLayout);
-
-            var aiSets = VkDescriptorSetAllocateInfo.calloc(stack);
-            aiSets.sType$Default();
-            aiSets.descriptorPool(descriptorPool);
-            aiSets.pSetLayouts(pSetLayouts);
-
-            var pSets = stack.callocLong(capacity);
-            assertVkSuccess(vkAllocateDescriptorSets(
-                    instance.vkDevice(), aiSets, pSets
-            ), "AllocateDescriptorSets", "DescriptorBank" + context);
+            this.pool = layout.createPool(capacity, flags, name);
+            long[] descriptorSets = this.pool.allocate(stack, capacity);
 
             this.unusedDescriptorSets = new ConcurrentSkipListSet<>();
-            for (int index = 0; index < capacity; index++) {
-                this.unusedDescriptorSets.add(pSets.get(index));
-            }
+            for (long descriptorSet : descriptorSets) this.unusedDescriptorSets.add(descriptorSet);
             this.borrowedDescriptorSets = new ConcurrentSkipListSet<>();
         }
     }
@@ -82,7 +47,7 @@ public class FixedDescriptorBank {
         if (result != null) {
             borrowedDescriptorSets.add(result);
             try (var stack = stackPush()) {
-                instance.debug.name(stack, result, VK_OBJECT_TYPE_DESCRIPTOR_SET, name);
+                pool.layout.instance.debug.name(stack, result, VK_OBJECT_TYPE_DESCRIPTOR_SET, name);
             }
         }
         return result;
@@ -99,6 +64,6 @@ public class FixedDescriptorBank {
         if (checkEmpty && !borrowedDescriptorSets.isEmpty()) {
             throw new IllegalStateException("Not all descriptor sets have been returned");
         }
-        vkDestroyDescriptorPool(instance.vkDevice(), descriptorPool, null);
+        pool.destroy();
     }
 }

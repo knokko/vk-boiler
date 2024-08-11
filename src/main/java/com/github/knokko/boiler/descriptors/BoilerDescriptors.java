@@ -16,20 +16,8 @@ public class BoilerDescriptors {
         this.instance = instance;
     }
 
-    public long createLayout(MemoryStack stack, VkDescriptorSetLayoutBinding.Buffer bindings, String name) {
-        var ciLayout = VkDescriptorSetLayoutCreateInfo.calloc(stack);
-        ciLayout.sType$Default();
-        ciLayout.flags(0);
-        ciLayout.pBindings(bindings);
-
-        var pLayout = stack.callocLong(1);
-        assertVkSuccess(vkCreateDescriptorSetLayout(
-                instance.vkDevice(), ciLayout, null, pLayout
-        ), "CreateDescriptorSetLayout", name);
-        long layout = pLayout.get(0);
-
-        instance.debug.name(stack, layout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, name);
-        return layout;
+    public DescriptorSetLayout createLayout(MemoryStack stack, VkDescriptorSetLayoutBinding.Buffer bindings, String name) {
+        return new DescriptorSetLayout(stack, bindings, instance, name);
     }
 
     public long[] allocate(MemoryStack stack, int amount, long descriptorPool, String name, long... layouts) {

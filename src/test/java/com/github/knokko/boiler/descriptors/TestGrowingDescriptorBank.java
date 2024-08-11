@@ -2,7 +2,6 @@ package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import org.junit.jupiter.api.Test;
-import org.lwjgl.vulkan.VkDescriptorPoolSize;
 import org.lwjgl.vulkan.VkDescriptorSetLayoutBinding;
 
 import java.util.HashSet;
@@ -21,7 +20,7 @@ public class TestGrowingDescriptorBank {
                 .forbidValidationErrors()
                 .build();
 
-        long descriptorSetLayout;
+        DescriptorSetLayout layout;
         try (var stack = stackPush()) {
             var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
             bindings.binding(0);
@@ -29,16 +28,10 @@ public class TestGrowingDescriptorBank {
             bindings.descriptorCount(3);
             bindings.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
-            descriptorSetLayout = boiler.descriptors.createLayout(stack, bindings, "Test");
+            layout = boiler.descriptors.createLayout(stack, bindings, "Test");
         }
 
-        var bank = new GrowingDescriptorBank(boiler, descriptorSetLayout, "Test", (stack, ciPool) -> {
-            var poolSizes = VkDescriptorPoolSize.calloc(1, stack);
-            poolSizes.type(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
-            poolSizes.descriptorCount(3);
-
-            ciPool.pPoolSizes(poolSizes);
-        });
+        var bank = new GrowingDescriptorBank(layout, 0);
 
         var initialSets = new long[15];
         for (int index = 0; index < initialSets.length; index++) {
@@ -65,7 +58,7 @@ public class TestGrowingDescriptorBank {
         }
 
         bank.destroy(false);
-        vkDestroyDescriptorSetLayout(boiler.vkDevice(), descriptorSetLayout, null);
+        layout.destroy();
         boiler.destroyInitialObjects();
     }
 

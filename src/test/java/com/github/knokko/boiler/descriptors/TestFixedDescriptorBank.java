@@ -2,7 +2,6 @@ package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import org.junit.jupiter.api.Test;
-import org.lwjgl.vulkan.VkDescriptorPoolSize;
 import org.lwjgl.vulkan.VkDescriptorSetLayoutBinding;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,7 +17,7 @@ public class TestFixedDescriptorBank {
                 .forbidValidationErrors()
                 .build();
 
-        long descriptorSetLayout;
+        DescriptorSetLayout descriptorSetLayout;
         try (var stack = stackPush()) {
             var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
             bindings.binding(0);
@@ -28,15 +27,8 @@ public class TestFixedDescriptorBank {
 
             descriptorSetLayout = boiler.descriptors.createLayout(stack, bindings, "Test");
         }
-        var bank = new FixedDescriptorBank(boiler, descriptorSetLayout, "Test", (stack, ciPool) -> {
-            var poolSizes = VkDescriptorPoolSize.calloc(1, stack);
-            poolSizes.type(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            poolSizes.descriptorCount(2 * 5);
 
-            ciPool.flags(0);
-            ciPool.maxSets(2);
-            ciPool.pPoolSizes(poolSizes);
-        });
+        var bank = new FixedDescriptorBank(descriptorSetLayout, 2, 0, "Test");
 
         long descriptorSet1 = bank.borrowDescriptorSet("DS1");
         long descriptorSet2 = bank.borrowDescriptorSet("DS2");
@@ -66,8 +58,7 @@ public class TestFixedDescriptorBank {
         assertTrue(descriptorSet21 == descriptorSet1 || descriptorSet21 == descriptorSet2);
 
         bank.destroy(false);
-
-        vkDestroyDescriptorSetLayout(boiler.vkDevice(), descriptorSetLayout, null);
+        descriptorSetLayout.destroy();
         boiler.destroyInitialObjects();
     }
 }

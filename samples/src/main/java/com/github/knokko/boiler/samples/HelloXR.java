@@ -3,6 +3,8 @@ package com.github.knokko.boiler.samples;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
+import com.github.knokko.boiler.descriptors.DescriptorSetLayout;
+import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
 import com.github.knokko.boiler.images.VmaImage;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
@@ -37,6 +39,7 @@ public class HelloXR {
 
     @SuppressWarnings("resource")
     public static void main(String[] args) throws InterruptedException {
+        // TODO Shorten this sample using newer vk-boiler features
         var boiler = new BoilerBuilder(
                 VK_API_VERSION_1_0, "HelloXR", 1
         )
@@ -174,8 +177,8 @@ public class HelloXR {
                 5 * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "MatrixBuffer"
         );
 
-        long descriptorSetLayout;
-        long descriptorPool;
+        DescriptorSetLayout descriptorSetLayout;
+        HomogeneousDescriptorPool descriptorPool;
         long descriptorSet;
         long pipelineLayout;
         long graphicsPipeline;
@@ -190,35 +193,11 @@ public class HelloXR {
             matricesBinding.pImmutableSamplers(null);
 
             descriptorSetLayout = boiler.descriptors.createLayout(stack, layoutBindings, "MatricesLayout");
-
-            var poolSizes = VkDescriptorPoolSize.calloc(1, stack);
-            poolSizes.type(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            poolSizes.descriptorCount(1);
-
-            var ciDescriptorPool = VkDescriptorPoolCreateInfo.calloc(stack);
-            ciDescriptorPool.sType$Default();
-            ciDescriptorPool.flags(0);
-            ciDescriptorPool.maxSets(1);
-            ciDescriptorPool.pPoolSizes(poolSizes);
-
-            var pDescriptorPool = stack.callocLong(1);
-            assertVkSuccess(vkCreateDescriptorPool(
-                    boiler.vkDevice(), ciDescriptorPool, null, pDescriptorPool
-            ), "CreateDescriptorPool", "MatricesPool");
-            descriptorPool = pDescriptorPool.get(0);
-            descriptorSet = boiler.descriptors.allocate(
-                    stack, 1, descriptorPool, "MatricesSet", descriptorSetLayout
-            )[0];
+            descriptorPool = descriptorSetLayout.createPool(1, 0, "MatricesPool");
+            descriptorSet = descriptorPool.allocate(stack, 1)[0];
 
             var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
-            var matrixWrite = descriptorWrites.get(0);
-            matrixWrite.sType$Default();
-            matrixWrite.dstSet(descriptorSet);
-            matrixWrite.dstBinding(0);
-            matrixWrite.dstArrayElement(0);
-            matrixWrite.descriptorCount(1);
-            matrixWrite.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            matrixWrite.pBufferInfo(boiler.descriptors.bufferInfo(stack, matrixBuffer));
+            boiler.descriptors.writeBuffer(stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, matrixBuffer);
 
             vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
 
@@ -228,7 +207,7 @@ public class HelloXR {
             pushConstants.size(8);
 
             pipelineLayout = boiler.pipelines.createLayout(
-                    stack, pushConstants, "SimplePipelineLayout", descriptorSetLayout
+                    stack, pushConstants, "SimplePipelineLayout", descriptorSetLayout.vkDescriptorSetLayout
             );
             var vertexShader = boiler.pipelines.createShaderModule(
                     stack, "com/github/knokko/boiler/samples/graphics/xr.vert.spv", "VertexShader"
@@ -562,8 +541,8 @@ public class HelloXR {
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
         vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
         vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-        vkDestroyDescriptorPool(boiler.vkDevice(), descriptorPool, null);
-        vkDestroyDescriptorSetLayout(boiler.vkDevice(), descriptorSetLayout, null);
+        descriptorPool.destroy();
+        descriptorSetLayout.destroy();
         for (long imageView : swapchainImageViews) {
             vkDestroyImageView(boiler.vkDevice(), imageView, null);
         }
