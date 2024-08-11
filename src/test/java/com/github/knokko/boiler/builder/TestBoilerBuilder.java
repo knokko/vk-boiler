@@ -5,6 +5,7 @@ import com.github.knokko.boiler.builder.queue.QueueFamilyAllocation;
 import com.github.knokko.boiler.builder.queue.QueueFamilyMapping;
 import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.exceptions.NoVkPhysicalDeviceException;
+import com.github.knokko.boiler.util.CollectionHelper;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
 
@@ -360,5 +361,18 @@ public class TestBoilerBuilder {
         assertEquals(1, boiler.queueFamilies().videoEncode().queues().size());
 
         boiler.destroyInitialObjects();
+    }
+
+    @Test
+    public void testApiDump() {
+        var builder = new BoilerBuilder(
+                VK_API_VERSION_1_0, "TestApiDump", 1
+        ).apiDump().vkInstanceCreator((ciInstance, stack) -> {
+            var layers = CollectionHelper.decodeStringSet(ciInstance.ppEnabledLayerNames());
+            assertTrue(layers.contains("VK_LAYER_LUNARG_api_dump"), "layers were " + layers);
+            throw new RuntimeException("Mission completed");
+        }).validation().forbidValidationErrors();
+
+        assertEquals("Mission completed", assertThrows(RuntimeException.class, builder::build).getMessage());
     }
 }
