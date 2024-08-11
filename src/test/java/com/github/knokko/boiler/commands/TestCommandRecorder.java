@@ -62,10 +62,7 @@ public class TestCommandRecorder {
 
 			var recorder = CommandRecorder.alreadyRecording(commandBuffer, boiler, stack);
 
-			recorder.transitionColorLayout(
-					sourceImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, null,
-					new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-			);
+			recorder.transitionColorLayout(sourceImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
 
 			var clearColor = VkClearColorValue.calloc(stack);
 			clearColor.float32(0, 0f);
@@ -78,23 +75,12 @@ public class TestCommandRecorder {
 
 			vkCmdClearColorImage(commandBuffer, sourceImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, clearColor, clearRange);
 
-			recorder.transitionColorLayout(
-					sourceImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
-					new ResourceUsage(VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-			);
-			recorder.transitionColorLayout(
-					destImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, null,
-					new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-			);
+			recorder.transitionColorLayout(sourceImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+			recorder.transitionColorLayout(destImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
 
 			recorder.copyImage(width, height, VK_IMAGE_ASPECT_COLOR_BIT, sourceImage.vkImage(), destImage.vkImage());
 
-			recorder.transitionColorLayout(
-					destImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
-					new ResourceUsage(VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-			);
+			recorder.transitionColorLayout(destImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, destImage.vkImage(), width, height, destBuffer.vkBuffer());
 
@@ -155,21 +141,10 @@ public class TestCommandRecorder {
 		try (var stack = stackPush()) {
 			var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Blitting");
 
-			recorder.transitionColorLayout(
-					sourceImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, null,
-					new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-			);
-
+			recorder.transitionColorLayout(sourceImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
 			recorder.copyBufferToImage(VK_IMAGE_ASPECT_COLOR_BIT, sourceImage.vkImage(), width1, height1, buffer.vkBuffer());
-			recorder.transitionColorLayout(
-					sourceImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
-					new ResourceUsage(VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-			);
-			recorder.transitionColorLayout(
-					destImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, null,
-					new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-			);
+			recorder.transitionColorLayout(sourceImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+			recorder.transitionColorLayout(destImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
 
 			recorder.blitImage(
 					VK_IMAGE_ASPECT_COLOR_BIT, VK_FILTER_LINEAR,
@@ -177,14 +152,8 @@ public class TestCommandRecorder {
 					destImage.vkImage(), width2, height2
 			);
 
-			recorder.transitionColorLayout(
-					destImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
-					new ResourceUsage(VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-			);
-
+			recorder.transitionColorLayout(destImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, destImage.vkImage(), width2, height2, buffer.vkBuffer());
-
 			recorder.end("Copying");
 
 			var hostBuffer = memByteBuffer(buffer.hostAddress(), 4 * width1 * height1);

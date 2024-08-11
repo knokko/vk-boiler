@@ -73,10 +73,7 @@ public class TestDynamicRendering {
 		try (var stack = stackPush()) {
 			var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Empty RenderPass");
 
-			recorder.transitionColorLayout(
-					image.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, null,
-					new ResourceUsage(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-			);
+			recorder.transitionColorLayout(image.vkImage(), null, ResourceUsage.COLOR_ATTACHMENT_WRITE);
 
 			var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
 			recorder.simpleColorRenderingAttachment(
@@ -92,9 +89,7 @@ public class TestDynamicRendering {
 			recorder.endDynamicRendering();
 
 			recorder.transitionColorLayout(
-					image.vkImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					new ResourceUsage(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
-					new ResourceUsage(VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
+					image.vkImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.TRANSFER_SOURCE
 			);
 
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(), width, height, destBuffer.vkBuffer());
@@ -175,8 +170,8 @@ public class TestDynamicRendering {
 			var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "DepthCommands");
 
 			recorder.transitionDepthLayout(
-					image.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, null,
-					new ResourceUsage(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
+					image.vkImage(), null,
+					ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
 			);
 
 			var depthAttachment = recorder.simpleDepthRenderingAttachment(
@@ -189,9 +184,8 @@ public class TestDynamicRendering {
 			recorder.endDynamicRendering();
 
 			recorder.transitionDepthLayout(
-					image.vkImage(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					new ResourceUsage(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT),
-					new ResourceUsage(VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
+					image.vkImage(), ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL),
+					ResourceUsage.TRANSFER_SOURCE
 			);
 
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_DEPTH_BIT, image.vkImage(), width, height, destBuffer.vkBuffer());

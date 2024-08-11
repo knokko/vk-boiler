@@ -14,7 +14,6 @@ import static org.lwjgl.glfw.GLFW.glfwPollEvents;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
-import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
 
@@ -120,9 +119,9 @@ public class SimpleRingApproximation {
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 
                 recorder.transitionColorLayout(
-                        swapchainImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                        new ResourceUsage(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
-                        new ResourceUsage(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                        swapchainImage.vkImage(),
+                        ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+                        ResourceUsage.COLOR_ATTACHMENT_WRITE
                 );
 
                 var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
@@ -154,9 +153,7 @@ public class SimpleRingApproximation {
                 recorder.endDynamicRendering();
 
                 recorder.transitionColorLayout(
-                        swapchainImage.vkImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                        new ResourceUsage(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
-                        null
+                        swapchainImage.vkImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT
                 );
 
                 recorder.end();

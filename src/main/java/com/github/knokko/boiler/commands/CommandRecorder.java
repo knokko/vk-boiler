@@ -149,28 +149,26 @@ public class CommandRecorder {
     }
 
     public void transitionColorLayout(
-            long vkImage, int oldLayout, int newLayout, ResourceUsage oldUsage, ResourceUsage newUsage
+            long vkImage, ResourceUsage oldUsage, ResourceUsage newUsage
     ) {
-        transitionLayout(vkImage, oldLayout, newLayout, oldUsage, newUsage, VK_IMAGE_ASPECT_COLOR_BIT);
+        transitionLayout(vkImage, oldUsage, newUsage, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 
     public void transitionDepthLayout(
-            long vkImage, int oldLayout, int newLayout,
-            ResourceUsage oldUsage, ResourceUsage newUsage
+            long vkImage, ResourceUsage oldUsage, ResourceUsage newUsage
     ) {
-        transitionLayout(vkImage, oldLayout, newLayout, oldUsage, newUsage, VK_IMAGE_ASPECT_DEPTH_BIT);
+        transitionLayout(vkImage, oldUsage, newUsage, VK_IMAGE_ASPECT_DEPTH_BIT);
     }
 
     public void transitionLayout(
-            long vkImage, int oldLayout, int newLayout,
-            ResourceUsage oldUsage, ResourceUsage newUsage, int aspectMask
+            long vkImage, ResourceUsage oldUsage, ResourceUsage newUsage, int aspectMask
     ) {
         var pImageBarrier = VkImageMemoryBarrier.calloc(1, stack);
         pImageBarrier.sType$Default();
         pImageBarrier.srcAccessMask(oldUsage != null ? oldUsage.accessMask() : 0);
-        pImageBarrier.dstAccessMask(newUsage != null ? newUsage.accessMask() : 0);
-        pImageBarrier.oldLayout(oldLayout);
-        pImageBarrier.newLayout(newLayout);
+        pImageBarrier.dstAccessMask(newUsage.accessMask());
+        pImageBarrier.oldLayout(oldUsage != null ? oldUsage.imageLayout() : VK_IMAGE_LAYOUT_UNDEFINED);
+        pImageBarrier.newLayout(newUsage.imageLayout());
         pImageBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
         pImageBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
         pImageBarrier.image(vkImage);
@@ -178,8 +176,7 @@ public class CommandRecorder {
 
         vkCmdPipelineBarrier(
                 commandBuffer, oldUsage != null ? oldUsage.stageMask() : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                newUsage != null ? newUsage.stageMask() : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                0, null, null, pImageBarrier
+                newUsage.stageMask(), 0, null, null, pImageBarrier
         );
     }
 

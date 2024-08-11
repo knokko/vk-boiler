@@ -21,7 +21,6 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.KHRSurface.*;
-import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class TranslucentWindowPlayground {
@@ -112,9 +111,9 @@ public class TranslucentWindowPlayground {
                 );
 
                 recorder.transitionColorLayout(
-                        acquired.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        new ResourceUsage(0, VK_PIPELINE_STAGE_TRANSFER_BIT),
-                        new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
+                        acquired.vkImage(),
+                        ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
+                        ResourceUsage.TRANSFER_DEST
                 );
 
                 float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 1000.0)));
@@ -126,10 +125,7 @@ public class TranslucentWindowPlayground {
 
                 vkCmdClearColorImage(commandBuffer, acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pClearColor, pRanges);
 
-                recorder.transitionColorLayout(
-                        acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                        new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT), null
-                );
+                recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
 
                 assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Fill");
                 boiler.queueFamilies().graphics().queues().get(0).submit(

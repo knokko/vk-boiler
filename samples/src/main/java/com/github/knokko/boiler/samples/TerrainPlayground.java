@@ -297,14 +297,8 @@ public class TerrainPlayground {
                     VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
                     "CopyHeightImage"
             );
-            recorder.transitionColorLayout(
-                    image.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    null, new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-            );
-            recorder.transitionColorLayout(
-                    normalImage.vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    null, new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
-            );
+            recorder.transitionColorLayout(image.vkImage(), null, ResourceUsage.TRANSFER_DEST);
+            recorder.transitionColorLayout(normalImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
             recorder.copyBufferToImage(
                     VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(),
                     gridSize, gridSize, stagingBuffer.vkBuffer()
@@ -314,16 +308,12 @@ public class TerrainPlayground {
                     normalImage.width(), normalImage.height(), normalStagingBuffer.vkBuffer()
             );
             recorder.transitionColorLayout(
-                    image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
-                    new ResourceUsage(VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
+                    image.vkImage(), ResourceUsage.TRANSFER_DEST,
+                    ResourceUsage.shaderRead(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
             );
             recorder.transitionColorLayout(
-                    normalImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
-                    new ResourceUsage(VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+                    normalImage.vkImage(), ResourceUsage.TRANSFER_DEST,
+                    ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
             );
             recorder.end();
 

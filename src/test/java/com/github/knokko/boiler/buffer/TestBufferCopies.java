@@ -49,9 +49,7 @@ public class TestBufferCopies {
 
             recorder.copyBuffer(100, sourceBuffer.vkBuffer(), 0, middleBuffer.vkBuffer(), 0);
             recorder.bufferBarrier(
-                    middleBuffer.vkBuffer(), 0, 100,
-                    new ResourceUsage(VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT),
-                    new ResourceUsage(VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
+                    middleBuffer.vkBuffer(), 0, 100, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE
             );
             recorder.copyBuffer(100, middleBuffer.vkBuffer(), 0, destinationBuffer.vkBuffer(), 0);
 
