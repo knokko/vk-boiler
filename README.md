@@ -3,7 +3,8 @@
 reproduce this presumed false positive.**
 
 ### Steps:
-- Clone this project
+- Clone this project: 
+  `git clone -b validation-layer-false-positive git@github.com:knokko/vk-boiler.git`
 - Install JDK 17
   - Should be `sudo apt install openjdk-17-jdk` on Ubuntu
   - You can obtain download it
