@@ -65,6 +65,16 @@ public class FenceBank {
 
         if (mightNeedReset) {
             try (var stack = stackPush()) {
+
+                // I would expect the vkDeviceWaitIdle to prevent a validation error, but it still appears!
+                assertVkSuccess(vkDeviceWaitIdle(instance.vkDevice()), "DeviceWaitIdle", "Bank bulk return");
+
+                // Uncommenting the following code makes the validation errors disappear
+//                assertVkSuccess(vkWaitForFences(
+//                        instance.vkDevice(), stack.longs(fences), true, instance.defaultTimeout
+//                ), "WaitForFences", "Test");
+
+                System.out.println("The following code will trigger the validation error");
                 assertVkSuccess(vkResetFences(
                         instance.vkDevice(), stack.longs(fences)
                 ), "ResetFences", "Bank bulk return");

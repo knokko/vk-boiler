@@ -35,6 +35,9 @@ public class BoilerSwapchains {
     public BoilerSwapchains(BoilerInstance instance, boolean hasSwapchainMaintenance) {
         this.instance = instance;
         this.hasSwapchainMaintenance = hasSwapchainMaintenance;
+        if (!this.hasSwapchainMaintenance) {
+            throw new UnsupportedOperationException("This bug can only be reproduced when swapchain maintenance 1 is available");
+        }
     }
 
     private void recreateSwapchain(int presentMode) {
@@ -102,6 +105,7 @@ public class BoilerSwapchains {
 
                 var fiPresent = VkSwapchainPresentFenceInfoEXT.calloc(stack);
                 fiPresent.sType$Default();
+                // The bindings make sure that fiPresent.swapchainCount = pFences.length, which is 1
                 fiPresent.pFences(stack.longs(acquired.presentFence().vkFence));
 
                 presentInfo.pNext(fiPresent);

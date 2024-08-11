@@ -2,6 +2,7 @@ package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
+import com.github.knokko.boiler.builder.device.SimpleDeviceSelector;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
@@ -9,6 +10,8 @@ import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
 import com.github.knokko.boiler.sync.FatFence;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.lwjgl.vulkan.*;
+
+import java.util.Arrays;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static java.lang.Thread.sleep;
@@ -23,12 +26,23 @@ import static org.lwjgl.vulkan.VK10.*;
 public class HelloTriangle {
 
     public static void main(String[] args) throws InterruptedException {
-        var boiler = new BoilerBuilder(
+        var builder = new BoilerBuilder(
                 VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
         )
                 .validation()
-                .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
-                .build();
+                .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT));
+
+        if (!Arrays.asList(args).contains("dont-dump")) {
+            builder.apiDump();
+        }
+        if (!Arrays.asList(args).contains("dont-throw")) {
+            builder.forbidValidationErrors();
+        }
+        if (Arrays.asList(args).contains("force-igpu")) {
+            builder.physicalDeviceSelector(new SimpleDeviceSelector(VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU));
+        }
+
+        var boiler = builder.build();
 
         int numFramesInFlight = 3;
         var commandPool = boiler.commands.createPool(
