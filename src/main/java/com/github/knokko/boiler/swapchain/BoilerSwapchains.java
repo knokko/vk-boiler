@@ -164,7 +164,7 @@ public class BoilerSwapchains {
                     if (!presentFence.isSignaled(instance)) return false;
                 }
                 for (var image : oldSwapchain.images) {
-                    if (!image.didDrawingFinish.getAsBoolean()) return false;
+                    if (image.didDrawingFinish != null && !image.didDrawingFinish.getAsBoolean()) return false;
                 }
                 oldSwapchain.destroy(true);
                 return true;
