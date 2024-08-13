@@ -4,7 +4,7 @@ import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
-import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
+import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.lwjgl.vulkan.*;
@@ -35,7 +35,7 @@ public class SimpleRingApproximation {
                 "Drawing"
         );
         var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, numFramesInFlight, "Drawing");
-        long[] commandFences = boiler.sync.createFences(true, numFramesInFlight, "Fence");
+        var commandFences = boiler.sync.fenceBank.borrowFences(numFramesInFlight, true, "Fence");
         long graphicsPipeline;
         long pipelineLayout;
 
@@ -113,8 +113,8 @@ public class SimpleRingApproximation {
 
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
-                long fence = commandFences[frameIndex];
-                boiler.sync.waitAndReset(stack, fence);
+                var fence = commandFences[frameIndex];
+                fence.waitAndReset(stack);
 
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 
@@ -164,15 +164,13 @@ public class SimpleRingApproximation {
 
                 // Note that we could just use boiler.swapchains.presentImage(swapchainImage, fence),
                 // but this is a nice way to test a different overload of BoilerSwapchains.presentImage
-                boiler.swapchains.presentImage(swapchainImage, () ->
-                    vkGetFenceStatus(boiler.vkDevice(), fence) == VK_SUCCESS
-                );
+                boiler.swapchains.presentImage(swapchainImage, fence::isSignaled);
                 frameCounter += 1;
             }
         }
 
-        vkDeviceWaitIdle(boiler.vkDevice());
-        for (long fence : commandFences) vkDestroyFence(boiler.vkDevice(), fence, null);
+        boiler.sync.fenceBank.awaitSubmittedFences();
+        boiler.sync.fenceBank.returnFences(commandFences);
 
         vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
         vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);

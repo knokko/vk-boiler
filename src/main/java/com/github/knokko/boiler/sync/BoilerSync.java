@@ -24,26 +24,6 @@ public class BoilerSync {
         this.semaphoreBank = new SemaphoreBank(instance);
     }
 
-    public long[] createFences(boolean startSignaled, int amount, String name) {
-        long[] fences = new long[amount];
-        try (var stack = stackPush()) {
-            var ciFence = VkFenceCreateInfo.calloc(stack);
-            ciFence.sType$Default();
-            ciFence.flags(startSignaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0);
-
-            var pFence = stack.callocLong(1);
-
-            for (int index = 0; index < amount; index++) {
-                assertVkSuccess(vkCreateFence(
-                        instance.vkDevice(), ciFence, null, pFence
-                ), "CreateFence", name + index);
-                instance.debug.name(stack, pFence.get(0), VK_OBJECT_TYPE_FENCE, name + index);
-                fences[index] = pFence.get(0);
-            }
-            return fences;
-        }
-    }
-
     public long[] createSemaphores(String name, int amount) {
         long[] semaphores = new long[amount];
         try (var stack = stackPush()) {
@@ -134,18 +114,5 @@ public class BoilerSync {
                     instance.vkDevice(), siSemaphore
             ), "SignalSemaphore", context);
         }
-    }
-
-    public void waitAndReset(MemoryStack stack, long fence) {
-        waitAndReset(stack, fence, instance.defaultTimeout);
-    }
-
-    public void waitAndReset(MemoryStack stack, long fence, long timeout) {
-        assertVkSuccess(vkWaitForFences(
-                instance.vkDevice(), stack.longs(fence), true, timeout
-        ), "WaitForFences", "SwapchainAcquire");
-        assertVkSuccess(vkResetFences(
-                instance.vkDevice(), stack.longs(fence)
-        ), "ResetFences", "SwapchainAcquire");
     }
 }

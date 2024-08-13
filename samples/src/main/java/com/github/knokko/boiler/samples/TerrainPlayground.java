@@ -11,7 +11,7 @@ import com.github.knokko.boiler.images.VmaImage;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
-import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
+import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.TimelineInstant;
 import com.github.knokko.boiler.sync.WaitSemaphore;
@@ -250,7 +250,7 @@ public class TerrainPlayground {
                     "HeightImageCopyPool"
             );
             var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "HeightImageCopyCommands")[0];
-            var fence = boiler.sync.createFences(false, 1, "WaitHeightImageCopy")[0];
+            var fence = boiler.sync.fenceBank.borrowFence(false, "WaitHeightImageCopy");
 
             short previousValue = 0;
             for (int counter = 0; counter < numValues; counter++) {
@@ -322,11 +322,8 @@ public class TerrainPlayground {
             boiler.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "CopyHeightImage", new WaitSemaphore[0], fence
             );
-            assertVkSuccess(vkWaitForFences(
-                    boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
-            ), "WaitForFences", "CopyHeightImage");
-
-            vkDestroyFence(boiler.vkDevice(), fence, null);
+            fence.wait(stack);
+            boiler.sync.fenceBank.returnFence(fence);
             vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
             vmaDestroyBuffer(boiler.vmaAllocator(), stagingBuffer.vkBuffer(), stagingBuffer.vmaAllocation());
             vmaDestroyBuffer(boiler.vmaAllocator(), normalStagingBuffer.vkBuffer(), normalStagingBuffer.vmaAllocation());
@@ -635,7 +632,7 @@ public class TerrainPlayground {
 
                 var timelineFinished = new TimelineInstant(timeline, frameCounter + numFramesInFlight);
                 boiler.queueFamilies().graphics().queues().get(0).submit(
-                        commandBuffer, "TerrainDraw", waitSemaphores, VK_NULL_HANDLE,
+                        commandBuffer, "TerrainDraw", waitSemaphores, null,
                         new long[] { swapchainImage.presentSemaphore() },
                         new WaitTimelineSemaphore[0], timelineFinished
                 );

@@ -8,9 +8,9 @@ import com.github.knokko.boiler.images.BoilerImages;
 import com.github.knokko.boiler.pipelines.BoilerPipelines;
 import com.github.knokko.boiler.queue.QueueFamilies;
 import com.github.knokko.boiler.surface.WindowSurface;
-import com.github.knokko.boiler.swapchain.BoilerSwapchains;
 import com.github.knokko.boiler.swapchain.SwapchainSettings;
 import com.github.knokko.boiler.sync.BoilerSync;
+import com.github.knokko.boiler.window.VkbWindow;
 import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkInstance;
@@ -49,7 +49,7 @@ public class BoilerInstance {
     public final BoilerPipelines pipelines;
     public final BoilerCommands commands;
     public final BoilerSync sync;
-    public final BoilerSwapchains swapchains;
+    private final VkbWindow window;
     public final BoilerDebug debug;
 
     private boolean destroyed = false;
@@ -83,7 +83,7 @@ public class BoilerInstance {
         this.pipelines = new BoilerPipelines(this);
         this.commands = new BoilerCommands(this);
         this.sync = new BoilerSync(this);
-        this.swapchains = swapchainSettings != null ? new BoilerSwapchains(this, hasSwapchainMaintenance) : null;
+        this.window = swapchainSettings != null ? new VkbWindow(this, hasSwapchainMaintenance, glfwWindow, windowSurface.vkSurface()) : null;
         this.debug = new BoilerDebug(this);
     }
 
@@ -93,6 +93,13 @@ public class BoilerInstance {
 
     private void checkWindow() {
         if (glfwWindow == 0L) throw new UnsupportedOperationException("This instance doesn't have a window");
+    }
+
+    public VkbWindow window() {
+        checkDestroyed();
+        checkWindow();
+        // TODO Multiple windows
+        return window;
     }
 
     public long glfwWindow() {
@@ -144,7 +151,7 @@ public class BoilerInstance {
      * destroyed:
      * <ul>
      *     <li>The swapchain (if applicable)</li>
-     *     <li>The unused fences in the fence bank</li>
+     *     <li>The returned fences in the fence bank</li>
      *     <li>The unused semaphores in the semaphore bank</li>
      *     <li>The VMA allocator</li>
      *     <li>The VkDevice</li>
@@ -158,7 +165,7 @@ public class BoilerInstance {
     public void destroyInitialObjects() {
         checkDestroyed();
 
-        if (swapchains != null) swapchains.destroy();
+        if (window != null) window.destroy();
         sync.fenceBank.destroy();
         sync.semaphoreBank.destroy();
         vmaDestroyAllocator(vmaAllocator);

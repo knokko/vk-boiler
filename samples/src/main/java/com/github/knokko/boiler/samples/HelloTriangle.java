@@ -5,8 +5,8 @@ import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
-import com.github.knokko.boiler.swapchain.SwapchainResourceManager;
-import com.github.knokko.boiler.sync.FatFence;
+import com.github.knokko.boiler.window.SwapchainResourceManager;
+import com.github.knokko.boiler.sync.VkbFence;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.lwjgl.vulkan.*;
 
@@ -36,7 +36,7 @@ public class HelloTriangle {
                 boiler.queueFamilies().graphics().index(), "Drawing"
         );
         var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, numFramesInFlight, "Drawing");
-        var commandFences = boiler.sync.fenceBank.borrowSignaledFences(numFramesInFlight, "CommandFence");
+        var commandFences = boiler.sync.fenceBank.borrowFences(numFramesInFlight, true, "CommandFence");
         long graphicsPipeline;
         long pipelineLayout;
         long renderPass;
@@ -170,7 +170,7 @@ public class HelloTriangle {
             try (var stack = stackPush()) {
                 long imageView = boiler.images.createSimpleView(
                         stack, swapchainImage.vkImage(), boiler.swapchainSettings.surfaceFormat().format(),
-                        VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView " + swapchainImage.imageIndex()
+                        VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView " + swapchainImage.index()
                 );
 
                 long framebuffer = boiler.images.createFramebuffer(
@@ -199,7 +199,8 @@ public class HelloTriangle {
             }
 
             try (var stack = stackPush()) {
-                var swapchainImage = boiler.swapchains.acquireNextImage(VK_PRESENT_MODE_FIFO_KHR);
+                //var swapchainImage = boiler.swapchains.acquireNextImage(VK_PRESENT_MODE_FIFO_KHR);
+                var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_FIFO_KHR);
                 if (swapchainImage == null) {
                     //noinspection BusyWait
                     sleep(100);
@@ -213,8 +214,8 @@ public class HelloTriangle {
 
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
-                FatFence fence = commandFences[frameIndex];
-                fence.waitAndReset(boiler, stack);
+                VkbFence fence = commandFences[frameIndex];
+                fence.waitAndReset(stack);
 
                 var recorder = CommandRecorder.begin(
                         commandBuffer, boiler, stack,
@@ -245,16 +246,17 @@ public class HelloTriangle {
                 assertVkSuccess(vkEndCommandBuffer(commandBuffer), "TriangleDrawing", null);
 
                 boiler.queueFamilies().graphics().queues().get(0).submit(
-                        commandBuffer, "SubmitDraw", waitSemaphores, fence.vkFence, swapchainImage.presentSemaphore()
+                        commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
                 );
 
-                boiler.swapchains.presentImage(swapchainImage, fence);
+                //boiler.swapchains.presentImage(swapchainImage, fence);
+                boiler.window().presentSwapchainImage(swapchainImage);
                 frameCounter += 1;
             }
         }
 
-        vkDeviceWaitIdle(boiler.vkDevice());
-        boiler.sync.fenceBank.returnFences(true, commandFences);
+        boiler.sync.fenceBank.awaitSubmittedFences();
+        boiler.sync.fenceBank.returnFences(commandFences);
 
         vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
         vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);

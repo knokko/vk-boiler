@@ -7,14 +7,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class TestFenceBank {
 
-    private void signalFence(BoilerInstance instance, long fence) {
+    private void signalFence(BoilerInstance instance, VkbFence fence) {
         var commandPool = instance.commands.createPool(
                 0, instance.queueFamilies().graphics().index(), "SignalFence"
         );
@@ -26,9 +25,7 @@ public class TestFenceBank {
             instance.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "Signal", new WaitSemaphore[0], fence
             );
-            assertVkSuccess(vkWaitForFences(
-                    instance.vkDevice(), stack.longs(fence), true, instance.defaultTimeout
-            ), "WaitForFences", "Signal");
+            fence.wait(stack);
         }
 
         vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
@@ -41,28 +38,33 @@ public class TestFenceBank {
                 .forbidValidationErrors()
                 .build();
 
-        var fence1 = instance.sync.fenceBank.borrowFence("Fence1");
-        assertEquals(VK_NOT_READY, vkGetFenceStatus(instance.vkDevice(), fence1));
+        var fence1 = instance.sync.fenceBank.borrowFence(false, "Fence1");
+        assertFalse(fence1.isPending());
+        assertFalse(fence1.isSignaled());
         signalFence(instance, fence1);
-        assertEquals(VK_SUCCESS, vkGetFenceStatus(instance.vkDevice(), fence1));
+        assertFalse(fence1.isPending());
+        assertTrue(fence1.isSignaled());
 
-        var fence2 = instance.sync.fenceBank.borrowFence("Fence2");
-        assertEquals(VK_NOT_READY, vkGetFenceStatus(instance.vkDevice(), fence2));
+        var fence2 = instance.sync.fenceBank.borrowFence(false, "Fence2");
+        assertFalse(fence2.isSignaled());
+        assertFalse(fence2.isPending());
 
-        instance.sync.fenceBank.returnFence(fence1, true);
-        assertEquals(fence1, instance.sync.fenceBank.borrowFence("Fence3"));
-        assertEquals(VK_NOT_READY, vkGetFenceStatus(instance.vkDevice(), fence1));
+        instance.sync.fenceBank.returnFence(fence1);
+        assertSame(fence1, instance.sync.fenceBank.borrowFence(false, "Fence3"));
+        assertFalse(fence1.isPending());
+        assertFalse(fence1.isSignaled());
 
-        instance.sync.fenceBank.returnFence(fence2, false);
-        assertEquals(fence2, instance.sync.fenceBank.borrowFence("Fence4"));
-        assertEquals(VK_NOT_READY, vkGetFenceStatus(instance.vkDevice(), fence2));
+        instance.sync.fenceBank.returnFence(fence2);
+        assertSame(fence2, instance.sync.fenceBank.borrowFence(false, "Fence4"));
+        assertFalse(fence2.isSignaled());
+        assertFalse(fence2.isPending());
 
-        instance.sync.fenceBank.returnFence(fence1, true);
-        instance.sync.fenceBank.returnFence(fence2, false);
+        instance.sync.fenceBank.returnFence(fence1);
+        instance.sync.fenceBank.returnFence(fence2);
         instance.destroyInitialObjects();
     }
 
-    static boolean contains(long[] array, long target) {
+    static boolean contains(VkbFence[] array, VkbFence target) {
         return Arrays.stream(array).anyMatch(candidate -> candidate == target);
     }
 
@@ -75,23 +77,28 @@ public class TestFenceBank {
 
         var bank = instance.sync.fenceBank;
 
-        long[] fences = bank.borrowFences(10, "OldFence");
+        var fences = bank.borrowFences(10, false, "OldFence");
 
-        assertEquals(VK_NOT_READY, vkGetFenceStatus(instance.vkDevice(), fences[5]));
+        assertFalse(fences[5].isPending());
+        assertFalse(fences[5].isSignaled());
         signalFence(instance, fences[3]);
-        assertEquals(VK_SUCCESS, vkGetFenceStatus(instance.vkDevice(), fences[3]));
+        assertTrue(fences[3].isSignaled());
+        assertFalse(fences[3].isPending());
 
-        bank.returnFences(true, fences[3], fences[5]);
-        assertEquals(VK_NOT_READY, vkGetFenceStatus(instance.vkDevice(), fences[3]));
+        bank.returnFences(fences[3], fences[5]);
 
-        long[] newFences = bank.borrowFences(3, "NewFence");
+        var newFences = bank.borrowFences(3, false, "NewFence");
         assertTrue(contains(newFences, fences[3]));
         assertTrue(contains(newFences, fences[5]));
         assertFalse(contains(newFences, fences[4]));
+        for (var fence : newFences) {
+            assertFalse(fence.isPending());
+            assertFalse(fence.isSignaled());
+        }
 
-        bank.returnFences(false, fences[0], fences[1], fences[2], fences[4]);
-        bank.returnFences(false, newFences);
-        bank.returnFences(false, Arrays.copyOfRange(fences, 6, 10));
+        bank.returnFences(fences[0], fences[1], fences[2], fences[4]);
+        bank.returnFences(newFences);
+        bank.returnFences(Arrays.copyOfRange(fences, 6, 10));
 
         instance.destroyInitialObjects();
     }
@@ -104,29 +111,27 @@ public class TestFenceBank {
                 .build();
         var bank = instance.sync.fenceBank;
 
-        FatFence[] fences = bank.borrowSignaledFences(5, "OldFence");
-        long[] rawFences = Arrays.stream(fences).mapToLong(fatFence -> fatFence.vkFence).toArray();
+        VkbFence[] fences = bank.borrowFences(5, true, "OldFence");
         assertEquals(5, fences.length);
         for (var fence : fences) {
-            assertTrue(fence.hostSignaled);
-            assertTrue(fence.isSignaled(instance));
+            assertFalse(fence.isPending());
+            assertTrue(fence.isSignaled());
         }
 
-        bank.returnFences(true, fences[0], fences[1], fences[2]);
+        bank.returnFences(fences[0], fences[1], fences[2]);
 
-        FatFence[] newFences = bank.borrowSignaledFences(5, "NewFence");
-        long[] newRawFences = Arrays.stream(newFences).mapToLong(fatFence -> fatFence.vkFence).toArray();
-        assertTrue(contains(newRawFences, rawFences[0]));
-        assertFalse(contains(newRawFences, rawFences[3]));
-        assertTrue(contains(rawFences, newRawFences[0]));
-        assertFalse(contains(rawFences, newRawFences[4]));
+        VkbFence[] newFences = bank.borrowFences(5, true, "NewFence");
+        assertTrue(contains(newFences, fences[0]));
+        assertFalse(contains(newFences, fences[3]));
+        assertTrue(contains(fences, newFences[0]));
+        assertFalse(contains(fences, newFences[4]));
 
         for (var fence : newFences) {
-            assertTrue(fence.hostSignaled);
-            assertTrue(fence.isSignaled(instance));
+            assertTrue(fence.isSignaled());
+            assertFalse(fence.isPending());
         }
-        bank.returnFences(false, newFences);
-        bank.returnFences(false, fences[3], fences[4]);
+        bank.returnFences(newFences);
+        bank.returnFences(fences[3], fences[4]);
 
         instance.destroyInitialObjects();
     }

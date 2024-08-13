@@ -76,7 +76,7 @@ public class TranslucentWindowPlayground {
         );
         var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, 5, "Fill");
 
-        long[] commandFences = boiler.sync.createFences(true, commandBuffers.length, "Acquire");
+        var commandFences = boiler.sync.fenceBank.borrowFences(commandBuffers.length, true, "Acquire");
 
         long oldSwapchainID = -1;
 
@@ -97,11 +97,8 @@ public class TranslucentWindowPlayground {
                     oldSwapchainID = acquired.swapchainID();
                 }
 
-                long fence = commandFences[commandIndex];
-                assertVkSuccess(vkWaitForFences(
-                        boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
-                ), "WaitForFences", "Acquire" + counter);
-                assertVkSuccess(vkResetFences(boiler.vkDevice(), stack.longs(fence)), "ResetFences", "Acquire" + counter);
+                var fence = commandFences[commandIndex];
+                fence.waitAndReset(stack);
 
                 var commandBuffer = commandBuffers[commandIndex];
                 var recorder = CommandRecorder.begin(
@@ -140,11 +137,9 @@ public class TranslucentWindowPlayground {
             counter += 1;
         }
 
-        assertVkSuccess(vkDeviceWaitIdle(boiler.vkDevice()), "DeviceWaitIdle", null);
-
+        boiler.sync.fenceBank.awaitSubmittedFences();
+        boiler.sync.fenceBank.returnFences(commandFences);
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-        for (long fence : commandFences) vkDestroyFence(boiler.vkDevice(), fence, null);
-
         boiler.destroyInitialObjects();
     }
 }

@@ -147,7 +147,7 @@ public class HelloXR {
                 VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, boiler.queueFamilies().graphics().index(), "Drawing"
         );
         var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "Drawing")[0];
-        var fence = boiler.sync.createFences(false, 1, "Drawing")[0];
+        var fence = boiler.sync.fenceBank.borrowFence(false, "Drawing");
 
         int vertexSize = (3 + 3) * 4;
         var vertexBuffer = boiler.buffers.createMapped(
@@ -523,12 +523,7 @@ public class HelloXR {
                         commandBuffer, "Drawing", new WaitSemaphore[0], fence
                 );
 
-                assertVkSuccess(vkWaitForFences(
-                        xr.boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
-                ), "WaitForFences", "Drawing");
-                assertVkSuccess(vkResetFences(
-                        xr.boiler.vkDevice(), stack.longs(fence)
-                ), "ResetFences", "Drawing");
+                fence.waitAndReset(stack);
                 assertVkSuccess(vkResetCommandPool(
                         xr.boiler.vkDevice(), commandPool, 0
                 ), "ResetCommandPool", "Drawing");
@@ -537,7 +532,7 @@ public class HelloXR {
 
         new HelloSessionLoop(session, renderSpace, swapchain, width, height).run();
 
-        vkDestroyFence(boiler.vkDevice(), fence, null);
+        boiler.sync.fenceBank.returnFence(fence);
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
         vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
         vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);

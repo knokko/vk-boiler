@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.swapchain;
 
 import com.github.knokko.boiler.instance.BoilerInstance;
-import com.github.knokko.boiler.sync.FatFence;
+import com.github.knokko.boiler.sync.VkbFence;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,7 +18,7 @@ class Swapchain {
     final SwapchainImage[] images;
     final int width, height, presentMode;
     final long[] acquireSemaphores, presentSemaphores;
-    final FatFence[] acquireFences, presentFences;
+    final VkbFence[] acquireFences, presentFences;
     final Collection<Runnable> destructionCallbacks = new ArrayList<>();
 
     private int acquireIndex;
@@ -52,7 +52,7 @@ class Swapchain {
             if (instance.swapchains.hasSwapchainMaintenance) {
                 this.presentFences = instance.sync.fenceBank.borrowSignaledFences(numImages, "PresentFence");
             } else {
-                this.presentFences = new FatFence[numImages];
+                this.presentFences = new VkbFence[numImages];
             }
             for (int index = 0; index < numImages; index++) {
                 long vkImage = pImages.get(index);
@@ -64,9 +64,9 @@ class Swapchain {
 
     SwapchainImage acquire() {
         long acquireSemaphore = acquireSemaphores[acquireIndex];
-        FatFence acquireFence = acquireFences[acquireIndex];
+        VkbFence acquireFence = acquireFences[acquireIndex];
         long presentSemaphore = presentSemaphores[acquireIndex];
-        FatFence presentFence = presentFences[acquireIndex];
+        VkbFence presentFence = presentFences[acquireIndex];
 
         try (var stack = stackPush()) {
             acquireFence.waitAndReset(instance, stack);

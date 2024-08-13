@@ -1,26 +1,28 @@
 package com.github.knokko.boiler.queue;
 
 import com.github.knokko.boiler.sync.TimelineInstant;
+import com.github.knokko.boiler.sync.VkbFence;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import com.github.knokko.boiler.sync.WaitTimelineSemaphore;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
+import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
 
 public record BoilerQueue(VkQueue vkQueue) {
 
     public void submit(
             VkCommandBuffer commandBuffer, String context,
-            WaitSemaphore[] waitSemaphores, long fence, long... vkSignalSemaphores
+            WaitSemaphore[] waitSemaphores, VkbFence fence, long... vkSignalSemaphores
     ) {
-        submit(commandBuffer, context, waitSemaphores, fence, vkSignalSemaphores, new WaitTimelineSemaphore[0]);
+        submit(commandBuffer, context, waitSemaphores, fence, vkSignalSemaphores, null);
     }
 
     public synchronized void submit(
             VkCommandBuffer commandBuffer, String context,
-            WaitSemaphore[] waitSemaphores, long fence, long[] vkSignalSemaphores,
+            WaitSemaphore[] waitSemaphores, VkbFence fence, long[] vkSignalSemaphores,
             WaitTimelineSemaphore[] timelineWaits, TimelineInstant... timelineSignals
     ) {
         if (waitSemaphores == null) waitSemaphores = new WaitSemaphore[0];
@@ -88,7 +90,8 @@ public record BoilerQueue(VkQueue vkQueue) {
                 submission.pNext(timeline);
             }
 
-            assertVkSuccess(vkQueueSubmit(vkQueue, submission, fence), "QueueSubmit", context);
+            long fenceHandle = fence != null ? fence.getVkFenceAndSubmit() : VK_NULL_HANDLE;
+            assertVkSuccess(vkQueueSubmit(vkQueue, submission, fenceHandle), "QueueSubmit", context);
         }
     }
 }
