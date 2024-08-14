@@ -8,7 +8,7 @@ import com.github.knokko.boiler.images.BoilerImages;
 import com.github.knokko.boiler.pipelines.BoilerPipelines;
 import com.github.knokko.boiler.queue.QueueFamilies;
 import com.github.knokko.boiler.surface.WindowSurface;
-import com.github.knokko.boiler.swapchain.SwapchainSettings;
+import com.github.knokko.boiler.window.SwapchainSettings;
 import com.github.knokko.boiler.sync.BoilerSync;
 import com.github.knokko.boiler.window.VkbWindow;
 import com.github.knokko.boiler.xr.XrBoiler;

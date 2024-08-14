@@ -3,12 +3,17 @@ package com.github.knokko.boiler.sync;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import org.junit.jupiter.api.Test;
 
-import static com.github.knokko.boiler.sync.TestFenceBank.contains;
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.lwjgl.vulkan.VK10.VK_API_VERSION_1_0;
 
 public class TestSemaphoreBank {
+
+    private static boolean contains(long[] semaphores, long target) {
+        return Arrays.stream(semaphores).anyMatch(semaphore -> semaphore == target);
+    }
 
     @Test
     public void testBasic() {

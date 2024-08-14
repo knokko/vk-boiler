@@ -1,7 +1,5 @@
 package com.github.knokko.boiler.window;
 
-import com.github.knokko.boiler.window.AcquiredImage;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -11,7 +9,7 @@ public class SwapchainResourceManager<T> {
 
     private final Function<AcquiredImage, T> createResources;
     private final Consumer<T> destroyResources;
-    private Object currentSwapchain;
+    private VkbSwapchain currentSwapchain;
     private List<T> currentResources;
 
     public SwapchainResourceManager(Function<AcquiredImage, T> createResources, Consumer<T> destroyResources) {

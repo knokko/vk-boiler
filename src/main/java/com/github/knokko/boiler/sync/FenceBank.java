@@ -53,7 +53,6 @@ public class FenceBank {
             fence.setName(name, stack);
         }
 
-
         borrowedFences.add(fence);
         return fence;
     }

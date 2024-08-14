@@ -338,6 +338,7 @@ public class TerrainPlayground {
                 VK_API_VERSION_1_2, "TerrainPlayground", VK_MAKE_VERSION(0, 1, 0)
         )
                 .validation(new ValidationFeatures(true, true, false, true, true))
+                .forbidValidationErrors()
                 .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
                 .requiredFeatures12(VkPhysicalDeviceVulkan12Features::timelineSemaphore)
                 .featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
@@ -429,7 +430,7 @@ public class TerrainPlayground {
             try (var stack = stackPush()) {
                 long imageView = boiler.images.createSimpleView(
                         stack, swapchainImage.vkImage(), boiler.swapchainSettings.surfaceFormat().format(),
-                        VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.imageIndex()
+                        VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
                 );
 
                 var depthImage = boiler.images.createSimple(
@@ -516,7 +517,7 @@ public class TerrainPlayground {
             }
 
             try (var stack = stackPush()) {
-                var swapchainImage = boiler.swapchains.acquireNextImage(VK_PRESENT_MODE_MAILBOX_KHR);
+                var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_MAILBOX_KHR);
                 if (swapchainImage == null) {
                     //noinspection BusyWait
                     sleep(100);
@@ -530,7 +531,7 @@ public class TerrainPlayground {
 
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
-                boiler.sync.awaitTimelineSemaphore(stack, timeline, frameCounter, "Commands");
+                timeline.waitUntil(frameCounter);
 
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "TerrainDraw");
 
@@ -633,17 +634,17 @@ public class TerrainPlayground {
                 var timelineFinished = new TimelineInstant(timeline, frameCounter + numFramesInFlight);
                 boiler.queueFamilies().graphics().queues().get(0).submit(
                         commandBuffer, "TerrainDraw", waitSemaphores, null,
-                        new long[] { swapchainImage.presentSemaphore() },
-                        new WaitTimelineSemaphore[0], timelineFinished
+                        new long[] { swapchainImage.presentSemaphore() }, null, timelineFinished
                 );
 
-                boiler.swapchains.presentImage(swapchainImage, timelineFinished);
+                boiler.window().presentSwapchainImage(swapchainImage, timelineFinished);
                 frameCounter += 1;
             }
         }
 
         assertVkSuccess(vkDeviceWaitIdle(boiler.vkDevice()), "DeviceWaitIdle", "FinishTerrainPlayground");
-        vkDestroySemaphore(boiler.vkDevice(), timeline, null);
+        timeline.destroy();
+        vkDestroySemaphore(boiler.vkDevice(), timeline.vkSemaphore, null);
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 
         descriptorPool.destroy();

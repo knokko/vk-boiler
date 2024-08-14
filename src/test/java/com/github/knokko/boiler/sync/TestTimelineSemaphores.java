@@ -28,6 +28,7 @@ public class TestTimelineSemaphores {
         )
                 .validation()
                 .forbidValidationErrors()
+                .defaultTimeout(250_000_000L)
                 .requiredFeatures12(VkPhysicalDeviceVulkan12Features::timelineSemaphore)
                 .featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
                 .build();
@@ -41,6 +42,7 @@ public class TestTimelineSemaphores {
         )
                 .validation()
                 .forbidValidationErrors()
+                .defaultTimeout(250_000_000L)
                 .requiredVkInstanceExtensions(createSet(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
                 .requiredDeviceExtensions(createSet(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME))
                 .extraDeviceRequirements(((physicalDevice, windowSurface, stack) -> {
@@ -67,7 +69,7 @@ public class TestTimelineSemaphores {
 
     private void testTimelineSemaphores(BoilerInstance instance) throws InterruptedException {
         var semaphore = instance.sync.createTimelineSemaphore(1, "Test");
-        var fence = instance.sync.createFences(false, 1, "TestFence")[0];
+        var fence = instance.sync.fenceBank.borrowFence(false, "TestFence");
         try (var stack = stackPush()) {
             var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "TestPool");
             var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "TestBuffers")[0];
@@ -76,34 +78,36 @@ public class TestTimelineSemaphores {
             instance.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "TestTimeline", new WaitSemaphore[0], fence, new long[0],
                     new WaitTimelineSemaphore[]{
-                            new WaitTimelineSemaphore(semaphore, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 2)
+                            new WaitTimelineSemaphore(semaphore.vkSemaphore, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 2)
                     }, new TimelineInstant(semaphore, 5)
             );
 
             // The submission can't start yet because the timeline semaphore value is still 1, but needs to be 2
             sleep(100);
-            assertEquals(1, instance.sync.getTimelineSemaphoreValue(stack, semaphore, null));
+            assertEquals(1, semaphore.getValue());
 
             // When we set the value to 2, the pending submission should start running, and then set it to 5
-            instance.sync.setTimelineSemaphoreValue(stack, semaphore, 2, null);
-            instance.sync.waitAndReset(stack, fence);
-            assertEquals(5, instance.sync.getTimelineSemaphoreValue(stack, semaphore, null));
+            semaphore.setValue(2);
+            fence.waitAndReset(stack);
+            assertEquals(5, semaphore.getValue());
 
-            instance.sync.awaitTimelineSemaphore(stack, semaphore, 4, null);
+            semaphore.waitUntil(4);
 
-            assertThrowsExactly(
-                    VulkanFailureException.class,
-                    () -> instance.sync.awaitTimelineSemaphore(stack, semaphore, 6, "whoops"),
-                    "vkSignalSemaphore (whoops) returned VK_TIMEOUT"
-            );
-            instance.sync.setTimelineSemaphoreValue(stack, semaphore, 8, null);
-            assertEquals(8, instance.sync.getTimelineSemaphoreValue(stack, semaphore, null));
+            String functionName = "vkWaitSemaphores";
+            if (instance.deviceExtensions.contains(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME) ) {
+                functionName += "KHR";
+            }
+            assertEquals(functionName + " (Test) returned 2 (VK_TIMEOUT)", assertThrows(
+                    VulkanFailureException.class, () -> semaphore.waitUntil(6)
+            ).getMessage());
+            semaphore.setValue(8);
+            assertEquals(8, semaphore.getValue());
 
             vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
         }
 
-        vkDestroyFence(instance.vkDevice(), fence, null);
-        vkDestroySemaphore(instance.vkDevice(), semaphore, null);
+        instance.sync.fenceBank.returnFence(fence);
+        vkDestroySemaphore(instance.vkDevice(), semaphore.vkSemaphore, null);
         instance.destroyInitialObjects();
     }
 }

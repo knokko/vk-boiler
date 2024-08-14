@@ -56,6 +56,10 @@ public class VkbFence implements Comparable<VkbFence> {
         return vkFence;
     }
 
+    public long getSubmissionTime() {
+        return submissionTime;
+    }
+
     public synchronized void reset(MemoryStack stack) {
         if (isPending()) throw new IllegalStateException("Fence is still pending");
 
@@ -98,14 +102,23 @@ public class VkbFence implements Comparable<VkbFence> {
         waitAndReset(stack, instance.defaultTimeout);
     }
 
-    public void waitAndReset(MemoryStack stack, long timeout) {
+    public synchronized void waitAndReset(MemoryStack stack, long timeout) {
         wait(stack, timeout);
         reset(stack);
     }
 
+    public synchronized void awaitSubmission(MemoryStack stack, long referenceSubmissionTime) {
+        if (submissionTime > referenceSubmissionTime) return;
+        wait(stack);
+    }
+
     public synchronized boolean isSignaled() {
+        return hasBeenSignaled(submissionTime);
+    }
+
+    public synchronized boolean hasBeenSignaled(long referenceSubmissionTime) {
         isPending();
-        return signaled;
+        return signaled || submissionTime > referenceSubmissionTime;
     }
 
     public void destroy() {

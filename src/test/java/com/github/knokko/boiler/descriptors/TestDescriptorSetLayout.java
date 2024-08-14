@@ -15,7 +15,7 @@ public class TestDescriptorSetLayout {
 
 	@Test
 	public void testDescriptorTypeCounts() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_3, "TestDescriptorSetLayout", 1
 		).validation().forbidValidationErrors().build();
 
@@ -40,7 +40,7 @@ public class TestDescriptorSetLayout {
 			uniform2.stageFlags(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 			uniform2.pImmutableSamplers(null);
 
-			var layout = boiler.descriptors.createLayout(stack, bindings, "DSLayout");
+			var layout = instance.descriptors.createLayout(stack, bindings, "DSLayout");
 
 			var expected = new HashMap<Integer, Integer>();
 			expected.put(VK_DESCRIPTOR_TYPE_SAMPLER, 5);
@@ -51,6 +51,6 @@ public class TestDescriptorSetLayout {
 			layout.destroy();
 		}
 
-		boiler.destroyInitialObjects();
+		instance.destroyInitialObjects();
 	}
 }

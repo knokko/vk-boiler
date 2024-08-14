@@ -1,9 +1,11 @@
 package com.github.knokko.boiler.sync;
 
 import com.github.knokko.boiler.instance.BoilerInstance;
+import org.lwjgl.vulkan.VkSemaphoreCreateInfo;
 
 import java.util.concurrent.ConcurrentSkipListSet;
 
+import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -19,10 +21,19 @@ public class SemaphoreBank {
 
     public long borrowSemaphore(String name) {
         Long semaphore = unusedSemaphores.pollFirst();
-        if (semaphore == null) {
-            semaphore = instance.sync.createSemaphores("Borrowed", 1)[0];
-        }
         try (var stack = stackPush()) {
+            if (semaphore == null) {
+                var ciSemaphore = VkSemaphoreCreateInfo.calloc(stack);
+                ciSemaphore.sType$Default();
+                ciSemaphore.flags(0);
+
+                var pSemaphore = stack.callocLong(1);
+                assertVkSuccess(vkCreateSemaphore(
+                        instance.vkDevice(), ciSemaphore, null, pSemaphore
+                ), "CreateSemaphore", name);
+                semaphore = pSemaphore.get(0);
+                instance.debug.name(stack, semaphore, VK_OBJECT_TYPE_SEMAPHORE, name);
+            }
             instance.debug.name(stack, semaphore, VK_OBJECT_TYPE_SEMAPHORE, name);
         }
         borrowedSemaphores.add(semaphore);

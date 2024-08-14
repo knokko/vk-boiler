@@ -6,7 +6,6 @@ import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import org.junit.jupiter.api.Test;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memByteBuffer;
@@ -16,18 +15,18 @@ public class TestBufferCopies {
 
     @Test
     public void testBufferCopies() {
-        var boiler = new BoilerBuilder(
+        var instance = new BoilerBuilder(
                 VK_API_VERSION_1_0, "Test buffer copies", VK_MAKE_VERSION(1, 0, 0)
         ).validation().forbidValidationErrors().build();
 
-        var sourceBuffer = boiler.buffers.createMapped(
+        var sourceBuffer = instance.buffers.createMapped(
                 100, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "source"
         );
         var sourceHostBuffer = memByteBuffer(sourceBuffer.hostAddress(), 100);
-        var middleBuffer = boiler.buffers.create(
+        var middleBuffer = instance.buffers.create(
                 100, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "middle"
         );
-        var destinationBuffer = boiler.buffers.createMapped(
+        var destinationBuffer = instance.buffers.createMapped(
                 100, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "destination"
         );
         var destinationHostBuffer = memByteBuffer(destinationBuffer.hostAddress(), 100);
@@ -37,15 +36,15 @@ public class TestBufferCopies {
         }
 
         try (var stack = stackPush()) {
-            var fence = boiler.sync.createFences(false, 1, "Copying")[0];
-            var commandPool = boiler.commands.createPool(
-                    0, boiler.queueFamilies().graphics().index(), "Copy"
+            var fence = instance.sync.fenceBank.borrowFence(false, "Copying");
+            var commandPool = instance.commands.createPool(
+                    0, instance.queueFamilies().graphics().index(), "Copy"
             );
-            var commandBuffer = boiler.commands.createPrimaryBuffers(
+            var commandBuffer = instance.commands.createPrimaryBuffers(
                     commandPool, 1, "Copy"
             )[0];
 
-            var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Copying");
+            var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Copying");
 
             recorder.copyBuffer(100, sourceBuffer.vkBuffer(), 0, middleBuffer.vkBuffer(), 0);
             recorder.bufferBarrier(
@@ -55,24 +54,21 @@ public class TestBufferCopies {
 
             recorder.end();
 
-            boiler.queueFamilies().graphics().queues().get(0).submit(
+            instance.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "Copying", new WaitSemaphore[0], fence
             );
-            assertVkSuccess(vkWaitForFences(
-                    boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
-            ), "WaitForFences", "Copying");
-
-            vkDestroyFence(boiler.vkDevice(), fence, null);
-            vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
+            fence.wait(stack);
+            instance.sync.fenceBank.returnFence(fence);
+            vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
         }
 
         for (int index = 0; index < 100; index++) {
             assertEquals((byte) index, destinationHostBuffer.get());
         }
 
-        sourceBuffer.destroy(boiler.vmaAllocator());
-        middleBuffer.destroy(boiler.vmaAllocator());
-        destinationBuffer.destroy(boiler.vmaAllocator());
-        boiler.destroyInitialObjects();
+        sourceBuffer.destroy(instance.vmaAllocator());
+        middleBuffer.destroy(instance.vmaAllocator());
+        destinationBuffer.destroy(instance.vmaAllocator());
+        instance.destroyInitialObjects();
     }
 }

@@ -6,7 +6,7 @@ import com.github.knokko.boiler.builder.swapchain.SimpleSurfaceFormatPicker;
 import com.github.knokko.boiler.builder.swapchain.SurfaceFormatPicker;
 import com.github.knokko.boiler.surface.SurfaceFormat;
 import com.github.knokko.boiler.surface.WindowSurface;
-import com.github.knokko.boiler.swapchain.SwapchainSettings;
+import com.github.knokko.boiler.window.SwapchainSettings;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkSurfaceCapabilitiesKHR;
 import org.lwjgl.vulkan.VkSurfaceFormatKHR;

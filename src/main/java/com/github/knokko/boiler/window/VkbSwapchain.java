@@ -1,9 +1,8 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.instance.BoilerInstance;
-import com.github.knokko.boiler.sync.VkbFence;
+import com.github.knokko.boiler.sync.AwaitableSubmission;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
-import org.lwjgl.vulkan.VkSwapchainPresentFenceInfoEXT;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -21,7 +20,7 @@ class VkbSwapchain { // TODO Update README
     private final SwapchainCleaner cleaner;
     private final int presentMode; // TODO Support for switching present mode
     final int width, height;
-    final VkbSwapchainImage[] images;
+    final long[] images;
 
     final Collection<Runnable> destructionCallbacks = new ArrayList<>();
 
@@ -52,10 +51,10 @@ class VkbSwapchain { // TODO Update README
                     instance.vkDevice(), vkSwapchain, pNumImages, pImages
             ), "GetSwapchainImagesKHR", "images");
 
-            this.images = new VkbSwapchainImage[numImages];
+            this.images = new long[numImages];
             for (int index = 0; index < numImages; index++) {
-                this.images[index] = new VkbSwapchainImage(pImages.get(index), index);
-                this.instance.debug.name(stack, pImages.get(index), VK_OBJECT_TYPE_IMAGE, "SwapchainImage" + index);
+                this.images[index] = pImages.get(index);
+                this.instance.debug.name(stack, this.images[index], VK_OBJECT_TYPE_IMAGE, "SwapchainImage" + index);
             }
         }
     }
@@ -70,21 +69,19 @@ class VkbSwapchain { // TODO Update README
         if (outdated) return null;
 
         try (var stack = stackPush()) {
-            VkbFence acquireFence;
+            var acquireFence = instance.sync.fenceBank.borrowFence(false, "AcquireFence");
             long acquireSemaphore;
 
             if (useAcquireFence) {
-                acquireFence = instance.sync.fenceBank.borrowFence(false, "AcquireFence");
                 acquireSemaphore = VK_NULL_HANDLE;
             } else {
-                acquireFence = null;
                 acquireSemaphore = instance.sync.semaphoreBank.borrowSemaphore("AcquireSemaphore");
             }
 
             var pImageIndex = stack.callocInt(1);
             int acquireResult = vkAcquireNextImageKHR(
                     instance.vkDevice(), vkSwapchain, instance.defaultTimeout,
-                    acquireSemaphore, acquireFence == null ? VK_NULL_HANDLE : acquireFence.getVkFenceAndSubmit(), pImageIndex
+                    acquireSemaphore, acquireFence.getVkFenceAndSubmit(), pImageIndex
             );
 
             if (acquireResult == VK_SUBOPTIMAL_KHR || acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -93,18 +90,14 @@ class VkbSwapchain { // TODO Update README
 
             if (acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR) {
                 int imageIndex = pImageIndex.get(0);
-                var image = images[imageIndex];
 
                 var presentSemaphore = instance.sync.semaphoreBank.borrowSemaphore("PresentSemaphore");
                 var presentFence = cleaner.getPresentFence();
-                AcquiredImage acquiredImage;
-                if (useAcquireFence) {
-                    acquiredImage = new AcquiredImage(this, image, acquireFence, presentSemaphore, presentFence);
-                } else {
-                    acquiredImage = new AcquiredImage(this, image, acquireSemaphore, presentSemaphore, presentFence);
-                }
+                AcquiredImage acquiredImage = new AcquiredImage(
+                        this, imageIndex, acquireFence, acquireSemaphore, presentSemaphore, presentFence
+                );
 
-                cleaner.onAcquire(this);
+                cleaner.onAcquire(acquiredImage);
 
                 return acquiredImage;
             }
@@ -117,7 +110,7 @@ class VkbSwapchain { // TODO Update README
         }
     }
 
-    void presentImage(AcquiredImage image) {
+    void presentImage(AcquiredImage image, AwaitableSubmission renderSubmission) {
         try (var stack = stackPush()) {
             var presentInfo = VkPresentInfoKHR.calloc(stack);
             presentInfo.sType$Default();
@@ -126,17 +119,9 @@ class VkbSwapchain { // TODO Update README
             presentInfo.pSwapchains(stack.longs(vkSwapchain));
             presentInfo.pImageIndices(stack.ints(image.index()));
             presentInfo.pResults(stack.callocInt(1));
-            // TODO Let the cleaner handle this
-//            if (hasSwapchainMaintenance) {
-//                acquired.presentFence().waitAndReset(instance, stack);
-//                acquiredSwapchain.images[acquired.imageIndex()].didDrawingFinish = didDrawingFinish;
-//
-//                var fiPresent = VkSwapchainPresentFenceInfoEXT.calloc(stack);
-//                fiPresent.sType$Default();
-//                fiPresent.pFences(stack.longs(acquired.presentFence().vkFence));
-//
-//                presentInfo.pNext(fiPresent);
-//            }
+
+            image.renderSubmission = renderSubmission;
+            cleaner.beforePresent(stack, presentInfo, image);
 
             // TODO Check why this is needed
             //if (beforePresentCallback != null) beforePresentCallback.accept(presentInfo);
@@ -154,7 +139,6 @@ class VkbSwapchain { // TODO Update README
     }
 
     void destroyNow() {
-        // TODO Return fences and semaphores
         for (var callback : destructionCallbacks) callback.run();
         vkDestroySwapchainKHR(instance.vkDevice(), vkSwapchain, null);
     }

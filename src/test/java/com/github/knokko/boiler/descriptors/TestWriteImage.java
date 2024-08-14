@@ -18,17 +18,17 @@ public class TestWriteImage {
 
 	@Test
 	public void testWriteImage() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TestWriteImage", 1
 		).validation().forbidValidationErrors().build();
 
 		try (var stack = stackPush()) {
 
-			var destBuffer = boiler.buffers.createMapped(4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
-			var sourceBuffer = boiler.buffers.createMapped(4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "SourceBuffer");
+			var destBuffer = instance.buffers.createMapped(4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
+			var sourceBuffer = instance.buffers.createMapped(4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "SourceBuffer");
 			memPutInt(sourceBuffer.hostAddress(), 100);
 
-			var image = boiler.images.createSimple(
+			var image = instance.images.createSimple(
 					stack, 1, 1, VK_FORMAT_R32_SINT,
 					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					VK_IMAGE_ASPECT_COLOR_BIT, "Image"
@@ -46,18 +46,18 @@ public class TestWriteImage {
 			imageLayoutBinding.descriptorCount(1);
 			imageLayoutBinding.stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
 
-			var descriptorSetLayout = boiler.descriptors.createLayout(stack, layoutBindings, "DSLayout");
-			long pipelineLayout = boiler.pipelines.createLayout(
+			var descriptorSetLayout = instance.descriptors.createLayout(stack, layoutBindings, "DSLayout");
+			long pipelineLayout = instance.pipelines.createLayout(
 					stack, null, "PipelineLayout", descriptorSetLayout.vkDescriptorSetLayout
 			);
-			long computePipeline = boiler.pipelines.createComputePipeline(
+			long computePipeline = instance.pipelines.createComputePipeline(
 					stack, pipelineLayout, "shaders/sample.comp.spv", "SamplePipeline"
 			);
 
 			var descriptorPool = descriptorSetLayout.createPool(1, 0, "DescriptorPool");
 			long descriptorSet = descriptorPool.allocate(stack, 1)[0];
 
-			var sampler = boiler.images.createSampler(
+			var sampler = instance.images.createSampler(
 					stack, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
 					0f, 0f, false, "Sampler"
 			);
@@ -68,20 +68,20 @@ public class TestWriteImage {
 			imageInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 			var descriptorWrites = VkWriteDescriptorSet.calloc(2, stack);
-			boiler.descriptors.writeBuffer(stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, destBuffer);
-			boiler.descriptors.writeImage(descriptorWrites, descriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfo);
+			instance.descriptors.writeBuffer(stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, destBuffer);
+			instance.descriptors.writeImage(descriptorWrites, descriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfo);
 
-			vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
+			vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
 
-			long fence = boiler.sync.createFences(false, 1, "Fence")[0];
+			var fence = instance.sync.fenceBank.borrowFence(false, "Fence");
 
-			long commandPool = boiler.commands.createPool(
-					0, boiler.queueFamilies().compute().index(), "CommandPool"
+			long commandPool = instance.commands.createPool(
+					0, instance.queueFamilies().compute().index(), "CommandPool"
 			);
-			var commandBuffer = boiler.commands.createPrimaryBuffers(
+			var commandBuffer = instance.commands.createPrimaryBuffers(
 					commandPool, 1, "Sampling"
 			)[0];
-			var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Sampling");
+			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Sampling");
 
 			recorder.transitionColorLayout(image.vkImage(), null, ResourceUsage.TRANSFER_DEST);
 			recorder.copyBufferToImage(VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(), 1, 1, sourceBuffer.vkBuffer());
@@ -98,26 +98,26 @@ public class TestWriteImage {
 			vkCmdDispatch(commandBuffer, 1, 1, 1);
 
 			assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Sampling");
-			boiler.queueFamilies().graphics().queues().get(0).submit(
+			instance.queueFamilies().graphics().queues().get(0).submit(
 					commandBuffer, "Sampling", null, fence
 			);
 
-			boiler.sync.waitAndReset(stack, fence);
+			fence.waitAndReset(stack);
 
 			assertEquals(100, memGetInt(destBuffer.hostAddress()));
 
-			vkDestroyFence(boiler.vkDevice(), fence, null);
+			instance.sync.fenceBank.returnFence(fence);
 			descriptorPool.destroy();
-			vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-			vkDestroyPipeline(boiler.vkDevice(), computePipeline, null);
+			vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+			vkDestroyPipeline(instance.vkDevice(), computePipeline, null);
 			descriptorSetLayout.destroy();
-			vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-			vkDestroySampler(boiler.vkDevice(), sampler, null);
-			destBuffer.destroy(boiler.vmaAllocator());
-			sourceBuffer.destroy(boiler.vmaAllocator());
-			image.destroy(boiler);
+			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
+			vkDestroySampler(instance.vkDevice(), sampler, null);
+			destBuffer.destroy(instance.vmaAllocator());
+			sourceBuffer.destroy(instance.vmaAllocator());
+			image.destroy(instance);
 		}
 
-		boiler.destroyInitialObjects();
+		instance.destroyInitialObjects();
 	}
 }

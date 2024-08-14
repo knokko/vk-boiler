@@ -15,7 +15,7 @@ public class TestGrowingDescriptorBank {
 
     @Test
     public void testGrowingDescriptorBank() {
-        var boiler = new BoilerBuilder(VK_API_VERSION_1_0, "TestFixedDescriptorBank", 1)
+        var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFixedDescriptorBank", 1)
                 .validation()
                 .forbidValidationErrors()
                 .build();
@@ -28,7 +28,7 @@ public class TestGrowingDescriptorBank {
             bindings.descriptorCount(3);
             bindings.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
-            layout = boiler.descriptors.createLayout(stack, bindings, "Test");
+            layout = instance.descriptors.createLayout(stack, bindings, "Test");
         }
 
         var bank = new GrowingDescriptorBank(layout, 0);
@@ -59,7 +59,7 @@ public class TestGrowingDescriptorBank {
 
         bank.destroy(false);
         layout.destroy();
-        boiler.destroyInitialObjects();
+        instance.destroyInitialObjects();
     }
 
     private void assertUnique(long[] array) {

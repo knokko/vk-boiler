@@ -17,7 +17,7 @@ public class TestComputePipelines {
 
     @Test
     public void testSimpleComputeShader() {
-        var boiler = new BoilerBuilder(
+        var instance = new BoilerBuilder(
                 VK_API_VERSION_1_2, "TestSimpleComputeShader", VK_MAKE_VERSION(0, 1, 0)
         ).validation().forbidValidationErrors().build();
 
@@ -26,7 +26,7 @@ public class TestComputePipelines {
             int invocationsPerGroup = 128;
             int groupCount = 1024 * 2;
 
-            var buffer = boiler.buffers.createMapped(
+            var buffer = instance.buffers.createMapped(
                     4 * valuesPerInvocation * invocationsPerGroup * groupCount,
                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Filled"
             );
@@ -39,7 +39,7 @@ public class TestComputePipelines {
             fillBufferLayoutBinding.descriptorCount(1);
             fillBufferLayoutBinding.stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
 
-            var descriptorSetLayout = boiler.descriptors.createLayout(
+            var descriptorSetLayout = instance.descriptors.createLayout(
                     stack, fillLayoutBindings, "FillBuffer-DescriptorSetLayout"
             );
 
@@ -49,10 +49,10 @@ public class TestComputePipelines {
             sizePushConstant.offset(0);
             sizePushConstant.size(8);
 
-            long pipelineLayout = boiler.pipelines.createLayout(
+            long pipelineLayout = instance.pipelines.createLayout(
                     stack, pushConstants, "FillBuffer-PipelineLayout", descriptorSetLayout.vkDescriptorSetLayout
             );
-            long computePipeline = boiler.pipelines.createComputePipeline(
+            long computePipeline = instance.pipelines.createComputePipeline(
                     stack, pipelineLayout, "shaders/fill.comp.spv", "FillBuffer"
             );
 
@@ -60,20 +60,20 @@ public class TestComputePipelines {
             long descriptorSet = descriptorPool.allocate(stack, 1)[0];
 
             var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
-            boiler.descriptors.writeBuffer(stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer);
+            instance.descriptors.writeBuffer(stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer);
 
-            vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
+            vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
 
-            long fence = boiler.sync.createFences(false, 1, "Filling")[0];
+            var fence = instance.sync.fenceBank.borrowFence(false, "Filling");
 
-            long commandPool = boiler.commands.createPool(
-                    0, boiler.queueFamilies().graphics().index(), "Filling"
+            long commandPool = instance.commands.createPool(
+                    0, instance.queueFamilies().graphics().index(), "Filling"
             );
-            var commandBuffer = boiler.commands.createPrimaryBuffers(
+            var commandBuffer = instance.commands.createPrimaryBuffers(
                     commandPool, 1, "Filling"
             )[0];
 
-            boiler.commands.begin(commandBuffer, stack, "Filling");
+            instance.commands.begin(commandBuffer, stack, "Filling");
 
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
             vkCmdBindDescriptorSets(
@@ -88,28 +88,26 @@ public class TestComputePipelines {
 
             assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Filling");
             long startTime = System.currentTimeMillis();
-            boiler.queueFamilies().graphics().queues().get(0).submit(
+            instance.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "Filling", new WaitSemaphore[0], fence
             );
 
-            assertVkSuccess(vkWaitForFences(
-                    boiler.vkDevice(), stack.longs(fence), true, boiler.defaultTimeout
-            ), "WaitForFences", "Filling");
+            fence.wait(stack);
             System.out.println("Submission took " + (System.currentTimeMillis() - startTime) + " ms");
 
             for (int index = 0; index < hostBuffer.limit(); index++) {
                 assertEquals(123456, hostBuffer.get(index));
             }
 
-            vkDestroyFence(boiler.vkDevice(), fence, null);
+            instance.sync.fenceBank.returnFence(fence);
             descriptorPool.destroy();
-            vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-            vkDestroyPipeline(boiler.vkDevice(), computePipeline, null);
+            vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+            vkDestroyPipeline(instance.vkDevice(), computePipeline, null);
             descriptorSetLayout.destroy();
-            vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-            vmaDestroyBuffer(boiler.vmaAllocator(), buffer.vkBuffer(), buffer.vmaAllocation());
+            vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
+            vmaDestroyBuffer(instance.vmaAllocator(), buffer.vkBuffer(), buffer.vmaAllocation());
         }
 
-        boiler.destroyInitialObjects();
+        instance.destroyInitialObjects();
     }
 }

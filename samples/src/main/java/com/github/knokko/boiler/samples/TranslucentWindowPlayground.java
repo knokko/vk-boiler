@@ -12,7 +12,6 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.VkClearColorValue;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.util.ReflectionHelper.getIntConstantName;
 import static java.lang.Math.abs;
 import static java.lang.Math.sin;
@@ -34,11 +33,12 @@ public class TranslucentWindowPlayground {
         // Wayland's windows have cool transparency support
         if (glfwPlatformSupported(GLFW_PLATFORM_WAYLAND)) glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
         if (!glfwInit()) {
-            // Sometimes, GLFW advertises Wayland support, although it doesn't really work...
-            // In such cases, retry with X11 instead
+            // The fact that glfwPlatFormSupported(GLFW_PLATFORM_WAYLAND) returned `true` does not necessarily mean
+            // that this machine actually supports Wayland. If Wayland is not supported by this machine, glfwInit()
+            // will fail (return false), and we retry with X11.
             if (glfwPlatformSupported(GLFW_PLATFORM_WAYLAND) && glfwPlatformSupported(GLFW_PLATFORM_X11)) {
                 glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
-                System.out.println("GLFW appears to have Wayland issues; falling back to X11...");
+                System.out.println("This machine doesn't seem to support Wayland; falling back to X11...");
             }
             if (!glfwInit()) throw new RuntimeException("Failed to init GLFW");
         }
@@ -78,23 +78,17 @@ public class TranslucentWindowPlayground {
 
         var commandFences = boiler.sync.fenceBank.borrowFences(commandBuffers.length, true, "Acquire");
 
-        long oldSwapchainID = -1;
-
         int counter = 0;
         while(!glfwWindowShouldClose(boiler.glfwWindow())) {
             glfwPollEvents();
             try (var stack = stackPush()) {
                 int commandIndex = counter % commandFences.length;
 
-                var acquired = boiler.swapchains.acquireNextImage(VK_PRESENT_MODE_FIFO_KHR);
+                var acquired = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_FIFO_KHR);
                 if (acquired == null) {
                     //noinspection BusyWait
                     sleep(100);
                     continue;
-                }
-
-                if (acquired.swapchainID() != oldSwapchainID) {
-                    oldSwapchainID = acquired.swapchainID();
                 }
 
                 var fence = commandFences[commandIndex];
@@ -123,15 +117,15 @@ public class TranslucentWindowPlayground {
                 vkCmdClearColorImage(commandBuffer, acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pClearColor, pRanges);
 
                 recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
+                recorder.end();
 
-                assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Fill");
-                boiler.queueFamilies().graphics().queues().get(0).submit(
+                var renderSubmission = boiler.queueFamilies().graphics().queues().get(0).submit(
                         commandBuffer, "Fill", new WaitSemaphore[] { new WaitSemaphore(
                                 acquired.acquireSemaphore(), VK_PIPELINE_STAGE_TRANSFER_BIT
                         ) }, fence, acquired.presentSemaphore()
                 );
 
-                boiler.swapchains.presentImage(acquired, fence);
+                boiler.window().presentSwapchainImage(acquired, renderSubmission);
             }
 
             counter += 1;

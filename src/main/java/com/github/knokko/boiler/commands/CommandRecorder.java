@@ -35,13 +35,13 @@ public class CommandRecorder {
     }
 
     private final VkCommandBuffer commandBuffer;
-    private final BoilerInstance boiler;
+    private final BoilerInstance instance;
     private final MemoryStack stack;
     private final String context;
 
-    private CommandRecorder(VkCommandBuffer commandBuffer, BoilerInstance boiler, MemoryStack stack, String context) {
+    private CommandRecorder(VkCommandBuffer commandBuffer, BoilerInstance instance, MemoryStack stack, String context) {
         this.commandBuffer = commandBuffer;
-        this.boiler = boiler;
+        this.instance = instance;
         this.stack = stack;
         this.context = context;
     }
@@ -63,9 +63,9 @@ public class CommandRecorder {
     ) {
         var imageCopyRegions = VkImageCopy.calloc(1, stack);
         var copyRegion = imageCopyRegions.get(0);
-        boiler.images.subresourceLayers(copyRegion.srcSubresource(), aspectMask);
+        instance.images.subresourceLayers(copyRegion.srcSubresource(), aspectMask);
         copyRegion.srcOffset().set(0, 0, 0);
-        boiler.images.subresourceLayers(copyRegion.dstSubresource(), aspectMask);
+        instance.images.subresourceLayers(copyRegion.dstSubresource(), aspectMask);
         copyRegion.dstOffset().set(0, 0, 0);
         copyRegion.extent().set(width, height, 1);
 
@@ -82,10 +82,10 @@ public class CommandRecorder {
     ) {
         var imageBlitRegions = VkImageBlit.calloc(1, stack);
         var blitRegion = imageBlitRegions.get(0);
-        boiler.images.subresourceLayers(blitRegion.srcSubresource(), aspectMask);
+        instance.images.subresourceLayers(blitRegion.srcSubresource(), aspectMask);
         blitRegion.srcOffsets().get(0).set(0, 0, 0);
         blitRegion.srcOffsets().get(1).set(sourceWidth, sourceHeight, 1);
-        boiler.images.subresourceLayers(blitRegion.dstSubresource(), aspectMask);
+        instance.images.subresourceLayers(blitRegion.dstSubresource(), aspectMask);
         blitRegion.dstOffsets().get(0).set(0, 0, 0);
         blitRegion.dstOffsets().get(1).set(destWidth, destHeight, 1);
 
@@ -103,7 +103,7 @@ public class CommandRecorder {
         copyRegion.bufferOffset(0);
         copyRegion.bufferRowLength(width);
         copyRegion.bufferImageHeight(height);
-        boiler.images.subresourceLayers(copyRegion.imageSubresource(), aspectMask);
+        instance.images.subresourceLayers(copyRegion.imageSubresource(), aspectMask);
         copyRegion.imageOffset().set(0, 0, 0);
         copyRegion.imageExtent().set(width, height, 1);
 
@@ -120,7 +120,7 @@ public class CommandRecorder {
         copyRegion.bufferOffset(0);
         copyRegion.bufferRowLength(width);
         copyRegion.bufferImageHeight(height);
-        boiler.images.subresourceLayers(copyRegion.imageSubresource(), aspectMask);
+        instance.images.subresourceLayers(copyRegion.imageSubresource(), aspectMask);
         copyRegion.imageOffset().set(0, 0, 0);
         copyRegion.imageExtent().set(width, height, 1);
 
@@ -172,7 +172,7 @@ public class CommandRecorder {
         pImageBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
         pImageBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
         pImageBarrier.image(vkImage);
-        boiler.images.subresourceRange(stack, pImageBarrier.subresourceRange(), aspectMask);
+        instance.images.subresourceRange(stack, pImageBarrier.subresourceRange(), aspectMask);
 
         vkCmdPipelineBarrier(
                 commandBuffer, oldUsage != null ? oldUsage.stageMask() : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -239,12 +239,12 @@ public class CommandRecorder {
         renderingInfo.pDepthAttachment(depthAttachment);
         renderingInfo.pStencilAttachment(stencilAttachment);
 
-        if (boiler.apiVersion >= VK_API_VERSION_1_3) vkCmdBeginRendering(commandBuffer, renderingInfo);
+        if (instance.apiVersion >= VK_API_VERSION_1_3) vkCmdBeginRendering(commandBuffer, renderingInfo);
         else vkCmdBeginRenderingKHR(commandBuffer, renderingInfo);
     }
 
     public void endDynamicRendering() {
-        if (boiler.apiVersion >= VK_API_VERSION_1_3) vkCmdEndRendering(commandBuffer);
+        if (instance.apiVersion >= VK_API_VERSION_1_3) vkCmdEndRendering(commandBuffer);
         else vkCmdEndRenderingKHR(commandBuffer);
     }
 

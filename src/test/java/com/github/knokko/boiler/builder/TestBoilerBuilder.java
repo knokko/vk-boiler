@@ -35,7 +35,7 @@ public class TestBoilerBuilder {
     @Test
     public void testSimpleInstanceBuilder() {
         boolean[] pDidCallInstanceCreator = { false };
-        var boiler = new BoilerBuilder(
+        var instance = new BoilerBuilder(
                 VK_API_VERSION_1_0,
                 "TestSimpleVulkan1.0",
                 VK_MAKE_VERSION(1, 0, 0)
@@ -50,9 +50,9 @@ public class TestBoilerBuilder {
         }).build();
 
         assertTrue(pDidCallInstanceCreator[0]);
-        assertThrows(UnsupportedOperationException.class, boiler::glfwWindow);
+        assertThrows(UnsupportedOperationException.class, instance::glfwWindow);
 
-        boiler.destroyInitialObjects();
+        instance.destroyInitialObjects();
     }
 
     @Test
@@ -61,7 +61,7 @@ public class TestBoilerBuilder {
         boolean[] pDidCallInstanceCreator = { false };
         boolean[] pDidCallDeviceCreator = { false };
 
-        var boiler = new BoilerBuilder(
+        var instance = new BoilerBuilder(
                 VK_API_VERSION_1_3, "TestComplexVulkan1.2", VK_MAKE_VERSION(1, 1, 1)
         )
                 .engine("TestEngine", VK_MAKE_VERSION(0, 8, 4))
@@ -158,7 +158,7 @@ public class TestBoilerBuilder {
                 .forbidValidationErrors()
                 .build();
 
-        boiler.destroyInitialObjects();
+        instance.destroyInitialObjects();
         assertTrue(pDidCallInstanceCreator[0]);
         assertTrue(pDidCallDeviceCreator[0]);
     }
@@ -304,7 +304,7 @@ public class TestBoilerBuilder {
 
     @Test
     public void testForbidValidationErrors() {
-        var boiler = new BoilerBuilder(VK_API_VERSION_1_0, "TestForbidValidationErrors", 1)
+        var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestForbidValidationErrors", 1)
                 .validation()
                 .forbidValidationErrors().build();
 
@@ -313,41 +313,41 @@ public class TestBoilerBuilder {
             // Intentionally leave ciFence.sType 0, which should cause a validation error
             assertThrows(
                     ValidationException.class,
-                    () -> vkCreateFence(boiler.vkDevice(), ciFence, null, stack.callocLong(1))
+                    () -> vkCreateFence(instance.vkDevice(), ciFence, null, stack.callocLong(1))
             );
         }
 
-        boiler.destroyInitialObjects();
+        instance.destroyInitialObjects();
     }
 
     @Test
     public void testDesiredLayers() {
-        var boiler = new BoilerBuilder(
+        var instance = new BoilerBuilder(
                 VK_API_VERSION_1_0, "TestDesiredLayers", 1
         ).desiredVkLayers(createSet("bullshit", "VK_LAYER_KHRONOS_validation")).build();
 
-        assertEquals(createSet("VK_LAYER_KHRONOS_validation"), boiler.explicitLayers);
+        assertEquals(createSet("VK_LAYER_KHRONOS_validation"), instance.explicitLayers);
 
-        boiler.destroyInitialObjects();
+        instance.destroyInitialObjects();
     }
 
     @Test
     public void testDesiredDeviceExtensions() {
-        var boiler = new BoilerBuilder(
+        var instance = new BoilerBuilder(
                 VK_API_VERSION_1_0, "TestDesiredDeviceExtensions", 1
         )
                 .desiredVkDeviceExtensions(createSet("bullshit", VK_KHR_MAINTENANCE_1_EXTENSION_NAME))
                 .validation().forbidValidationErrors().build();
 
-        assertTrue(boiler.deviceExtensions.contains(VK_KHR_MAINTENANCE_1_EXTENSION_NAME));
-        assertFalse(boiler.deviceExtensions.contains("bullshit"));
+        assertTrue(instance.deviceExtensions.contains(VK_KHR_MAINTENANCE_1_EXTENSION_NAME));
+        assertFalse(instance.deviceExtensions.contains("bullshit"));
 
-        boiler.destroyInitialObjects();
+        instance.destroyInitialObjects();
     }
 
     @Test
     public void testQueueFamilyMapper() {
-        var boiler = new BoilerBuilder(
+        var instance = new BoilerBuilder(
                 VK_API_VERSION_1_3, "TestQueueFamilyMapper", 1
         ).validation().forbidValidationErrors().queueFamilyMapper((queueFamilies, deviceExtensions, presentSupport) -> {
             QueueFamilyAllocation allocations = new QueueFamilyAllocation(0, new float[] { 0.25f });
@@ -355,12 +355,12 @@ public class TestBoilerBuilder {
         }).build();
 
         // This test is somewhat crappy because I can't assume that multiple queues or queue families are supported...
-        assertEquals(0, boiler.queueFamilies().graphics().index());
-        assertEquals(1, boiler.queueFamilies().graphics().queues().size());
-        assertEquals(0, boiler.queueFamilies().videoEncode().index());
-        assertEquals(1, boiler.queueFamilies().videoEncode().queues().size());
+        assertEquals(0, instance.queueFamilies().graphics().index());
+        assertEquals(1, instance.queueFamilies().graphics().queues().size());
+        assertEquals(0, instance.queueFamilies().videoEncode().index());
+        assertEquals(1, instance.queueFamilies().videoEncode().queues().size());
 
-        boiler.destroyInitialObjects();
+        instance.destroyInitialObjects();
     }
 
     @Test

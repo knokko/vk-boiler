@@ -18,16 +18,16 @@ public class TestImageEncode {
 
 	@Test
 	public void testEncodeBufferedImageRGBA() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_0, "TestEncodeBufferedImageRGBA", 1
 		).validation().forbidValidationErrors().build();
 
-		var buffer = boiler.buffers.createMapped(10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
+		var buffer = instance.buffers.createMapped(10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
 		var image = new BufferedImage(1, 2, BufferedImage.TYPE_INT_ARGB);
 		image.setRGB(0, 0, Color.RED.getRGB());
 		image.setRGB(0, 1, new Color(50, 100, 150, 200).getRGB());
 
-		boiler.buffers.encodeBufferedImageRGBA(buffer, image, 1);
+		instance.buffers.encodeBufferedImageRGBA(buffer, image, 1);
 		assertEquals((byte) 255, memGetByte(buffer.hostAddress() + 1));
 		assertEquals((byte) 0, memGetByte(buffer.hostAddress() + 2));
 		assertEquals((byte) 0, memGetByte(buffer.hostAddress() + 3));
@@ -38,17 +38,17 @@ public class TestImageEncode {
 		assertEquals((byte) 150, memGetByte(buffer.hostAddress() + 7));
 		assertEquals((byte) 200, memGetByte(buffer.hostAddress() + 8));
 
-		buffer.destroy(boiler.vmaAllocator());
-		boiler.destroyInitialObjects();
+		buffer.destroy(instance.vmaAllocator());
+		instance.destroyInitialObjects();
 	}
 
 	@Test
 	public void testDecodeBufferedImageRGBA() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_1, "TestDecodeBufferedImageRGBA", 1
 		).validation().forbidValidationErrors().build();
 
-		var buffer = boiler.buffers.createMapped(10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
+		var buffer = instance.buffers.createMapped(10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
 
 		memPutByte(buffer.hostAddress() + 1, (byte) 255);
 		memPutByte(buffer.hostAddress() + 2, (byte) 0);
@@ -60,26 +60,26 @@ public class TestImageEncode {
 		memPutByte(buffer.hostAddress() + 7, (byte) 150);
 		memPutByte(buffer.hostAddress() + 8, (byte) 200);
 
-		var image = boiler.buffers.decodeBufferedImageRGBA(buffer, 1, 1, 2);
+		var image = instance.buffers.decodeBufferedImageRGBA(buffer, 1, 1, 2);
 		assertEquals(Color.RED, new Color(image.getRGB(0, 0), true));
 		assertEquals(new Color(50, 100, 150, 200), new Color(image.getRGB(0, 1), true));
 
-		buffer.destroy(boiler.vmaAllocator());
-		boiler.destroyInitialObjects();
+		buffer.destroy(instance.vmaAllocator());
+		instance.destroyInitialObjects();
 	}
 
 	@Test
 	public void testBufferedImageCodingWithoutAlpha() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TestBufferedImageCodingWithoutAlpha", 1
 		).validation().forbidValidationErrors().build();
 
-		var buffer = boiler.buffers.createMapped(10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
+		var buffer = instance.buffers.createMapped(10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
 		var image = new BufferedImage(1, 2, BufferedImage.TYPE_INT_RGB);
 		image.setRGB(0, 0, Color.RED.getRGB());
 		image.setRGB(0, 1, new Color(50, 100, 150).getRGB());
 
-		boiler.buffers.encodeBufferedImageRGBA(buffer, image, 1);
+		instance.buffers.encodeBufferedImageRGBA(buffer, image, 1);
 		assertEquals((byte) 255, memGetByte(buffer.hostAddress() + 1));
 		assertEquals((byte) 0, memGetByte(buffer.hostAddress() + 2));
 		assertEquals((byte) 0, memGetByte(buffer.hostAddress() + 3));
@@ -90,12 +90,12 @@ public class TestImageEncode {
 		assertEquals((byte) 150, memGetByte(buffer.hostAddress() + 7));
 		assertEquals((byte) 255, memGetByte(buffer.hostAddress() + 8));
 
-		var copied = boiler.buffers.decodeBufferedImageRGBA(buffer, 1, image.getWidth(), image.getHeight());
+		var copied = instance.buffers.decodeBufferedImageRGBA(buffer, 1, image.getWidth(), image.getHeight());
 		assertEquals(image.getRGB(0, 0), copied.getRGB(0, 0));
 		assertEquals(image.getRGB(0, 1), copied.getRGB(0, 1));
 		assertEquals(255, new Color(copied.getRGB(0, 0), true).getAlpha());
 
-		buffer.destroy(boiler.vmaAllocator());
-		boiler.destroyInitialObjects();
+		buffer.destroy(instance.vmaAllocator());
+		instance.destroyInitialObjects();
 	}
 }

@@ -1,7 +1,10 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.sync.AwaitableSubmission;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
+
+import java.util.Objects;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static java.lang.Math.max;
@@ -38,7 +41,7 @@ public class VkbWindow {
     }
 
     public AcquiredImage acquireSwapchainImageWithFence(int presentMode) {
-        return acquireSwapchainImage(presentMode, true);
+        return acquireSwapchainImage(presentMode, true); // TODO Test this
     }
 
     public AcquiredImage acquireSwapchainImageWithSemaphore(int presentMode) {
@@ -79,7 +82,6 @@ public class VkbWindow {
         try (var stack = stackPush()) {
             if (width == 0 || height == 0) return null;
 
-            //noinspection resource
             var caps = instance.windowSurface().capabilities();
 
             int desiredImageCount = presentMode == VK_PRESENT_MODE_MAILBOX_KHR ? 3 : 2;
@@ -149,9 +151,8 @@ public class VkbWindow {
         return acquiredImage;
     }
 
-    public void presentSwapchainImage(AcquiredImage image) {
-        // TODO Check whether the renderFinishedFence is required
-        image.swapchain.presentImage(image);
+    public void presentSwapchainImage(AcquiredImage image, AwaitableSubmission renderSubmission) {
+        image.swapchain.presentImage(image, Objects.requireNonNull(renderSubmission));
     }
 
     public void destroy() {

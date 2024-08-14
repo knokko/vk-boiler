@@ -76,7 +76,7 @@ public class SimpleRingApproximation {
             try (var stack = stackPush()) {
                 long imageView = boiler.images.createSimpleView(
                         stack, swapchainImage.vkImage(), boiler.swapchainSettings.surfaceFormat().format(),
-                        VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.imageIndex()
+                        VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
                 );
 
                 return new AssociatedSwapchainResources(imageView);
@@ -99,7 +99,7 @@ public class SimpleRingApproximation {
             }
 
             try (var stack = stackPush()) {
-                var swapchainImage = boiler.swapchains.acquireNextImage(VK_PRESENT_MODE_MAILBOX_KHR);
+                var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_MAILBOX_KHR);
                 if (swapchainImage == null) {
                     //noinspection BusyWait
                     sleep(100);
@@ -158,13 +158,11 @@ public class SimpleRingApproximation {
 
                 recorder.end();
 
-                boiler.queueFamilies().graphics().queues().get(0).submit(
+                var renderSubmission = boiler.queueFamilies().graphics().queues().get(0).submit(
                         commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore()
                 );
 
-                // Note that we could just use boiler.swapchains.presentImage(swapchainImage, fence),
-                // but this is a nice way to test a different overload of BoilerSwapchains.presentImage
-                boiler.swapchains.presentImage(swapchainImage, fence::isSignaled);
+                boiler.window().presentSwapchainImage(swapchainImage, renderSubmission);
                 frameCounter += 1;
             }
         }

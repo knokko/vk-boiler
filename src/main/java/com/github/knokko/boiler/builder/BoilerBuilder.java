@@ -398,7 +398,7 @@ public class BoilerBuilder {
                         vkGetPhysicalDeviceFeatures2KHR(physicalDevice, features);
                     }
 
-                    if (swapchainFeatures.swapchainMaintenance1()) {
+                    if (swapchainFeatures.swapchainMaintenance1() && false) { // TODO Remove && false
                         ciDevice.pNext(swapchainFeatures);
                         pHasSwapchainMaintenance[0] = true;
                     }

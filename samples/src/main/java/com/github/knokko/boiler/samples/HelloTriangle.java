@@ -26,7 +26,7 @@ public class HelloTriangle {
         var boiler = new BoilerBuilder(
                 VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
         )
-                .validation()
+                .validation().forbidValidationErrors()
                 .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
                 .build();
 
@@ -214,6 +214,7 @@ public class HelloTriangle {
 
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
+                for (var fence : commandFences) fence.isSignaled(); // TODO Hm... this is required... for now
                 VkbFence fence = commandFences[frameIndex];
                 fence.waitAndReset(stack);
 
@@ -245,12 +246,11 @@ public class HelloTriangle {
                 vkCmdEndRenderPass(commandBuffer);
                 assertVkSuccess(vkEndCommandBuffer(commandBuffer), "TriangleDrawing", null);
 
-                boiler.queueFamilies().graphics().queues().get(0).submit(
+                var renderSubmission = boiler.queueFamilies().graphics().queues().get(0).submit(
                         commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
                 );
 
-                //boiler.swapchains.presentImage(swapchainImage, fence);
-                boiler.window().presentSwapchainImage(swapchainImage);
+                boiler.window().presentSwapchainImage(swapchainImage, renderSubmission);
                 frameCounter += 1;
             }
         }

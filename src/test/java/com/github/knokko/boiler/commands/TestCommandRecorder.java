@@ -20,7 +20,7 @@ public class TestCommandRecorder {
 
 	@Test
 	public void testCopyImage() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TestCopyImage", 1
 		).validation().forbidValidationErrors().build();
 
@@ -29,26 +29,26 @@ public class TestCommandRecorder {
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 		var imageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-		var destBuffer = boiler.buffers.createMapped(
+		var destBuffer = instance.buffers.createMapped(
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 
 		VmaImage sourceImage;
 		VmaImage destImage;
 		try (var stack = stackPush()) {
-			sourceImage = boiler.images.create(
+			sourceImage = instance.images.create(
 					stack, width, height, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
 					VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "SourceImage"
 			);
-			destImage = boiler.images.create(
+			destImage = instance.images.create(
 					stack, width, height, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
 					VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
 			);
 		}
 
-		var commandPool = boiler.commands.createPool(0, boiler.queueFamilies().graphics().index(), "CopyPool");
-		var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "CopyCommandBuffer")[0];
-		var fence = boiler.sync.createFences(false, 1, "CopyFence")[0];
+		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "CopyPool");
+		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "CopyCommandBuffer")[0];
+		var fence = instance.sync.fenceBank.borrowFence(false, "CopyFence");
 
 		try (var stack = stackPush()) {
 			var biCommands = VkCommandBufferBeginInfo.calloc(stack);
@@ -60,7 +60,7 @@ public class TestCommandRecorder {
 					commandBuffer, biCommands
 			), "BeginCommandBuffer", "Copying");
 
-			var recorder = CommandRecorder.alreadyRecording(commandBuffer, boiler, stack);
+			var recorder = CommandRecorder.alreadyRecording(commandBuffer, instance, stack);
 
 			recorder.transitionColorLayout(sourceImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
 
@@ -71,7 +71,7 @@ public class TestCommandRecorder {
 			clearColor.float32(3, 1f);
 
 			var clearRange = VkImageSubresourceRange.calloc(1, stack);
-			boiler.images.subresourceRange(stack, clearRange.get(0), VK_IMAGE_ASPECT_COLOR_BIT);
+			instance.images.subresourceRange(stack, clearRange.get(0), VK_IMAGE_ASPECT_COLOR_BIT);
 
 			vkCmdClearColorImage(commandBuffer, sourceImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, clearColor, clearRange);
 
@@ -85,8 +85,8 @@ public class TestCommandRecorder {
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, destImage.vkImage(), width, height, destBuffer.vkBuffer());
 
 			recorder.end("Copying");
-			boiler.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Copying", null, fence);
-			boiler.sync.waitAndReset(stack, fence);
+			instance.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Copying", null, fence);
+			fence.waitAndReset(stack);
 
 			assertEquals((byte) 0, memGetByte(destBuffer.hostAddress()));
 			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 1));
@@ -94,17 +94,17 @@ public class TestCommandRecorder {
 			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 3));
 		}
 
-		vkDestroyFence(boiler.vkDevice(), fence, null);
-		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-		destBuffer.destroy(boiler.vmaAllocator());
-		sourceImage.destroy(boiler);
-		destImage.destroy(boiler);
-		boiler.destroyInitialObjects();
+		instance.sync.fenceBank.returnFence(fence);
+		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+		destBuffer.destroy(instance.vmaAllocator());
+		sourceImage.destroy(instance);
+		destImage.destroy(instance);
+		instance.destroyInitialObjects();
 	}
 
 	@Test
 	public void testBlitImage() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TestCopyImage", 1
 		).validation().forbidValidationErrors().build();
 
@@ -116,7 +116,7 @@ public class TestCommandRecorder {
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 		var imageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-		var buffer = boiler.buffers.createMapped(
+		var buffer = instance.buffers.createMapped(
 				4 * width1 * height1,
 				VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
@@ -124,22 +124,22 @@ public class TestCommandRecorder {
 		VmaImage sourceImage;
 		VmaImage destImage;
 		try (var stack = stackPush()) {
-			sourceImage = boiler.images.create(
+			sourceImage = instance.images.create(
 					stack, width1, height1, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
 					VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "SourceImage"
 			);
-			destImage = boiler.images.create(
+			destImage = instance.images.create(
 					stack, width2, height2, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
 					VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
 			);
 		}
 
-		var commandPool = boiler.commands.createPool(0, boiler.queueFamilies().graphics().index(), "CopyPool");
-		var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "CopyCommandBuffer")[0];
-		var fence = boiler.sync.createFences(false, 1, "CopyFence")[0];
+		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "CopyPool");
+		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "CopyCommandBuffer")[0];
+		var fence = instance.sync.fenceBank.borrowFence(false, "CopyFence");
 
 		try (var stack = stackPush()) {
-			var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Blitting");
+			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Blitting");
 
 			recorder.transitionColorLayout(sourceImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
 			recorder.copyBufferToImage(VK_IMAGE_ASPECT_COLOR_BIT, sourceImage.vkImage(), width1, height1, buffer.vkBuffer());
@@ -171,8 +171,8 @@ public class TestCommandRecorder {
 				hostBuffer.put(index + 3, (byte) 255);
 			}
 
-			boiler.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Copying", null, fence);
-			boiler.sync.waitAndReset(stack, fence);
+			instance.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Copying", null, fence);
+			fence.waitAndReset(stack);
 
 			// So the blitted pixel should be (25, 0, 50, 255)
 			assertEquals((byte) 25, hostBuffer.get(0));
@@ -181,11 +181,11 @@ public class TestCommandRecorder {
 			assertEquals((byte) 255, hostBuffer.get(3));
 		}
 
-		vkDestroyFence(boiler.vkDevice(), fence, null);
-		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-		buffer.destroy(boiler.vmaAllocator());
-		sourceImage.destroy(boiler);
-		destImage.destroy(boiler);
-		boiler.destroyInitialObjects();
+		instance.sync.fenceBank.returnFence(fence);
+		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+		buffer.destroy(instance.vmaAllocator());
+		sourceImage.destroy(instance);
+		destImage.destroy(instance);
+		instance.destroyInitialObjects();
 	}
 }

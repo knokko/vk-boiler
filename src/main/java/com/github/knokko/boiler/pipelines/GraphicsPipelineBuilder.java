@@ -13,23 +13,23 @@ import static org.lwjgl.vulkan.VK10.*;
 public class GraphicsPipelineBuilder {
 
     public final VkGraphicsPipelineCreateInfo ciPipeline;
-    private final BoilerInstance boiler;
+    private final BoilerInstance instance;
     private final MemoryStack stack;
 
     private final List<Long> shaderModules = new ArrayList<>();
 
     public long pipelineCache = VK_NULL_HANDLE;
 
-    public GraphicsPipelineBuilder(VkGraphicsPipelineCreateInfo ciPipeline, BoilerInstance boiler, MemoryStack stack) {
+    public GraphicsPipelineBuilder(VkGraphicsPipelineCreateInfo ciPipeline, BoilerInstance instance, MemoryStack stack) {
         this.ciPipeline = ciPipeline;
-        this.boiler = boiler;
+        this.instance = instance;
         this.stack = stack;
     }
 
-    public GraphicsPipelineBuilder(BoilerInstance boiler, MemoryStack stack) {
+    public GraphicsPipelineBuilder(BoilerInstance instance, MemoryStack stack) {
         this.ciPipeline = VkGraphicsPipelineCreateInfo.calloc(stack);
         this.ciPipeline.sType$Default();
-        this.boiler = boiler;
+        this.instance = instance;
         this.stack = stack;
     }
 
@@ -50,8 +50,8 @@ public class GraphicsPipelineBuilder {
     }
 
     public void simpleShaderStages(String description, String vertexPath, String fragmentPath) {
-        long vertexModule = boiler.pipelines.createShaderModule(stack, vertexPath, description + "-VertexShader");
-        long fragmentModule = boiler.pipelines.createShaderModule(stack, fragmentPath, description + "-FragmentShader");
+        long vertexModule = instance.pipelines.createShaderModule(stack, vertexPath, description + "-VertexShader");
+        long fragmentModule = instance.pipelines.createShaderModule(stack, fragmentPath, description + "-FragmentShader");
         shaderStages(
                 new ShaderInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexModule, null),
                 new ShaderInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentModule, null)
@@ -231,15 +231,15 @@ public class GraphicsPipelineBuilder {
     public long build(String name) {
         var pPipeline = stack.callocLong(1);
         assertVkSuccess(vkCreateGraphicsPipelines(
-                boiler.vkDevice(), pipelineCache,
+                instance.vkDevice(), pipelineCache,
                 VkGraphicsPipelineCreateInfo.create(ciPipeline.address(), 1),
                 null, pPipeline
         ), "CreateGraphicsPipelines", name);
         long pipeline = pPipeline.get(0);
-        boiler.debug.name(stack, pipeline, VK_OBJECT_TYPE_PIPELINE, name);
+        instance.debug.name(stack, pipeline, VK_OBJECT_TYPE_PIPELINE, name);
 
         for (long module : shaderModules) {
-            vkDestroyShaderModule(boiler.vkDevice(), module, null);
+            vkDestroyShaderModule(instance.vkDevice(), module, null);
         }
 
         return pipeline;

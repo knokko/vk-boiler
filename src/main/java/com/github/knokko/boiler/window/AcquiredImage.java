@@ -1,46 +1,39 @@
 package com.github.knokko.boiler.window;
 
+import com.github.knokko.boiler.sync.AwaitableSubmission;
+import com.github.knokko.boiler.sync.FenceSubmission;
 import com.github.knokko.boiler.sync.VkbFence;
+
+import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 
 public class AcquiredImage {
 
     final VkbSwapchain swapchain;
-    private final VkbSwapchainImage image;
-    private final VkbFence acquireFence;
-    private final long acquireSemaphore;
+    private final int index;
+    final VkbFence acquireFence;
+    final long acquireSemaphore;
     private final long presentSemaphore;
     final VkbFence presentFence;
+    AwaitableSubmission renderSubmission;
 
     AcquiredImage(
-            VkbSwapchain swapchain, VkbSwapchainImage image,
-            VkbFence acquireFence, long presentSemaphore, VkbFence presentFence
+            VkbSwapchain swapchain, int index,
+            VkbFence acquireFence, long acquireSemaphore, long presentSemaphore, VkbFence presentFence
     ) {
         this.swapchain = swapchain;
-        this.image = image;
+        this.index = index;
         this.acquireFence = acquireFence;
-        this.acquireSemaphore = 0;
-        this.presentSemaphore = presentSemaphore;
-        this.presentFence = presentFence;
-    }
-
-    AcquiredImage(
-            VkbSwapchain swapchain, VkbSwapchainImage image,
-            long acquireSemaphore, long presentSemaphore, VkbFence presentFence
-    ) {
-        this.swapchain = swapchain;
-        this.image = image;
-        this.acquireFence = null;
         this.acquireSemaphore = acquireSemaphore;
         this.presentSemaphore = presentSemaphore;
         this.presentFence = presentFence;
     }
 
     public int index() {
-        return image.index;
+        return index;
     }
 
     public long vkImage() {
-        return image.vkImage;
+        return swapchain.images[index];
     }
 
     public int width() {
@@ -52,12 +45,12 @@ public class AcquiredImage {
     }
 
     public VkbFence acquireFence() {
-        if (acquireFence == null) throw new UnsupportedOperationException("You asked for a semaphore");
+        if (acquireSemaphore != VK_NULL_HANDLE) throw new UnsupportedOperationException("You asked for a semaphore");
         return acquireFence;
     }
 
     public long acquireSemaphore() {
-        if (acquireSemaphore == 0) throw new UnsupportedOperationException("You asked for a fence");
+        if (acquireSemaphore == VK_NULL_HANDLE) throw new UnsupportedOperationException("You asked for a fence");
         return acquireSemaphore;
     }
 

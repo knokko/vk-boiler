@@ -1,9 +1,6 @@
 package com.github.knokko.boiler.queue;
 
-import com.github.knokko.boiler.sync.TimelineInstant;
-import com.github.knokko.boiler.sync.VkbFence;
-import com.github.knokko.boiler.sync.WaitSemaphore;
-import com.github.knokko.boiler.sync.WaitTimelineSemaphore;
+import com.github.knokko.boiler.sync.*;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
@@ -13,14 +10,14 @@ import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
 
 public record BoilerQueue(VkQueue vkQueue) {
 
-    public void submit(
+    public FenceSubmission submit(
             VkCommandBuffer commandBuffer, String context,
             WaitSemaphore[] waitSemaphores, VkbFence fence, long... vkSignalSemaphores
     ) {
-        submit(commandBuffer, context, waitSemaphores, fence, vkSignalSemaphores, null);
+        return submit(commandBuffer, context, waitSemaphores, fence, vkSignalSemaphores, null);
     }
 
-    public synchronized void submit(
+    public synchronized FenceSubmission submit(
             VkCommandBuffer commandBuffer, String context,
             WaitSemaphore[] waitSemaphores, VkbFence fence, long[] vkSignalSemaphores,
             WaitTimelineSemaphore[] timelineWaits, TimelineInstant... timelineSignals
@@ -62,7 +59,7 @@ public record BoilerQueue(VkQueue vkQueue) {
                     pSignalSemaphores.put(timelineSignals.length + index, vkSignalSemaphores[index]);
                 }
                 for (int index = 0; index < timelineSignals.length; index++) {
-                    pSignalSemaphores.put(index, timelineSignals[index].timelineSemaphore());
+                    pSignalSemaphores.put(index, timelineSignals[index].semaphore().vkSemaphore);
                 }
                 submission.pSignalSemaphores(pSignalSemaphores);
             }
@@ -92,6 +89,7 @@ public record BoilerQueue(VkQueue vkQueue) {
 
             long fenceHandle = fence != null ? fence.getVkFenceAndSubmit() : VK_NULL_HANDLE;
             assertVkSuccess(vkQueueSubmit(vkQueue, submission, fenceHandle), "QueueSubmit", context);
+            return fence != null ? new FenceSubmission(fence) : null;
         }
     }
 }

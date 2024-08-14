@@ -12,7 +12,7 @@ public class TestFixedDescriptorBank {
 
     @Test
     public void testFixedDescriptorBank() {
-        var boiler = new BoilerBuilder(VK_API_VERSION_1_0, "TestFixedDescriptorBank", 1)
+        var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFixedDescriptorBank", 1)
                 .validation()
                 .forbidValidationErrors()
                 .build();
@@ -25,7 +25,7 @@ public class TestFixedDescriptorBank {
             bindings.descriptorCount(5);
             bindings.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
-            descriptorSetLayout = boiler.descriptors.createLayout(stack, bindings, "Test");
+            descriptorSetLayout = instance.descriptors.createLayout(stack, bindings, "Test");
         }
 
         var bank = new FixedDescriptorBank(descriptorSetLayout, 2, 0, "Test");
@@ -59,6 +59,6 @@ public class TestFixedDescriptorBank {
 
         bank.destroy(false);
         descriptorSetLayout.destroy();
-        boiler.destroyInitialObjects();
+        instance.destroyInitialObjects();
     }
 }

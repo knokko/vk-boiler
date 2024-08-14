@@ -22,7 +22,7 @@ import static org.lwjgl.vulkan.VK13.VK_API_VERSION_1_3;
 public class TestDynamicRendering {
 
 	private void testDynamicColorRendering(int apiVersion) {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				apiVersion, "TestDynamicColorRendering", apiVersion
 		).validation().forbidValidationErrors().enableDynamicRendering().build();
 
@@ -31,25 +31,25 @@ public class TestDynamicRendering {
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 
 		VmaImage image;
-		MappedVmaBuffer destBuffer = boiler.buffers.createMapped(
+		MappedVmaBuffer destBuffer = instance.buffers.createMapped(
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 		long pipelineLayout;
 		long graphicsPipeline;
 		try (var stack = stackPush()) {
-			image = boiler.images.createSimple(
+			image = instance.images.createSimple(
 					stack, width, height, format,
 					VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 					VK_IMAGE_ASPECT_COLOR_BIT, "TestColorAttachment"
 			);
 
-			pipelineLayout = boiler.pipelines.createLayout(stack, null, "ColorLayout");
+			pipelineLayout = instance.pipelines.createLayout(stack, null, "ColorLayout");
 
 			var ciPipeline = VkGraphicsPipelineCreateInfo.calloc(stack);
 			ciPipeline.sType$Default();
 			ciPipeline.layout(pipelineLayout);
 
-			var pipeline = new GraphicsPipelineBuilder(ciPipeline, boiler, stack);
+			var pipeline = new GraphicsPipelineBuilder(ciPipeline, instance, stack);
 			pipeline.simpleShaderStages("Red", "shaders/center.vert.spv", "shaders/red.frag.spv");
 			pipeline.noVertexInput();
 			pipeline.simpleInputAssembly();
@@ -66,12 +66,12 @@ public class TestDynamicRendering {
 			graphicsPipeline = pipeline.build("RedPipeline");
 		}
 
-		var fence = boiler.sync.createFences(false, 1, "TestFence")[0];
-		var commandPool = boiler.commands.createPool(0, boiler.queueFamilies().graphics().index(), "TestPool");
-		var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "TestCommandBuffer")[0];
+		var fence = instance.sync.fenceBank.borrowFence(false, "TestFence");
+		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "TestPool");
+		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "TestCommandBuffer")[0];
 
 		try (var stack = stackPush()) {
-			var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Empty RenderPass");
+			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Empty RenderPass");
 
 			recorder.transitionColorLayout(image.vkImage(), null, ResourceUsage.COLOR_ATTACHMENT_WRITE);
 
@@ -95,8 +95,8 @@ public class TestDynamicRendering {
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(), width, height, destBuffer.vkBuffer());
 
 			recorder.end();
-			boiler.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Test", null, fence);
-			boiler.sync.waitAndReset(stack, fence);
+			instance.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Test", null, fence);
+			fence.waitAndReset(stack);
 
 			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress()));
 			assertEquals((byte) 0, memGetByte(destBuffer.hostAddress() + 1));
@@ -110,14 +110,14 @@ public class TestDynamicRendering {
 			assertEquals((byte) 255, memGetByte(centerAddress + 3));
 		}
 
-		image.destroy(boiler);
-		destBuffer.destroy(boiler.vmaAllocator());
-		vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
-		vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-		vkDestroyFence(boiler.vkDevice(), fence, null);
-		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
+		image.destroy(instance);
+		destBuffer.destroy(instance.vmaAllocator());
+		vkDestroyPipeline(instance.vkDevice(), graphicsPipeline, null);
+		vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
+		instance.sync.fenceBank.returnFence(fence);
+		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
 
-		boiler.destroyInitialObjects();
+		instance.destroyInitialObjects();
 	}
 
 	@Test
@@ -142,7 +142,7 @@ public class TestDynamicRendering {
 
 	@Test
 	public void testDynamicDepthAttachment() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_3, "TestDynamicDepthAttachment", 1
 		).validation().forbidValidationErrors().enableDynamicRendering().build();
 
@@ -151,23 +151,23 @@ public class TestDynamicRendering {
 
 		VmaImage image;
 		try (var stack = stackPush()) {
-			image = boiler.images.createSimple(
+			image = instance.images.createSimple(
 					stack, width, height, VK_FORMAT_D32_SFLOAT,
 					VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 					VK_IMAGE_ASPECT_DEPTH_BIT, "DepthImage"
 			);
 		}
 
-		var destBuffer = boiler.buffers.createMapped(
+		var destBuffer = instance.buffers.createMapped(
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 
-		var commandPool = boiler.commands.createPool(0, boiler.queueFamilies().graphics().index(), "DepthPool");
-		var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "DepthCommandBuffer")[0];
-		var fence = boiler.sync.createFences(false, 1, "DepthFence")[0];
+		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "DepthPool");
+		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "DepthCommandBuffer")[0];
+		var fence = instance.sync.fenceBank.borrowFence(false, "DepthFence");
 
 		try (var stack = stackPush()) {
-			var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "DepthCommands");
+			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "DepthCommands");
 
 			recorder.transitionDepthLayout(
 					image.vkImage(), null,
@@ -191,18 +191,18 @@ public class TestDynamicRendering {
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_DEPTH_BIT, image.vkImage(), width, height, destBuffer.vkBuffer());
 
 			recorder.end();
-			boiler.queueFamilies().graphics().queues().get(0).submit(
+			instance.queueFamilies().graphics().queues().get(0).submit(
 					commandBuffer, "DepthSubmission", null, fence
 			);
-			boiler.sync.waitAndReset(stack, fence);
+			fence.waitAndReset(stack);
 
 			assertEquals(0.75f, memGetFloat(destBuffer.hostAddress()));
 		}
 
-		vkDestroyFence(boiler.vkDevice(), fence, null);
-		destBuffer.destroy(boiler.vmaAllocator());
-		image.destroy(boiler);
-		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-		boiler.destroyInitialObjects();
+		instance.sync.fenceBank.returnFence(fence);
+		destBuffer.destroy(instance.vmaAllocator());
+		image.destroy(instance);
+		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+		instance.destroyInitialObjects();
 	}
 }

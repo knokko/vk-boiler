@@ -1,4 +1,4 @@
-package com.github.knokko.boiler.swapchain;
+package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.surface.SurfaceFormat;
 
