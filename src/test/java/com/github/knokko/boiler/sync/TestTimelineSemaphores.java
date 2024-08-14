@@ -107,7 +107,7 @@ public class TestTimelineSemaphores {
         }
 
         instance.sync.fenceBank.returnFence(fence);
-        vkDestroySemaphore(instance.vkDevice(), semaphore.vkSemaphore, null);
+        semaphore.destroy();
         instance.destroyInitialObjects();
     }
 }

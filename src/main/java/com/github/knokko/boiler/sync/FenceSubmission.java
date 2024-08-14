@@ -1,7 +1,5 @@
 package com.github.knokko.boiler.sync;
 
-import static org.lwjgl.system.MemoryStack.stackPush;
-
 public class FenceSubmission implements AwaitableSubmission {
 
 	private final VkbFence fence;
@@ -20,8 +18,6 @@ public class FenceSubmission implements AwaitableSubmission {
 
 	@Override
 	public void awaitCompletion() {
-		try (var stack = stackPush()) {
-			fence.awaitSubmission(stack, submissionTime);
-		}
+		fence.awaitSubmission(submissionTime);
 	}
 }

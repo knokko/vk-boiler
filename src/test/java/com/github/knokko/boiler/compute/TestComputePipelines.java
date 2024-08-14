@@ -92,7 +92,7 @@ public class TestComputePipelines {
                     commandBuffer, "Filling", new WaitSemaphore[0], fence
             );
 
-            fence.wait(stack);
+            fence.awaitSignal();
             System.out.println("Submission took " + (System.currentTimeMillis() - startTime) + " ms");
 
             for (int index = 0; index < hostBuffer.limit(); index++) {

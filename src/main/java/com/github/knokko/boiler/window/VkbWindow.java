@@ -30,7 +30,7 @@ public class VkbWindow {
     public VkbWindow(BoilerInstance instance, boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface) {
         this.instance = instance;
         if (hasSwapchainMaintenance) {
-            throw new UnsupportedOperationException("TODO");
+            cleaner = new SwapchainMaintenanceCleaner(instance);
         } else {
             cleaner = new LegacySwapchainCleaner(instance);
         }

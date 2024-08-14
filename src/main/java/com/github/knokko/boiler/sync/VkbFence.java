@@ -4,6 +4,7 @@ import com.github.knokko.boiler.instance.BoilerInstance;
 import org.lwjgl.system.MemoryStack;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class VkbFence implements Comparable<VkbFence> {
@@ -60,13 +61,15 @@ public class VkbFence implements Comparable<VkbFence> {
         return submissionTime;
     }
 
-    public synchronized void reset(MemoryStack stack) {
+    public synchronized void reset() {
         if (isPending()) throw new IllegalStateException("Fence is still pending");
 
         signaled = false;
-        assertVkSuccess(vkResetFences(
-                instance.vkDevice(), stack.longs(vkFence)
-        ), "ResetFences", "BoilerFence.reset");
+        try (var stack = stackPush()) {
+            assertVkSuccess(vkResetFences(
+                    instance.vkDevice(), stack.longs(vkFence)
+            ), "ResetFences", "VkbFence.reset");
+        }
     }
 
     public synchronized void signal() {
@@ -74,42 +77,44 @@ public class VkbFence implements Comparable<VkbFence> {
         signaled = true;
     }
 
-    public void wait(MemoryStack stack) {
-        wait(stack, instance.defaultTimeout);
+    public void awaitSignal() {
+        awaitSignal(instance.defaultTimeout);
     }
 
-    public synchronized void wait(MemoryStack stack, long timeout) {
+    public synchronized void awaitSignal(long timeout) {
         if (signaled) return;
         if (submissionTime == 0) throw new IllegalStateException("Fence is not signaled, nor pending");
 
-        assertVkSuccess(vkWaitForFences(
-                instance.vkDevice(), stack.longs(vkFence), true, timeout
-        ), "WaitForFences", "FatFence");
+        try (var stack = stackPush()) {
+            assertVkSuccess(vkWaitForFences(
+                    instance.vkDevice(), stack.longs(vkFence), true, timeout
+            ), "WaitForFences", "VkbFence.awaitSignal");
+        }
         signaled = true;
         submissionTime = 0;
     }
 
-    public synchronized void waitIfSubmitted(MemoryStack stack, long timeout) {
+    public synchronized void waitIfSubmitted(long timeout) {
         if (submissionTime == 0) return;
-        wait(stack, timeout);
+        awaitSignal(timeout);
     }
 
-    public synchronized void waitIfSubmitted(MemoryStack stack) {
-        waitIfSubmitted(stack, instance.defaultTimeout);
+    public synchronized void waitIfSubmitted() {
+        waitIfSubmitted(instance.defaultTimeout);
     }
 
     public void waitAndReset(MemoryStack stack) {
-        waitAndReset(stack, instance.defaultTimeout);
+        waitAndReset(instance.defaultTimeout);
     }
 
-    public synchronized void waitAndReset(MemoryStack stack, long timeout) {
-        wait(stack, timeout);
-        reset(stack);
+    public synchronized void waitAndReset(long timeout) {
+        awaitSignal(timeout);
+        reset();
     }
 
-    public synchronized void awaitSubmission(MemoryStack stack, long referenceSubmissionTime) {
+    public synchronized void awaitSubmission(long referenceSubmissionTime) {
         if (submissionTime > referenceSubmissionTime) return;
-        wait(stack);
+        awaitSignal();
     }
 
     public synchronized boolean isSignaled() {

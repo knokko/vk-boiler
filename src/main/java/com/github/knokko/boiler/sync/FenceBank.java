@@ -47,7 +47,7 @@ public class FenceBank {
                 fence = new VkbFence(instance, pFence.get(0), startSignaled);
             } else {
                 if (startSignaled) fence.signal();
-                else fence.reset(stack);
+                else fence.reset();
             }
 
             fence.setName(name, stack);
@@ -81,10 +81,8 @@ public class FenceBank {
      * Do not call it while borrowing or returning fences!
      */
     public void awaitSubmittedFences() {
-        try (var stack = stackPush()) {
-            for (var fence : borrowedFences) fence.waitIfSubmitted(stack);
-            for (var fence : returnedFences) fence.waitIfSubmitted(stack);
-        }
+        for (var fence : borrowedFences) fence.waitIfSubmitted();
+        for (var fence : returnedFences) fence.waitIfSubmitted();
     }
 
     /**

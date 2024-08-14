@@ -322,7 +322,7 @@ public class TerrainPlayground {
             boiler.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "CopyHeightImage", new WaitSemaphore[0], fence
             );
-            fence.wait(stack);
+            fence.awaitSignal();
             boiler.sync.fenceBank.returnFence(fence);
             vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
             vmaDestroyBuffer(boiler.vmaAllocator(), stagingBuffer.vkBuffer(), stagingBuffer.vmaAllocation());
@@ -644,7 +644,6 @@ public class TerrainPlayground {
 
         assertVkSuccess(vkDeviceWaitIdle(boiler.vkDevice()), "DeviceWaitIdle", "FinishTerrainPlayground");
         timeline.destroy();
-        vkDestroySemaphore(boiler.vkDevice(), timeline.vkSemaphore, null);
         vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 
         descriptorPool.destroy();

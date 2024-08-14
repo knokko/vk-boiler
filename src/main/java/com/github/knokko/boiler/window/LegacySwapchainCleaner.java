@@ -98,6 +98,7 @@ class LegacySwapchainCleaner implements SwapchainCleaner {
     @Override
     public void beforePresent(MemoryStack stack, VkPresentInfoKHR presentInfo, AcquiredImage acquiredImage) {
         //destroyOldResources();
+        // TODO Maybe do something?
     }
 
     private void destroyImageNow(AcquiredImage image, boolean doSafetyChecks) {

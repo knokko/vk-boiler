@@ -25,7 +25,7 @@ public class TestFenceBank {
             instance.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "Signal", new WaitSemaphore[0], fence
             );
-            fence.wait(stack);
+            fence.awaitSignal();
         }
 
         vkDestroyCommandPool(instance.vkDevice(), commandPool, null);

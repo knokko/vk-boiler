@@ -57,7 +57,7 @@ public class TestBufferCopies {
             instance.queueFamilies().graphics().queues().get(0).submit(
                     commandBuffer, "Copying", new WaitSemaphore[0], fence
             );
-            fence.wait(stack);
+            fence.awaitSignal();
             instance.sync.fenceBank.returnFence(fence);
             vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
         }
