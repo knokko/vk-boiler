@@ -78,58 +78,71 @@ public class TranslucentWindowPlayground {
 
         var commandFences = boiler.sync.fenceBank.borrowFences(commandBuffers.length, true, "Acquire");
 
-        int counter = 0;
+        var renderThread = new Thread(() -> {
+            int counter = 0;
+
+            while (!glfwWindowShouldClose(boiler.glfwWindow())) {
+                try (var stack = stackPush()) {
+                    int commandIndex = counter % commandFences.length;
+
+                    var acquired = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_FIFO_KHR);
+                    if (acquired == null) {
+                        //noinspection BusyWait
+                        sleep(100);
+                        continue;
+                    }
+
+                    var fence = commandFences[commandIndex];
+                    fence.waitAndReset(stack);
+
+                    var commandBuffer = commandBuffers[commandIndex];
+                    var recorder = CommandRecorder.begin(
+                            commandBuffer, boiler, stack,
+                            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+                            "Fill"
+                    );
+
+                    recorder.transitionColorLayout(
+                            acquired.vkImage(),
+                            ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
+                            ResourceUsage.TRANSFER_DEST
+                    );
+
+                    float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
+                    float colorScale = boiler.swapchainSettings.compositeAlpha() == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
+                    var pClearColor = VkClearColorValue.calloc(stack);
+                    pClearColor.float32(stack.floats(0f, 0.6f * colorScale, colorScale, alpha));
+
+                    var pRanges = boiler.images.subresourceRange(stack, null, VK_IMAGE_ASPECT_COLOR_BIT);
+
+                    vkCmdClearColorImage(commandBuffer, acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pClearColor, pRanges);
+
+                    recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
+                    recorder.end();
+
+                    var renderSubmission = boiler.queueFamilies().graphics().queues().get(0).submit(
+                            commandBuffer, "Fill", new WaitSemaphore[] { new WaitSemaphore(
+                                    acquired.acquireSemaphore(), VK_PIPELINE_STAGE_TRANSFER_BIT
+                            ) }, fence, acquired.presentSemaphore()
+                    );
+
+                    boiler.window().presentSwapchainImage(acquired, renderSubmission);
+                } catch (InterruptedException e) {
+					throw new RuntimeException(e);
+				}
+
+				counter += 1;
+            }
+        });
+
+        renderThread.start();
+
         while(!glfwWindowShouldClose(boiler.glfwWindow())) {
             glfwPollEvents();
-            try (var stack = stackPush()) {
-                int commandIndex = counter % commandFences.length;
-
-                var acquired = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_FIFO_KHR);
-                if (acquired == null) {
-                    //noinspection BusyWait
-                    sleep(100);
-                    continue;
-                }
-
-                var fence = commandFences[commandIndex];
-                fence.waitAndReset(stack);
-
-                var commandBuffer = commandBuffers[commandIndex];
-                var recorder = CommandRecorder.begin(
-                        commandBuffer, boiler, stack,
-                        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-                        "Fill"
-                );
-
-                recorder.transitionColorLayout(
-                        acquired.vkImage(),
-                        ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
-                        ResourceUsage.TRANSFER_DEST
-                );
-
-                float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 1000.0)));
-                float colorScale = boiler.swapchainSettings.compositeAlpha() == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
-                var pClearColor = VkClearColorValue.calloc(stack);
-                pClearColor.float32(stack.floats(0f, 0.6f * colorScale, colorScale, alpha));
-
-                var pRanges = boiler.images.subresourceRange(stack, null, VK_IMAGE_ASPECT_COLOR_BIT);
-
-                vkCmdClearColorImage(commandBuffer, acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pClearColor, pRanges);
-
-                recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
-                recorder.end();
-
-                var renderSubmission = boiler.queueFamilies().graphics().queues().get(0).submit(
-                        commandBuffer, "Fill", new WaitSemaphore[] { new WaitSemaphore(
-                                acquired.acquireSemaphore(), VK_PIPELINE_STAGE_TRANSFER_BIT
-                        ) }, fence, acquired.presentSemaphore()
-                );
-
-                boiler.window().presentSwapchainImage(acquired, renderSubmission);
-            }
-
-            counter += 1;
+            sleep(100);
         }
+
+        renderThread.join();
 
         boiler.sync.fenceBank.awaitSubmittedFences();
         boiler.sync.fenceBank.returnFences(commandFences);
