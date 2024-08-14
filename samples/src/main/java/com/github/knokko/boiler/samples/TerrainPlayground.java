@@ -15,7 +15,6 @@ import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.TimelineInstant;
 import com.github.knokko.boiler.sync.WaitSemaphore;
-import com.github.knokko.boiler.sync.WaitTimelineSemaphore;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;

@@ -156,6 +156,6 @@ public class VkbWindow {
     }
 
     public void destroy() {
-        cleaner.destroyNow();
+        cleaner.destroyEverything();
     }
 }

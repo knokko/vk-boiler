@@ -199,7 +199,6 @@ public class HelloTriangle {
             }
 
             try (var stack = stackPush()) {
-                //var swapchainImage = boiler.swapchains.acquireNextImage(VK_PRESENT_MODE_FIFO_KHR);
                 var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_FIFO_KHR);
                 if (swapchainImage == null) {
                     //noinspection BusyWait
@@ -214,7 +213,6 @@ public class HelloTriangle {
 
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
-                for (var fence : commandFences) fence.isSignaled(); // TODO Hm... this is required... for now
                 VkbFence fence = commandFences[frameIndex];
                 fence.waitAndReset(stack);
 
