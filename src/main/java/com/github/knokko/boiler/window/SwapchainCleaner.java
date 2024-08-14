@@ -49,13 +49,14 @@ abstract class SwapchainCleaner {
             state.acquiredImages.addAll(remainingImages);
 
             if (canDestroyOldSwapchains && swapchainIndex > 0) {
-                System.out.println("Destroying " + swapchainIndex + " of the " + swapchains.size() + " swapchains");
+                int oldSwapchainIndex = swapchainIndex;
                 while (swapchainIndex > 0) {
                     swapchainIndex -= 1;
                     destroyStateNow(swapchains.get(swapchainIndex), true);
                 }
+                var newSwapchains = new ArrayList<>(swapchains.subList(oldSwapchainIndex, swapchains.size()));
                 swapchains.clear();
-                swapchains.add(state);
+                swapchains.addAll(newSwapchains);
             }
         }
     }
@@ -102,7 +103,7 @@ abstract class SwapchainCleaner {
             }
 
             // Prevent swapchains from piling up when they are destroyed too quickly
-            if (swapchains.size() > 5) { // TODO Make it possible to test this
+            if (swapchains.size() > 5) {
                 for (var state : swapchains) {
                     waitUntilStateCanBeDestroyed(state);
                     destroyStateNow(state, true);
