@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
+import com.github.knokko.boiler.builder.WindowBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
@@ -25,7 +25,7 @@ public class SimpleRingApproximation {
         )
                 .validation()
                 .enableDynamicRendering()
-                .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+                .addWindow(new WindowBuilder(1000, 8000, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
                 .build();
 
         int numFramesInFlight = 3;
@@ -62,10 +62,7 @@ public class SimpleRingApproximation {
             pipelineBuilder.noDepthStencil();
             pipelineBuilder.noColorBlending(1);
             pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-            pipelineBuilder.dynamicRendering(
-                    0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED,
-                    boiler.swapchainSettings.surfaceFormat().format()
-            );
+            pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, boiler.window().surfaceFormat);
             pipelineBuilder.ciPipeline.layout(pipelineLayout);
 
             graphicsPipeline = pipelineBuilder.build("RingApproximation");
@@ -75,20 +72,18 @@ public class SimpleRingApproximation {
         var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
             try (var stack = stackPush()) {
                 long imageView = boiler.images.createSimpleView(
-                        stack, swapchainImage.vkImage(), boiler.swapchainSettings.surfaceFormat().format(),
+                        stack, swapchainImage.vkImage(), boiler.window().surfaceFormat,
                         VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
                 );
 
                 return new AssociatedSwapchainResources(imageView);
             }
-        }, resources -> {
-            vkDestroyImageView(boiler.vkDevice(), resources.imageView, null);
-        });
+        }, resources -> vkDestroyImageView(boiler.vkDevice(), resources.imageView, null));
 
         long referenceTime = System.currentTimeMillis();
         long referenceFrames = 0;
 
-        while (!glfwWindowShouldClose(boiler.glfwWindow())) {
+        while (!glfwWindowShouldClose(boiler.window().glfwWindow)) {
             glfwPollEvents();
 
             long currentTime = System.currentTimeMillis();

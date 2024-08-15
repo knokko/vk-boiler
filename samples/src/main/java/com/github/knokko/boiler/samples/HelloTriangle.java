@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
+import com.github.knokko.boiler.builder.WindowBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
@@ -27,7 +27,7 @@ public class HelloTriangle {
                 VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
         )
                 .validation().forbidValidationErrors()
-                .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+                .addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
                 .build();
 
         int numFramesInFlight = 3;
@@ -46,7 +46,7 @@ public class HelloTriangle {
 
             var attachments = VkAttachmentDescription.calloc(1, stack);
             var colorAttachment = attachments.get(0);
-            colorAttachment.format(boiler.swapchainSettings.surfaceFormat().format());
+            colorAttachment.format(boiler.window().surfaceFormat);
             colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
             colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
             colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
@@ -169,7 +169,7 @@ public class HelloTriangle {
         var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
             try (var stack = stackPush()) {
                 long imageView = boiler.images.createSimpleView(
-                        stack, swapchainImage.vkImage(), boiler.swapchainSettings.surfaceFormat().format(),
+                        stack, swapchainImage.vkImage(), boiler.window().surfaceFormat,
                         VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView " + swapchainImage.index()
                 );
 
@@ -188,7 +188,7 @@ public class HelloTriangle {
         long referenceTime = System.currentTimeMillis();
         long referenceFrames = 0;
 
-        while (!glfwWindowShouldClose(boiler.glfwWindow())) {
+        while (!glfwWindowShouldClose(boiler.window().glfwWindow)) {
             glfwPollEvents();
 
             long currentTime = System.currentTimeMillis();

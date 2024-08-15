@@ -8,7 +8,7 @@ public record QueueFamilyMapping(
         QueueFamilyAllocation transfer,
         QueueFamilyAllocation videoEncode,
         QueueFamilyAllocation videoDecode,
-        int presentFamilyIndex
+        int[] presentFamilyIndices
 ) {
 
     public void validate() throws IllegalStateException {
@@ -27,6 +27,9 @@ public record QueueFamilyMapping(
         }
         if (videoEncode != null && videoDecode != null) {
             validateFamilyPriorities(videoEncode, videoDecode, "videoEncode", "videoDecode");
+        }
+        for (int index : presentFamilyIndices) {
+            if (index < 0) throw new IllegalArgumentException("Negative present family index: " + Arrays.toString(presentFamilyIndices));
         }
     }
 

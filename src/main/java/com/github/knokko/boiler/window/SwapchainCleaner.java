@@ -15,12 +15,8 @@ import static org.lwjgl.vulkan.VK10.vkDeviceWaitIdle;
 
 abstract class SwapchainCleaner {
 
-    final BoilerInstance instance;
+    BoilerInstance instance;
     final List<State> swapchains = new ArrayList<>();
-
-    SwapchainCleaner(BoilerInstance instance) {
-        this.instance = instance;
-    }
 
     void onAcquire(AcquiredImage acquiredImage) {
         if (swapchains.isEmpty()) {
@@ -93,8 +89,13 @@ abstract class SwapchainCleaner {
         instance.sync.semaphoreBank.returnSemaphores(image.presentSemaphore());
     }
 
+    public long getLatestSwapchainHandle() {
+        if (swapchains.isEmpty()) return VK_NULL_HANDLE;
+        return swapchains.get(swapchains.size() - 1).swapchain.vkSwapchain;
+    }
+
     public void onChangeCurrentSwapchain(VkbSwapchain oldSwapchain, VkbSwapchain newSwapchain) {
-        if (!swapchains.isEmpty() && swapchains.get(swapchains.size() - 1).swapchain != oldSwapchain) {
+        if (!swapchains.isEmpty() && swapchains.get(swapchains.size() - 1).swapchain != oldSwapchain && oldSwapchain != null) {
             throw new IllegalStateException("Missed the switch to swapchain " + oldSwapchain);
         }
         if (newSwapchain != null) {
@@ -122,11 +123,8 @@ abstract class SwapchainCleaner {
     abstract void waitUntilStateCanBeDestroyed(State state);
 
     void destroyEverything() {
-        assertVkSuccess(vkDeviceWaitIdle(
-                instance.vkDevice()
-        ), "DeviceWaitIdle", "LegacySwapchainCleaner.destroyNow");
-
         for (var state : swapchains) {
+            for (var image : state.acquiredImages) image.acquireFence.waitIfSubmitted();
             waitUntilStateCanBeDestroyed(state);
             destroyStateNow(state, false);
         }

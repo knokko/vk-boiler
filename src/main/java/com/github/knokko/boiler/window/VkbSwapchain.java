@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.queue.QueueFamily;
 import com.github.knokko.boiler.sync.AwaitableSubmission;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 
@@ -20,6 +21,7 @@ class VkbSwapchain { // TODO Update README
     private final SwapchainCleaner cleaner;
     private final int presentMode; // TODO Support for switching present mode
     final int width, height;
+    QueueFamily presentFamily;
     final long[] images;
 
     final Collection<Runnable> destructionCallbacks = new ArrayList<>();
@@ -28,8 +30,8 @@ class VkbSwapchain { // TODO Update README
     private boolean outdated;
 
     VkbSwapchain(
-            BoilerInstance instance, long vkSwapchain, SwapchainCleaner cleaner,
-            int presentMode, int width, int height
+            BoilerInstance instance, long vkSwapchain, String title, SwapchainCleaner cleaner,
+            int presentMode, int width, int height, QueueFamily presentFamily
     ) {
         this.instance = instance;
         this.vkSwapchain = vkSwapchain;
@@ -38,6 +40,7 @@ class VkbSwapchain { // TODO Update README
         this.presentMode = presentMode;
         this.width = width;
         this.height = height;
+        this.presentFamily = presentFamily;
 
         try (var stack = stackPush()) {
             var pNumImages = stack.callocInt(1);
@@ -54,7 +57,7 @@ class VkbSwapchain { // TODO Update README
             this.images = new long[numImages];
             for (int index = 0; index < numImages; index++) {
                 this.images[index] = pImages.get(index);
-                this.instance.debug.name(stack, this.images[index], VK_OBJECT_TYPE_IMAGE, "SwapchainImage" + index);
+                this.instance.debug.name(stack, this.images[index], VK_OBJECT_TYPE_IMAGE, "SwapchainImage-" + title + index);
             }
         }
     }
@@ -126,9 +129,7 @@ class VkbSwapchain { // TODO Update README
             // TODO Check why this is needed
             //if (beforePresentCallback != null) beforePresentCallback.accept(presentInfo);
 
-            int presentResult = vkQueuePresentKHR(
-                    instance.queueFamilies().present().queues().get(0).vkQueue(), presentInfo
-            );
+            int presentResult = presentFamily.queues().get(0).present(presentInfo);
             if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
                 outdated = true;
                 return;

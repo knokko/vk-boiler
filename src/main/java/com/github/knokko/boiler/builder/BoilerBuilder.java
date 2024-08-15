@@ -15,8 +15,9 @@ import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import static com.github.knokko.boiler.builder.BoilerSwapchainBuilder.createSurface;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.util.CollectionHelper.decodeStringSet;
 import static org.lwjgl.glfw.GLFW.*;
@@ -67,10 +68,7 @@ public class BoilerBuilder {
 
     long defaultTimeout = 1_000_000_000L;
 
-    long window = 0;
-    int windowWidth = 0;
-    int windowHeight = 0;
-    BoilerSwapchainBuilder swapchainBuilder;
+    List<WindowBuilder> windows = new ArrayList<>();
     boolean initGLFW = true;
 
     BoilerXrBuilder xrBuilder;
@@ -135,20 +133,8 @@ public class BoilerBuilder {
         return this;
     }
 
-    /**
-     * If all of {@code window}, {@code width}, and {@code height} are 0, no window will be created.
-     * @param window The GLFW window to use, or 0 to create a new one of the given size
-     * @param width The width of the window content, in pixels
-     * @param height The height of the window content, in pixels
-     * @param swapchainBuilder Specifies the desired configuration of the swapchain to be created. Can be null
-     *                         if no window is created.
-     * @return this
-     */
-    public BoilerBuilder window(long window, int width, int height, BoilerSwapchainBuilder swapchainBuilder) {
-        this.window = window;
-        this.windowWidth = width;
-        this.windowHeight = height;
-        this.swapchainBuilder = swapchainBuilder;
+    public BoilerBuilder addWindow(WindowBuilder windowBuilder) {
+        this.windows.add(windowBuilder);
         return this;
     }
 
@@ -347,26 +333,18 @@ public class BoilerBuilder {
         if (didBuild) throw new IllegalStateException("This builder has been used already");
         didBuild = true;
 
-        if (window == 0L && windowWidth != 0 && windowHeight != 0) {
-            if (initGLFW && !glfwInit()) throw new GLFWFailureException("glfwInit() returned false");
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-            window = glfwCreateWindow(windowWidth, windowHeight, applicationName, 0L, 0L);
-            if (window == 0) {
-                try (var stack = stackPush()) {
-                    var pError = stack.callocPointer(1);
-                    int errorCode = glfwGetError(pError);
-                    if (errorCode == GLFW_NO_ERROR) throw new GLFWFailureException("glfwCreateWindow() returned 0");
-                    else throw new GLFWFailureException(
-                            "glfwCreateWindow() returned 0 and glfwGetError() returned "
-                                    + errorCode + " because: " + memUTF8(pError.get())
-                    );
-                }
-            }
+        if (!windows.isEmpty() && windows.stream().allMatch(window -> window.glfwWindow == 0L) && initGLFW) {
+            if (!glfwInit()) throw new GLFWFailureException("glfwInit() returned false");
+        }
+
+        for (var windowBuilder : windows) {
+            if (windowBuilder.title == null) windowBuilder.title = applicationName;
+            windowBuilder.createGlfwWindow();
         }
 
         boolean[] pHasSwapchainMaintenance = { false };
 
-        if (window != 0L) {
+        if (!windows.isEmpty()) {
             if (!glfwVulkanSupported()) throw new GLFWFailureException("glfwVulkanSupported() returned false");
             var glfwExtensions = glfwGetRequiredInstanceExtensions();
             if (glfwExtensions == null) throw new GLFWFailureException("glfwGetRequiredInstanceExtensions() returned null");
@@ -499,17 +477,25 @@ public class BoilerBuilder {
 
         var deviceResult = BoilerDeviceBuilder.createDevice(this, instanceResult);
 
-        var windowSurface = deviceResult.windowSurface() != 0L ?
-                createSurface(deviceResult.vkPhysicalDevice(), deviceResult.windowSurface()) : null;
-        var swapchainSettings = windowSurface != null ? swapchainBuilder.chooseSwapchainSettings(windowSurface) : null;
+        var windows = IntStream.range(0, this.windows.size()).mapToObj(windowIndex -> {
+            var windowBuilder = this.windows.get(windowIndex);
+            var vkSurface = deviceResult.windowSurfaces()[windowIndex];
+            var presentFamily = deviceResult.presentFamilies()[windowIndex];
+            return windowBuilder.build(deviceResult.vkPhysicalDevice(), vkSurface, pHasSwapchainMaintenance[0], presentFamily);
+        }).collect(Collectors.toList());
 
         var instance = new BoilerInstance(
-                window, windowSurface, swapchainSettings, pHasSwapchainMaintenance[0], xr, defaultTimeout,
+                xr, defaultTimeout, windows, pHasSwapchainMaintenance[0],
                 apiVersion, instanceResult.vkInstance(), deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
                 instanceResult.enabledLayers(), instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
                 deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower
         );
         if (xr != null) xr.boiler = instance;
+
+        for (int windowIndex = 0; windowIndex < windows.size(); windowIndex++) {
+            this.windows.get(windowIndex).callback.accept(windows.get(windowIndex));
+        }
+
         return instance;
     }
 }

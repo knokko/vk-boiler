@@ -10,6 +10,6 @@ public interface QueueFamilyMapper {
     QueueFamilyMapping mapQueueFamilies(
             VkQueueFamilyProperties.Buffer queueFamilies,
             Set<String> deviceExtensions,
-            boolean[] presentSupport
+            boolean[][] presentSupportMatrix
     );
 }

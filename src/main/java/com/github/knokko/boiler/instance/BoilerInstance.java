@@ -1,14 +1,13 @@
 package com.github.knokko.boiler.instance;
 
 import com.github.knokko.boiler.buffer.BoilerBuffers;
+import com.github.knokko.boiler.builder.WindowBuilder;
 import com.github.knokko.boiler.commands.BoilerCommands;
 import com.github.knokko.boiler.debug.BoilerDebug;
 import com.github.knokko.boiler.descriptors.BoilerDescriptors;
 import com.github.knokko.boiler.images.BoilerImages;
 import com.github.knokko.boiler.pipelines.BoilerPipelines;
 import com.github.knokko.boiler.queue.QueueFamilies;
-import com.github.knokko.boiler.surface.WindowSurface;
-import com.github.knokko.boiler.window.SwapchainSettings;
 import com.github.knokko.boiler.sync.BoilerSync;
 import com.github.knokko.boiler.window.VkbWindow;
 import com.github.knokko.boiler.xr.XrBoiler;
@@ -16,10 +15,10 @@ import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
-import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
 import static org.lwjgl.util.vma.Vma.vmaDestroyAllocator;
 import static org.lwjgl.vulkan.EXTDebugUtils.vkDestroyDebugUtilsMessengerEXT;
 import static org.lwjgl.vulkan.VK10.*;
@@ -28,9 +27,8 @@ public class BoilerInstance {
 
     public final long defaultTimeout;
 
-    private final long glfwWindow;
-    private final WindowSurface windowSurface;
-    public final SwapchainSettings swapchainSettings;
+    private final Collection<VkbWindow> windows;
+    private final boolean hasSwapchainMaintenance;
 
     private final XrBoiler xr;
 
@@ -49,21 +47,18 @@ public class BoilerInstance {
     public final BoilerPipelines pipelines;
     public final BoilerCommands commands;
     public final BoilerSync sync;
-    private final VkbWindow window;
     public final BoilerDebug debug;
 
     private boolean destroyed = false;
 
     public BoilerInstance(
-            long glfwWindow, WindowSurface windowSurface, SwapchainSettings swapchainSettings,
-            boolean hasSwapchainMaintenance, XrBoiler xr, long defaultTimeout,
+            XrBoiler xr, long defaultTimeout, Collection<VkbWindow> windows, boolean hasSwapchainMaintenance,
             int apiVersion, VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
             Set<String> explicitLayers, Set<String> instanceExtensions, Set<String> deviceExtensions,
             QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower
     ) {
-        this.glfwWindow = glfwWindow;
-        this.windowSurface = windowSurface;
-        this.swapchainSettings = swapchainSettings;
+        this.windows = windows;
+        this.hasSwapchainMaintenance = hasSwapchainMaintenance;
         this.xr = xr;
         this.defaultTimeout = defaultTimeout;
         this.apiVersion = apiVersion;
@@ -83,35 +78,31 @@ public class BoilerInstance {
         this.pipelines = new BoilerPipelines(this);
         this.commands = new BoilerCommands(this);
         this.sync = new BoilerSync(this);
-        this.window = swapchainSettings != null ? new VkbWindow(this, hasSwapchainMaintenance, glfwWindow, windowSurface.vkSurface()) : null;
         this.debug = new BoilerDebug(this);
+
+        for (var window : windows) window.setInstance(this);
     }
 
     private void checkDestroyed() {
         if (destroyed) throw new IllegalStateException("This instance has already been destroyed");
     }
 
-    private void checkWindow() {
-        if (glfwWindow == 0L) throw new UnsupportedOperationException("This instance doesn't have a window");
-    }
-
     public VkbWindow window() {
         checkDestroyed();
-        checkWindow();
-        // TODO Multiple windows
-        return window;
+        if (windows.isEmpty()) throw new UnsupportedOperationException("This boiler doesn't have a window");
+        if (windows.size() > 1) {
+            throw new UnsupportedOperationException(
+                    "This method can't be used when there are multiple windows. " +
+                            "You should chain a .callback(...) to the corresponding WindowBuilder to get its instance"
+            );
+        }
+        return windows.iterator().next();
     }
 
-    public long glfwWindow() {
+    public VkbWindow addWindow(WindowBuilder builder) {
         checkDestroyed();
-        checkWindow();
-        return glfwWindow;
-    }
 
-    public WindowSurface windowSurface() {
-        checkDestroyed();
-        checkWindow();
-        return windowSurface;
+        return builder.buildLate(this, hasSwapchainMaintenance);
     }
 
     public XrBoiler xr() {
@@ -146,36 +137,33 @@ public class BoilerInstance {
     }
 
     /**
-     * Destroys the GLFW window and the Vulkan objects that were created during <i>BoilerBuilder.build()</i> (or were
+     * Destroys the GLFW objects and the Vulkan objects that were created during <i>BoilerBuilder.build()</i> (or were
      * passed to the constructor of this class if <i>BoilerBuilder</i> wasn't used). A list of objects that will be
      * destroyed:
      * <ul>
-     *     <li>The swapchain (if applicable)</li>
+     *     <li>All windows (if any), alongside their swapchains and surfaces</li>
      *     <li>The returned fences in the fence bank</li>
      *     <li>The unused semaphores in the semaphore bank</li>
      *     <li>The VMA allocator</li>
      *     <li>The VkDevice</li>
-     *     <li>The window surface (if applicable)</li>
      *     <li>The validation error thrower (if applicable)</li>
      *     <li>The VkInstance</li>
-     *     <li>The GLFW window (if applicable)</li>
      *     <li>The OpenXR instance (if applicable)</li>
      * </ul>
      */
     public void destroyInitialObjects() {
         checkDestroyed();
 
-        if (window != null) window.destroy();
+        for (var window : windows) window.destroy();
         sync.fenceBank.destroy();
         sync.semaphoreBank.destroy();
         vmaDestroyAllocator(vmaAllocator);
         vkDestroyDevice(vkDevice, null);
-        if (windowSurface != null) windowSurface.destroy(vkInstance);
         if (validationErrorThrower != VK_NULL_HANDLE) {
             vkDestroyDebugUtilsMessengerEXT(vkInstance, validationErrorThrower, null);
         }
         vkDestroyInstance(vkInstance, null);
-        if (glfwWindow != 0L) glfwDestroyWindow(glfwWindow);
+        //if (glfwWindow != 0L) glfwDestroyWindow(glfwWindow);
         if (xr != null) xr.destroyInitialObjects();
 
         destroyed = true;

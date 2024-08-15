@@ -1,7 +1,5 @@
-package com.github.knokko.boiler.builder.swapchain;
+package com.github.knokko.boiler.builder.window;
 
-
-import com.github.knokko.boiler.surface.SurfaceFormat;
 
 import java.util.Set;
 

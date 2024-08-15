@@ -38,16 +38,16 @@ public class TestMinimalQueueMapper {
                     VK_QUEUE_TRANSFER_BIT | VK_QUEUE_COMPUTE_BIT
             );
 
-            boolean[] presentSupport = { true, true, false };
+            boolean[][] presentSupportMatrix = { { true }, { true }, { false } };
 
             var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
-                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupport
+                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupportMatrix
             );
             mapping.validate();
             assertEquals(1, mapping.graphics().index());
             assertEquals(1, mapping.compute().index());
             assertEquals(1, mapping.transfer().index());
-            assertEquals(1, mapping.presentFamilyIndex());
+            assertArrayEquals(new int[] { 1 }, mapping.presentFamilyIndices());
             assertNull(mapping.videoEncode());
             assertEquals(1, mapping.videoDecode().index());
             assertArrayEquals(new float[] { 1f }, mapping.graphics().priorities());
@@ -66,16 +66,16 @@ public class TestMinimalQueueMapper {
             memPutInt(pQueueFamilies.get(2).address() + VkQueueFamilyProperties.QUEUEFLAGS, VK_QUEUE_TRANSFER_BIT);
             memPutInt(pQueueFamilies.get(3).address() + VkQueueFamilyProperties.QUEUEFLAGS, VK_QUEUE_VIDEO_ENCODE_BIT_KHR);
 
-            boolean[] presentSupport = { false, false, true, true };
+            boolean[][] presentSupportMatrix = { { false }, { false }, { true }, { true } };
 
             var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
-                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupport
+                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupportMatrix
             );
             mapping.validate();
             assertEquals(0, mapping.graphics().index());
             assertEquals(1, mapping.compute().index());
             assertEquals(0, mapping.transfer().index());
-            assertEquals(2, mapping.presentFamilyIndex());
+            assertArrayEquals(new int[] { 2 }, mapping.presentFamilyIndices());
             assertEquals(3, mapping.videoEncode().index());
             assertNull(mapping.videoDecode());
             for (var priorities : new float[][] {
@@ -108,16 +108,16 @@ public class TestMinimalQueueMapper {
                     VK_QUEUE_VIDEO_ENCODE_BIT_KHR | VK_QUEUE_VIDEO_DECODE_BIT_KHR
             );
 
-            boolean[] presentSupport = { true, false, false, true, false };
+            boolean[][] presentSupportMatrix = { { true }, { false }, { false }, { true }, { false } };
 
             var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
-                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupport
+                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupportMatrix
             );
             mapping.validate();
             assertEquals(2, mapping.graphics().index());
             assertEquals(2, mapping.compute().index());
             assertEquals(2, mapping.transfer().index());
-            assertEquals(0, mapping.presentFamilyIndex());
+            assertArrayEquals(new int[1], mapping.presentFamilyIndices());
             assertEquals(4, mapping.videoEncode().index());
             assertEquals(4, mapping.videoDecode().index());
             for (var priorities : new float[][] {
@@ -145,10 +145,10 @@ public class TestMinimalQueueMapper {
                     VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT
             );
 
-            boolean[] presentSupport = { true, true };
+            boolean[][] presentSupportMatrix = { { true }, { true } };
 
             var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
-                    pQueueFamilies, new HashSet<>(), presentSupport
+                    pQueueFamilies, new HashSet<>(), presentSupportMatrix
             );
             mapping.validate();
             assertEquals(1, mapping.graphics().index());
@@ -168,10 +168,10 @@ public class TestMinimalQueueMapper {
                     VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT
             );
 
-            boolean[] presentSupport = { true };
+            boolean[][] presentSupportMatrix = { { true } };
 
             var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(
-                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupport
+                    pQueueFamilies, VIDEO_EXTENSIONS, presentSupportMatrix
             );
             mapping.validate();
             assertEquals(0, mapping.graphics().index());
@@ -181,4 +181,6 @@ public class TestMinimalQueueMapper {
             assertNull(mapping.videoEncode());
         }
     }
+
+    // TODO Test with multiple windows
 }

@@ -32,7 +32,6 @@ public class SemaphoreBank {
                         instance.vkDevice(), ciSemaphore, null, pSemaphore
                 ), "CreateSemaphore", name);
                 semaphore = pSemaphore.get(0);
-                instance.debug.name(stack, semaphore, VK_OBJECT_TYPE_SEMAPHORE, name);
             }
             instance.debug.name(stack, semaphore, VK_OBJECT_TYPE_SEMAPHORE, name);
         }

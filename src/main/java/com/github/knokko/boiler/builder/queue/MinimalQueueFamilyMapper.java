@@ -2,6 +2,7 @@ package com.github.knokko.boiler.builder.queue;
 
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
 
+import java.util.Arrays;
 import java.util.Set;
 
 import static org.lwjgl.vulkan.KHRVideoDecodeQueue.VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME;
@@ -17,7 +18,7 @@ public class MinimalQueueFamilyMapper implements QueueFamilyMapper {
     public QueueFamilyMapping mapQueueFamilies(
             VkQueueFamilyProperties.Buffer queueFamilies,
             Set<String> deviceExtensions,
-            boolean[] presentSupport
+            boolean[][] presentSupportMatrix
     ) {
         float[] priorities = { 1f };
 
@@ -44,17 +45,25 @@ public class MinimalQueueFamilyMapper implements QueueFamilyMapper {
 
         int graphicsIndex = -1;
         int computeIndex = -1;
-        int presentIndex = -1;
+        int[] presentIndices = new int[presentSupportMatrix[0].length]; // TODO Test multiple present indices
+        Arrays.fill(presentIndices, -1);
 
         for (int familyIndex = 0; familyIndex < queueFamilies.limit(); familyIndex++) {
             int queueFlags = queueFamilies.get(familyIndex).queueFlags();
             boolean hasGraphics = (queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
             boolean hasCompute = (queueFlags & VK_QUEUE_COMPUTE_BIT) != 0;
-            boolean hasPresent = presentSupport[familyIndex];
+            boolean canPresentToAll = true;
+            for (int surfaceIndex = 0; surfaceIndex < presentSupportMatrix[familyIndex].length; surfaceIndex++) {
+                if (!presentSupportMatrix[familyIndex][surfaceIndex]) {
+                    canPresentToAll = false;
+                    break;
+                }
+            }
 
-            if (hasGraphics && hasCompute && hasPresent) {
+            if (hasGraphics && hasCompute && canPresentToAll) {
                 var allocation = new QueueFamilyAllocation(familyIndex, priorities);
-                return new QueueFamilyMapping(allocation, allocation, allocation, videoEncode, videoDecode, familyIndex);
+                Arrays.fill(presentIndices, familyIndex);
+                return new QueueFamilyMapping(allocation, allocation, allocation, videoEncode, videoDecode, presentIndices);
             }
 
             if (graphicsIndex == -1 && hasGraphics) graphicsIndex = familyIndex;
@@ -64,16 +73,18 @@ public class MinimalQueueFamilyMapper implements QueueFamilyMapper {
                 computeIndex = familyIndex;
             }
 
-            if (presentIndex == -1 && hasPresent) presentIndex = familyIndex;
-            if ((hasGraphics || hasCompute) && hasPresent) presentIndex = familyIndex;
+            for (int surfaceIndex = 0; surfaceIndex < presentSupportMatrix[familyIndex].length; surfaceIndex++) {
+                boolean canPresent = presentSupportMatrix[familyIndex][surfaceIndex];
+                if (presentIndices[surfaceIndex] == -1 && canPresent) presentIndices[surfaceIndex] = familyIndex;
+                if ((hasGraphics || hasCompute) && canPresent) presentIndices[surfaceIndex] = familyIndex;
+            }
         }
-
 
         return new QueueFamilyMapping(
                 new QueueFamilyAllocation(graphicsIndex, priorities),
                 new QueueFamilyAllocation(computeIndex, priorities),
                 new QueueFamilyAllocation(graphicsIndex, priorities),
-                videoEncode, videoDecode, presentIndex
+                videoEncode, videoDecode, presentIndices
         );
     }
 }

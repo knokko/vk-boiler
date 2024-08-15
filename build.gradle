@@ -74,6 +74,7 @@ dependencies {
 }
 
 project(':samples') {
+	apply plugin: "com.github.johnrengelman.shadow"
     dependencies {
         implementation project(':')
         implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
@@ -92,7 +93,7 @@ project(':samples') {
     }
     shadowJar {
         manifest {
-            attributes ('Main-Class': 'com.github.knokko.boiler.samples.TerrainPlayground')
+            attributes ('Main-Class': 'com.github.knokko.boiler.samples.MultipleWindows')
         }
     }
 }

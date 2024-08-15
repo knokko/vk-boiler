@@ -5,6 +5,7 @@ import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
+import static org.lwjgl.vulkan.KHRSwapchain.vkQueuePresentKHR;
 import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
 
@@ -91,5 +92,9 @@ public record BoilerQueue(VkQueue vkQueue) {
             assertVkSuccess(vkQueueSubmit(vkQueue, submission, fenceHandle), "QueueSubmit", context);
             return fence != null ? new FenceSubmission(fence) : null;
         }
+    }
+
+    public synchronized int present(VkPresentInfoKHR presentInfo) {
+        return vkQueuePresentKHR(vkQueue, presentInfo);
     }
 }

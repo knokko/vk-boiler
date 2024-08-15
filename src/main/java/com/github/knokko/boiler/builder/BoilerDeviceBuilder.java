@@ -31,22 +31,21 @@ class BoilerDeviceBuilder {
         VkPhysicalDevice vkPhysicalDevice;
         VkDevice vkDevice;
         Set<String> enabledExtensions;
-        long windowSurface;
+        long[] windowSurfaces;
         QueueFamilies queueFamilies;
         long vmaAllocator;
 
         try (var stack = stackPush()) {
-
-            if (builder.window != 0L) {
-                var pSurface = stack.callocLong(1);
+            var pSurface = stack.callocLong(1);
+            windowSurfaces = builder.windows.stream().mapToLong(windowBuilder -> {
                 assertVkSuccess(glfwCreateWindowSurface(
-                        instanceResult.vkInstance(), builder.window, null, pSurface
+                        instanceResult.vkInstance(), windowBuilder.glfwWindow, null, pSurface
                 ), "glfwCreateWindowSurface", null);
-                windowSurface = pSurface.get(0);
-            } else windowSurface = 0L;
+                return pSurface.get(0);
+            }).toArray();
 
             VkPhysicalDevice[] candidateDevices = BasicDeviceFilter.getCandidates(
-                    builder, instanceResult.vkInstance(), windowSurface, builder.printDeviceRejectionInfo
+                    builder, instanceResult.vkInstance(), windowSurfaces, builder.printDeviceRejectionInfo
             );
             if (candidateDevices.length == 0) throw new NoVkPhysicalDeviceException();
 
@@ -86,6 +85,7 @@ class BoilerDeviceBuilder {
             }
         }
 
+        QueueFamily[] presentFamilies;
         try (var stack = stackPush()) {
             if (VK_API_VERSION_MAJOR(builder.apiVersion) != 1) {
                 throw new UnsupportedOperationException("Unknown api major version: " + VK_API_VERSION_MAJOR(builder.apiVersion));
@@ -145,25 +145,28 @@ class BoilerDeviceBuilder {
             var pQueueFamilies = VkQueueFamilyProperties.calloc(numQueueFamilies, stack);
             vkGetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice, pNumQueueFamilies, pQueueFamilies);
 
-            boolean[] queueFamilyPresentSupport = new boolean[numQueueFamilies];
+            var presentSupportMatrix = new boolean[numQueueFamilies][windowSurfaces.length];
+            var pPresentSupport = stack.callocInt(1);
+
             for (int familyIndex = 0; familyIndex < numQueueFamilies; familyIndex++) {
-                if (windowSurface != 0L) {
-                    var pPresentSupport = stack.callocInt(1);
+                for (int surfaceIndex = 0; surfaceIndex < windowSurfaces.length; surfaceIndex++) {
                     assertVkSuccess(vkGetPhysicalDeviceSurfaceSupportKHR(
-                            vkPhysicalDevice, familyIndex, windowSurface, pPresentSupport
+                            vkPhysicalDevice, familyIndex, windowSurfaces[surfaceIndex], pPresentSupport
                     ), "GetPhysicalDeviceSurfaceSupportKHR", "BoilerDeviceBuilder");
-                    queueFamilyPresentSupport[familyIndex] = pPresentSupport.get(0) == VK_TRUE;
-                } else queueFamilyPresentSupport[familyIndex] = true;
+                    presentSupportMatrix[familyIndex][surfaceIndex] = pPresentSupport.get(0) == VK_TRUE;
+                }
             }
 
             var queueFamilyMapping = builder.queueFamilyMapper.mapQueueFamilies(
-                    pQueueFamilies, enabledExtensions, queueFamilyPresentSupport
+                    pQueueFamilies, enabledExtensions, presentSupportMatrix
             );
             queueFamilyMapping.validate();
 
             var uniqueQueueFamilies = new HashMap<Integer, float[]>();
             // Do presentFamily first so that it will be overwritten by the others if the queue family is shared
-            uniqueQueueFamilies.put(queueFamilyMapping.presentFamilyIndex(), new float[] { 1f });
+            for (var presentFamilyIndex : queueFamilyMapping.presentFamilyIndices()) {
+                uniqueQueueFamilies.put(presentFamilyIndex, new float[]{1f});
+            }
             uniqueQueueFamilies.put(queueFamilyMapping.graphics().index(), queueFamilyMapping.graphics().priorities());
             uniqueQueueFamilies.put(queueFamilyMapping.compute().index(), queueFamilyMapping.compute().priorities());
             uniqueQueueFamilies.put(queueFamilyMapping.transfer().index(), queueFamilyMapping.transfer().priorities());
@@ -208,15 +211,20 @@ class BoilerDeviceBuilder {
                 queueFamilyMap.put(entry.getKey(), getQueueFamily(stack, vkDevice, entry.getKey(), entry.getValue().length));
             }
 
+            presentFamilies = new QueueFamily[windowSurfaces.length];
+            for (int surfaceIndex = 0; surfaceIndex < windowSurfaces.length; surfaceIndex++) {
+                presentFamilies[surfaceIndex] = queueFamilyMap.get(queueFamilyMapping.presentFamilyIndices()[surfaceIndex]);
+            }
+
             int videoEncodeIndex = queueFamilyMapping.videoEncode() != null ? queueFamilyMapping.videoEncode().index() : -1;
             int videoDecodeIndex = queueFamilyMapping.videoDecode() != null ? queueFamilyMapping.videoDecode().index() : -1;
             queueFamilies = new QueueFamilies(
                     queueFamilyMap.get(queueFamilyMapping.graphics().index()),
                     queueFamilyMap.get(queueFamilyMapping.compute().index()),
                     queueFamilyMap.get(queueFamilyMapping.transfer().index()),
-                    queueFamilyMap.get(queueFamilyMapping.presentFamilyIndex()),
                     queueFamilyMap.get(videoEncodeIndex),
-                    queueFamilyMap.get(videoDecodeIndex)
+                    queueFamilyMap.get(videoDecodeIndex),
+                    Collections.unmodifiableCollection(queueFamilyMap.values())
             );
 
             var vmaVulkanFunctions = VmaVulkanFunctions.calloc(stack);
@@ -240,7 +248,10 @@ class BoilerDeviceBuilder {
             vmaAllocator = pAllocator.get(0);
         }
 
-        return new Result(vkPhysicalDevice, vkDevice, enabledExtensions, windowSurface, queueFamilies, vmaAllocator);
+        return new Result(
+                vkPhysicalDevice, vkDevice, enabledExtensions,
+                windowSurfaces, presentFamilies, queueFamilies, vmaAllocator
+        );
     }
 
     private static int getVmaFlags(Set<String> enabledExtensions) {
@@ -271,6 +282,6 @@ class BoilerDeviceBuilder {
 
     record Result(
             VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice, Set<String> enabledExtensions,
-            long windowSurface, QueueFamilies queueFamilies, long vmaAllocator
+            long[] windowSurfaces, QueueFamily[] presentFamilies, QueueFamilies queueFamilies, long vmaAllocator
     ) {}
 }

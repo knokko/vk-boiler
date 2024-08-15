@@ -50,7 +50,7 @@ public class TestBoilerBuilder {
         }).build();
 
         assertTrue(pDidCallInstanceCreator[0]);
-        assertThrows(UnsupportedOperationException.class, instance::glfwWindow);
+        assertThrows(UnsupportedOperationException.class, instance::window);
 
         instance.destroyInitialObjects();
     }
@@ -351,7 +351,7 @@ public class TestBoilerBuilder {
                 VK_API_VERSION_1_3, "TestQueueFamilyMapper", 1
         ).validation().forbidValidationErrors().queueFamilyMapper((queueFamilies, deviceExtensions, presentSupport) -> {
             QueueFamilyAllocation allocations = new QueueFamilyAllocation(0, new float[] { 0.25f });
-            return new QueueFamilyMapping(allocations, allocations, allocations, allocations, allocations, 0);
+            return new QueueFamilyMapping(allocations, allocations, allocations, allocations, allocations, new int[0]);
         }).build();
 
         // This test is somewhat crappy because I can't assume that multiple queues or queue families are supported...

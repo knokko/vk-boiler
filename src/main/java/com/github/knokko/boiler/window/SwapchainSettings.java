@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.window;
 
-import com.github.knokko.boiler.surface.SurfaceFormat;
+import com.github.knokko.boiler.builder.window.SurfaceFormat;
 
 public record SwapchainSettings(int imageUsage, SurfaceFormat surfaceFormat, int compositeAlpha) {
 }

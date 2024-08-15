@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.BoilerSwapchainBuilder;
+import com.github.knokko.boiler.builder.WindowBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.cull.FrustumCuller;
@@ -71,7 +71,7 @@ public class TerrainPlayground {
         var attachments = VkAttachmentDescription.calloc(2, stack);
         var colorAttachment = attachments.get(0);
         colorAttachment.flags(0);
-        colorAttachment.format(boiler.swapchainSettings.surfaceFormat().format());
+        colorAttachment.format(boiler.window().surfaceFormat);
         colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
         colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
         colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
@@ -338,7 +338,7 @@ public class TerrainPlayground {
         )
                 .validation(new ValidationFeatures(true, true, false, true, true))
                 .forbidValidationErrors()
-                .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+                .addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
                 .requiredFeatures12(VkPhysicalDeviceVulkan12Features::timelineSemaphore)
                 .featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
                 .build();
@@ -428,7 +428,7 @@ public class TerrainPlayground {
         var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
             try (var stack = stackPush()) {
                 long imageView = boiler.images.createSimpleView(
-                        stack, swapchainImage.vkImage(), boiler.swapchainSettings.surfaceFormat().format(),
+                        stack, swapchainImage.vkImage(), boiler.window().surfaceFormat,
                         VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
                 );
 
@@ -471,7 +471,7 @@ public class TerrainPlayground {
         var camera = new Camera();
         var cameraController = new CameraController();
 
-        glfwSetKeyCallback(boiler.glfwWindow(), ((window, key, scancode, action, mods) -> {
+        glfwSetKeyCallback(boiler.window().glfwWindow, ((window, key, scancode, action, mods) -> {
             float dx = 0f, dy = 0f, dz = 0f;
             if (key == GLFW_KEY_A) dx = -1f;
             if (key == GLFW_KEY_D) dx = 1f;
@@ -489,7 +489,7 @@ public class TerrainPlayground {
             camera.z += dz * scale;
         }));
 
-        glfwSetCursorPosCallback(boiler.glfwWindow(), (window, x, y) -> {
+        glfwSetCursorPosCallback(boiler.window().glfwWindow, (window, x, y) -> {
             if (!Double.isNaN(cameraController.oldX) && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
                 double dx = x - cameraController.oldX;
                 double dy = y - cameraController.oldY;
@@ -505,7 +505,7 @@ public class TerrainPlayground {
             cameraController.oldY = y;
         });
 
-        while (!glfwWindowShouldClose(boiler.glfwWindow())) {
+        while (!glfwWindowShouldClose(boiler.window().glfwWindow)) {
             glfwPollEvents();
 
             long currentTime = System.currentTimeMillis();

@@ -1,6 +1,5 @@
 package com.github.knokko.boiler.window;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.sync.VkbFence;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
@@ -8,10 +7,6 @@ import org.lwjgl.vulkan.VkPresentInfoKHR;
 import java.util.List;
 
 class LegacySwapchainCleaner extends SwapchainCleaner {
-
-    LegacySwapchainCleaner(BoilerInstance instance) {
-        super(instance);
-    }
 
     @Override
     boolean chooseRemainingImages(State state, List<AcquiredImage> remainingImages) {

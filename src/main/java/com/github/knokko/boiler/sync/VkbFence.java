@@ -126,7 +126,7 @@ public class VkbFence implements Comparable<VkbFence> {
         return signaled || submissionTime > referenceSubmissionTime;
     }
 
-    public void destroy() {
+    void destroy() {
         vkDestroyFence(instance.vkDevice(), vkFence, null);
     }
 

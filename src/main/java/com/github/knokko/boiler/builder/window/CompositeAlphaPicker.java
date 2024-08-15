@@ -1,4 +1,4 @@
-package com.github.knokko.boiler.builder.swapchain;
+package com.github.knokko.boiler.builder.window;
 
 @FunctionalInterface
 public interface CompositeAlphaPicker {

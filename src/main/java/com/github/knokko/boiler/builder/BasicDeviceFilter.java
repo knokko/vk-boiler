@@ -61,7 +61,7 @@ class BasicDeviceFilter {
 
     static VkPhysicalDevice[] getCandidates(
             BoilerBuilder builder, VkInstance vkInstance,
-            long windowSurface, boolean printRejectionInfo
+            long[] windowSurfaces, boolean printRejectionInfo
     ) {
         try (var stack = stackPush()) {
             var pNumDevices = stack.callocInt(1);
@@ -120,7 +120,8 @@ class BasicDeviceFilter {
                     }
                 }
 
-                boolean hasPresentQueueFamily = false;
+                // canPresentToSurfaces[i] is true if and only if at least 1 queue family of the device can present to it
+                boolean[] canPresentToSurfaces = new boolean[builder.windows.size()];
                 boolean hasGraphicsQueueFamily = false;
 
                 var pNumQueueFamilies = stack.callocInt(1);
@@ -129,16 +130,26 @@ class BasicDeviceFilter {
                 var pQueueFamilies = VkQueueFamilyProperties.calloc(numQueueFamilies, stack);
                 vkGetPhysicalDeviceQueueFamilyProperties(device, pNumQueueFamilies, pQueueFamilies);
 
+                var pPresentSupport = stack.callocInt(1);
                 for (int queueFamilyIndex = 0; queueFamilyIndex < numQueueFamilies; queueFamilyIndex++) {
-                    if (windowSurface != 0L) {
-                        var pPresentSupport = stack.callocInt(1);
+
+                    for (int surfaceIndex = 0; surfaceIndex < windowSurfaces.length; surfaceIndex++) {
                         assertVkSuccess(vkGetPhysicalDeviceSurfaceSupportKHR(
-                                device, queueFamilyIndex, windowSurface, pPresentSupport
+                                device, queueFamilyIndex, windowSurfaces[surfaceIndex], pPresentSupport
                         ), "GetPhysicalDeviceSurfaceSupportKHR", "BasicDeviceFilter");
-                        if (pPresentSupport.get(0) == VK_TRUE) hasPresentQueueFamily = true;
-                    } else hasPresentQueueFamily = true;
+                        if (pPresentSupport.get(0) == VK_TRUE) canPresentToSurfaces[surfaceIndex] = true;
+                    }
+
                     if ((pQueueFamilies.get(queueFamilyIndex).queueFlags() & VK_QUEUE_GRAPHICS_BIT) != 0) {
                         hasGraphicsQueueFamily = true;
+                    }
+                }
+
+                boolean hasPresentQueueFamily = true;
+                for (boolean canPresent : canPresentToSurfaces) {
+                    if (!canPresent) {
+                        hasPresentQueueFamily = false;
+                        break;
                     }
                 }
 
@@ -152,7 +163,7 @@ class BasicDeviceFilter {
                 }
 
                 if (!builder.extraDeviceRequirements.stream().allMatch(
-                        requirements -> requirements.satisfiesRequirements(device, windowSurface, stack)
+                        requirements -> requirements.satisfiesRequirements(device, windowSurfaces, stack)
                 )) {
                     if (printRejectionInfo) {
                         System.out.println("BasicDeviceFilter: rejected " + properties.deviceNameString()
