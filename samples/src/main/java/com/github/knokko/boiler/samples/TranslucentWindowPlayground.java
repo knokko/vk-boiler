@@ -85,7 +85,7 @@ public class TranslucentWindowPlayground {
                 try (var stack = stackPush()) {
                     int commandIndex = counter % commandFences.length;
 
-                    var acquired = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_FIFO_KHR);
+                    var acquired = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_MAILBOX_KHR);
                     if (acquired == null) {
                         //noinspection BusyWait
                         sleep(100);
