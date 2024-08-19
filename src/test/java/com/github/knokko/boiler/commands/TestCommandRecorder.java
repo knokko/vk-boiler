@@ -86,7 +86,7 @@ public class TestCommandRecorder {
 
 			recorder.end("Copying");
 			instance.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Copying", null, fence);
-			fence.waitAndReset(stack);
+			fence.waitAndReset();
 
 			assertEquals((byte) 0, memGetByte(destBuffer.hostAddress()));
 			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 1));
@@ -172,7 +172,7 @@ public class TestCommandRecorder {
 			}
 
 			instance.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Copying", null, fence);
-			fence.waitAndReset(stack);
+			fence.waitAndReset();
 
 			// So the blitted pixel should be (25, 0, 50, 255)
 			assertEquals((byte) 25, hostBuffer.get(0));

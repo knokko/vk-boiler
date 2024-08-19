@@ -214,7 +214,7 @@ public class HelloTriangle {
                 int frameIndex = (int) (frameCounter % numFramesInFlight);
                 var commandBuffer = commandBuffers[frameIndex];
                 VkbFence fence = commandFences[frameIndex];
-                fence.waitAndReset(stack);
+                fence.waitAndReset();
 
                 var recorder = CommandRecorder.begin(
                         commandBuffer, boiler, stack,

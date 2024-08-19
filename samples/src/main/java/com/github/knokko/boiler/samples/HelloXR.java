@@ -518,12 +518,12 @@ public class HelloXR {
             }
 
             @Override
-            protected void submitAndWaitRender(MemoryStack stack) {
+            protected void submitAndWaitRender() {
                 xr.boiler.queueFamilies().graphics().queues().get(0).submit(
                         commandBuffer, "Drawing", new WaitSemaphore[0], fence
                 );
 
-                fence.waitAndReset(stack);
+                fence.waitAndReset();
                 assertVkSuccess(vkResetCommandPool(
                         xr.boiler.vkDevice(), commandPool, 0
                 ), "ResetCommandPool", "Drawing");

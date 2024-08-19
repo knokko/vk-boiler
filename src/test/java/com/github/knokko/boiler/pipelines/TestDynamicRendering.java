@@ -96,7 +96,7 @@ public class TestDynamicRendering {
 
 			recorder.end();
 			instance.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Test", null, fence);
-			fence.waitAndReset(stack);
+			fence.waitAndReset();
 
 			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress()));
 			assertEquals((byte) 0, memGetByte(destBuffer.hostAddress() + 1));
@@ -194,7 +194,7 @@ public class TestDynamicRendering {
 			instance.queueFamilies().graphics().queues().get(0).submit(
 					commandBuffer, "DepthSubmission", null, fence
 			);
-			fence.waitAndReset(stack);
+			fence.waitAndReset();
 
 			assertEquals(0.75f, memGetFloat(destBuffer.hostAddress()));
 		}

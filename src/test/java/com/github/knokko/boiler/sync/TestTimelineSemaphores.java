@@ -88,7 +88,7 @@ public class TestTimelineSemaphores {
 
             // When we set the value to 2, the pending submission should start running, and then set it to 5
             semaphore.setValue(2);
-            fence.waitAndReset(stack);
+            fence.waitAndReset();
             assertEquals(5, semaphore.getValue());
 
             semaphore.waitUntil(4);

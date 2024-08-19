@@ -170,7 +170,7 @@ public abstract class SessionLoop {
                                 swapchain, wiSwapchain
                         ), "WaitSwapchainImage", null);
 
-                        submitAndWaitRender(stack);
+                        submitAndWaitRender();
 
                         assertXrSuccess(xrReleaseSwapchainImage(
                                 swapchain, null
@@ -277,5 +277,5 @@ public abstract class SessionLoop {
 
     protected abstract void recordRenderCommands(MemoryStack stack, int swapchainImageIndex, Matrix4f[] cameraMatrices);
 
-    protected abstract void submitAndWaitRender(MemoryStack stack);
+    protected abstract void submitAndWaitRender();
 }

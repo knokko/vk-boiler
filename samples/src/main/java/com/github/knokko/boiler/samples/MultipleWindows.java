@@ -76,7 +76,7 @@ public class MultipleWindows {
 
                 try (var stack = stackPush()) {
                     int frameIndex = (int) (currentFrame % numFramesInFlight);
-                    fences[frameIndex].waitAndReset(stack); // TODO Get rid of stack parameter
+                    fences[frameIndex].waitAndReset();
                     assertVkSuccess(vkResetCommandPool(
                             boiler.vkDevice(), commandPools[frameIndex], 0
                     ), "ResetCommandPool", "FillCommand");
@@ -179,7 +179,7 @@ public class MultipleWindows {
                 }
 
                 try (var stack = stackPush()) {
-                    fence.waitAndReset(stack);
+                    fence.waitAndReset();
                     swapchainImage.acquireFence().awaitSignal();
 
                     vkResetCommandPool(boiler.vkDevice(), commandPool, 0);
@@ -283,7 +283,7 @@ public class MultipleWindows {
                 }
 
                 try (var stack = stackPush()) {
-                    fence.waitAndReset(stack);
+                    fence.waitAndReset();
                     assertVkSuccess(vkResetCommandPool(
                             boiler.vkDevice(), commandPool, 0
                     ), "ResetCommandPool", "Reset" + contextSuffix);

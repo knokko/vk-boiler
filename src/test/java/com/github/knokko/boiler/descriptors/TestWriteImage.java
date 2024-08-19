@@ -102,7 +102,7 @@ public class TestWriteImage {
 					commandBuffer, "Sampling", null, fence
 			);
 
-			fence.waitAndReset(stack);
+			fence.waitAndReset();
 
 			assertEquals(100, memGetInt(destBuffer.hostAddress()));
 

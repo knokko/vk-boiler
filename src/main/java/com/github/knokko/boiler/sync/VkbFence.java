@@ -103,7 +103,7 @@ public class VkbFence implements Comparable<VkbFence> {
         waitIfSubmitted(instance.defaultTimeout);
     }
 
-    public void waitAndReset(MemoryStack stack) {
+    public void waitAndReset() {
         waitAndReset(instance.defaultTimeout);
     }
 

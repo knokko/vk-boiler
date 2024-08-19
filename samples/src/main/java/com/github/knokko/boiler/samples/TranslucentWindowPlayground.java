@@ -93,7 +93,7 @@ public class TranslucentWindowPlayground {
                     }
 
                     var fence = commandFences[commandIndex];
-                    fence.waitAndReset(stack);
+                    fence.waitAndReset();
 
                     var commandBuffer = commandBuffers[commandIndex];
                     var recorder = CommandRecorder.begin(
