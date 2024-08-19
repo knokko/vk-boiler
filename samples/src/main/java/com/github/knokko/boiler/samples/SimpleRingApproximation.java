@@ -7,11 +7,9 @@ import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
+import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.vulkan.*;
 
-import static java.lang.Thread.sleep;
-import static org.lwjgl.glfw.GLFW.glfwPollEvents;
-import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -46,9 +44,7 @@ public class SimpleRingApproximation {
             pushConstants.size(20);
 
             pipelineLayout = boiler.pipelines.createLayout(stack, pushConstants, "DrawingLayout");
-        }
 
-        try (var stack = stackPush()) {
             var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
             pipelineBuilder.simpleShaderStages(
                     "Ring", "com/github/knokko/boiler/samples/graphics/ring.vert.spv",
@@ -68,7 +64,6 @@ public class SimpleRingApproximation {
             graphicsPipeline = pipelineBuilder.build("RingApproximation");
         }
 
-        long frameCounter = 0;
         var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
             try (var stack = stackPush()) {
                 long imageView = boiler.images.createSimpleView(
@@ -80,94 +75,72 @@ public class SimpleRingApproximation {
             }
         }, resources -> vkDestroyImageView(boiler.vkDevice(), resources.imageView, null));
 
-        long referenceTime = System.currentTimeMillis();
-        long referenceFrames = 0;
+        new WindowRenderLoop(
+                boiler.window(), false, VK_PRESENT_MODE_MAILBOX_KHR, numFramesInFlight,
+                (stack, frameIndex, swapchainImage) -> {
+            var imageResources = swapchainResources.get(swapchainImage);
+            WaitSemaphore[] waitSemaphores = { new WaitSemaphore(
+                    swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+            )};
 
-        while (!glfwWindowShouldClose(boiler.window().glfwWindow)) {
-            glfwPollEvents();
+            var commandBuffer = commandBuffers[frameIndex];
+            var fence = commandFences[frameIndex];
+            fence.waitAndReset();
 
-            long currentTime = System.currentTimeMillis();
-            if (currentTime > 1000 + referenceTime) {
-                System.out.println("FPS is " + (frameCounter - referenceFrames));
-                referenceTime = currentTime;
-                referenceFrames = frameCounter;
-            }
+            var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 
-            try (var stack = stackPush()) {
-                var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_MAILBOX_KHR);
-                if (swapchainImage == null) {
-                    //noinspection BusyWait
-                    sleep(100);
-                    continue;
-                }
+            recorder.transitionColorLayout(
+                    swapchainImage.vkImage(),
+                    ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+                    ResourceUsage.COLOR_ATTACHMENT_WRITE
+            );
 
-                var imageResources = swapchainResources.get(swapchainImage);
-                WaitSemaphore[] waitSemaphores = { new WaitSemaphore(
-                        swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-                )};
+            var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
+            recorder.simpleColorRenderingAttachment(
+                    colorAttachments.get(0), imageResources.imageView(),
+                    VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
+                    0.07f, 0.4f, 0.6f, 1f
+            );
 
-                int frameIndex = (int) (frameCounter % numFramesInFlight);
-                var commandBuffer = commandBuffers[frameIndex];
-                var fence = commandFences[frameIndex];
-                fence.waitAndReset();
+            recorder.beginSimpleDynamicRendering(
+                    swapchainImage.width(), swapchainImage.height(),
+                    colorAttachments, null, null
+            );
 
-                var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
+            recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-                recorder.transitionColorLayout(
-                        swapchainImage.vkImage(),
-                        ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
-                        ResourceUsage.COLOR_ATTACHMENT_WRITE
-                );
+            int numTriangles = 30_000_000;
+            var pushConstants = stack.calloc(20);
+            pushConstants.putFloat(0, 0.6f);
+            pushConstants.putFloat(4, 0.8f);
+            pushConstants.putFloat(8, 0.2f);
+            pushConstants.putFloat(12, -0.1f);
+            pushConstants.putInt(16, 2 * numTriangles);
 
-                var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
-                recorder.simpleColorRenderingAttachment(
-                        colorAttachments.get(0), imageResources.imageView(),
-                        VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
-                        0.07f, 0.4f, 0.6f, 1f
-                );
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants);
 
-                recorder.beginSimpleDynamicRendering(
-                        swapchainImage.width(), swapchainImage.height(),
-                        colorAttachments, null, null
-                );
+            vkCmdDraw(commandBuffer, 6 * numTriangles, 1, 0, 0);
+            recorder.endDynamicRendering();
 
-                recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
-                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+            recorder.transitionColorLayout(
+                    swapchainImage.vkImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT
+            );
 
-                int numTriangles = 30_000_000;
-                var pushConstants = stack.calloc(20);
-                pushConstants.putFloat(0, 0.6f);
-                pushConstants.putFloat(4, 0.8f);
-                pushConstants.putFloat(8, 0.2f);
-                pushConstants.putFloat(12, -0.1f);
-                pushConstants.putInt(16, 2 * numTriangles);
+            recorder.end();
 
-                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants);
+            return boiler.queueFamilies().graphics().queues().get(0).submit(
+                    commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore()
+            );
+        }, () -> {
+            for (var fence : commandFences) fence.waitIfSubmitted();
+            boiler.sync.fenceBank.returnFences(commandFences);
 
-                vkCmdDraw(commandBuffer, 6 * numTriangles, 1, 0, 0);
-                recorder.endDynamicRendering();
+            vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
+            vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
+            vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
+        }).start();
 
-                recorder.transitionColorLayout(
-                        swapchainImage.vkImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT
-                );
-
-                recorder.end();
-
-                var renderSubmission = boiler.queueFamilies().graphics().queues().get(0).submit(
-                        commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore()
-                );
-
-                boiler.window().presentSwapchainImage(swapchainImage, renderSubmission);
-                frameCounter += 1;
-            }
-        }
-
-        boiler.sync.fenceBank.awaitSubmittedFences();
-        boiler.sync.fenceBank.returnFences(commandFences);
-
-        vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-        vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
-        vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
         boiler.destroyInitialObjects();
     }
 

@@ -20,7 +20,7 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class VkbWindow {
 
-    private BoilerInstance instance;
+    BoilerInstance instance;
     private final SwapchainCleaner cleaner;
     public final long glfwWindow;
     public final long vkSurface;

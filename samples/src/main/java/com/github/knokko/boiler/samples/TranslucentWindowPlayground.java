@@ -9,6 +9,7 @@ import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import com.github.knokko.boiler.window.WindowLoop;
+import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.VkClearColorValue;
@@ -70,81 +71,58 @@ public class TranslucentWindowPlayground {
                         "VK_COMPOSITE_ALPHA", "BIT_KHR", "unknown")
         );
 
-        var renderThread = new Thread(() -> {
-            var commandPool = boiler.commands.createPool(
-                    VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-                    boiler.queueFamilies().graphics().index(), "Fill"
-            );
-            var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, 5, "Fill");
-
-            var commandFences = boiler.sync.fenceBank.borrowFences(commandBuffers.length, true, "Acquire");
-
-            int counter = 0;
-
-            while (!glfwWindowShouldClose(boiler.window().glfwWindow)) {
-                try (var stack = stackPush()) {
-                    int commandIndex = counter % commandFences.length;
-
-                    var acquired = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_MAILBOX_KHR);
-                    if (acquired == null) {
-                        //noinspection BusyWait
-                        sleep(100);
-                        continue;
-                    }
-
-                    var fence = commandFences[commandIndex];
-                    fence.waitAndReset();
-
-                    var commandBuffer = commandBuffers[commandIndex];
-                    var recorder = CommandRecorder.begin(
-                            commandBuffer, boiler, stack,
-                            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-                            "Fill"
-                    );
-
-                    recorder.transitionColorLayout(
-                            acquired.vkImage(),
-                            ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
-                            ResourceUsage.TRANSFER_DEST
-                    );
-
-                    float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
-                    float colorScale = boiler.window().swapchainCompositeAlpha == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
-                    var pClearColor = VkClearColorValue.calloc(stack);
-                    pClearColor.float32(stack.floats(0f, 0.6f * colorScale, colorScale, alpha));
-
-                    var pRanges = boiler.images.subresourceRange(stack, null, VK_IMAGE_ASPECT_COLOR_BIT);
-
-                    vkCmdClearColorImage(commandBuffer, acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pClearColor, pRanges);
-
-                    recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
-                    recorder.end();
-
-                    var renderSubmission = boiler.queueFamilies().graphics().queues().get(0).submit(
-                            commandBuffer, "Fill", new WaitSemaphore[] { new WaitSemaphore(
-                                    acquired.acquireSemaphore(), VK_PIPELINE_STAGE_TRANSFER_BIT
-                            ) }, fence, acquired.presentSemaphore()
-                    );
-
-                    boiler.window().presentSwapchainImage(acquired, renderSubmission);
-                } catch (InterruptedException e) {
-					throw new RuntimeException(e);
-				}
-
-				counter += 1;
-            }
-
-            boiler.sync.fenceBank.awaitSubmittedFences();
-            boiler.sync.fenceBank.returnFences(commandFences);
-            vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-
-            boiler.window().destroy();
-        });
-
-        renderThread.start();
-
         var windowLoop = new WindowLoop();
         windowLoop.addWindow(boiler.window());
+
+        var commandPool = boiler.commands.createPool(
+                VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+                boiler.queueFamilies().graphics().index(), "Fill"
+        );
+        var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, 5, "Fill");
+        var commandFences = boiler.sync.fenceBank.borrowFences(commandBuffers.length, true, "Acquire");
+
+        new WindowRenderLoop(
+                boiler.window(), false, VK_PRESENT_MODE_MAILBOX_KHR, commandBuffers.length,
+                (stack, frameIndex, acquired) -> {
+
+            var fence = commandFences[frameIndex];
+            fence.waitAndReset();
+
+            var commandBuffer = commandBuffers[frameIndex];
+            var recorder = CommandRecorder.begin(
+                    commandBuffer, boiler, stack,
+                    VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+                    "Fill"
+            );
+
+            recorder.transitionColorLayout(
+                    acquired.vkImage(),
+                    ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
+                    ResourceUsage.TRANSFER_DEST
+            );
+
+            float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
+            float colorScale = boiler.window().swapchainCompositeAlpha == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
+            var pClearColor = VkClearColorValue.calloc(stack);
+            pClearColor.float32(stack.floats(0f, 0.6f * colorScale, colorScale, alpha));
+
+            var pRanges = boiler.images.subresourceRange(stack, null, VK_IMAGE_ASPECT_COLOR_BIT);
+
+            vkCmdClearColorImage(commandBuffer, acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pClearColor, pRanges);
+
+            recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
+            recorder.end();
+
+            return boiler.queueFamilies().graphics().queues().get(0).submit(
+                    commandBuffer, "Fill", new WaitSemaphore[] { new WaitSemaphore(
+                            acquired.acquireSemaphore(), VK_PIPELINE_STAGE_TRANSFER_BIT
+                    ) }, fence, acquired.presentSemaphore()
+            );
+        }, () -> {
+            for (var fence : commandFences) fence.waitIfSubmitted();
+            boiler.sync.fenceBank.returnFences(commandFences);
+            vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
+        }).start();
 
         windowLoop.runMain();
 
