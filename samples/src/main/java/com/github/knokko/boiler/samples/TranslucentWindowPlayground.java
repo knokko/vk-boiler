@@ -8,7 +8,7 @@ import com.github.knokko.boiler.builder.window.SimpleCompositeAlphaPicker;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
-import com.github.knokko.boiler.window.WindowLoop;
+import com.github.knokko.boiler.window.WindowEventLoop;
 import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.vulkan.KHRSurface;
@@ -17,7 +17,6 @@ import static com.github.knokko.boiler.util.ReflectionHelper.getIntConstantName;
 import static java.lang.Math.*;
 import static java.lang.Thread.sleep;
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.VK10.*;
@@ -71,7 +70,7 @@ public class TranslucentWindowPlayground {
                         "VK_COMPOSITE_ALPHA", "BIT_KHR", "unknown")
         );
 
-        var windowLoop = new WindowLoop();
+        var windowLoop = new WindowEventLoop();
         windowLoop.addWindow(boiler.window());
 
         var commandPool = boiler.commands.createPool(

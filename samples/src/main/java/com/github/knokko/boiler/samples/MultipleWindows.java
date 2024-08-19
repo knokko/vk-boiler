@@ -9,7 +9,7 @@ import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.sync.WaitSemaphore;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.window.VkbWindow;
-import com.github.knokko.boiler.window.WindowLoop;
+import com.github.knokko.boiler.window.WindowEventLoop;
 import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.vulkan.VkClearColorValue;
 import org.lwjgl.vulkan.VkPushConstantRange;
@@ -48,7 +48,7 @@ public class MultipleWindows {
         var fillWindow = windows[0];
         var spinWindow = windows[1];
 
-        var windowLoop = new WindowLoop();
+        var windowLoop = new WindowEventLoop();
         windowLoop.addWindow(spinWindow);
         windowLoop.addWindow(fillWindow);
 
@@ -220,7 +220,7 @@ public class MultipleWindows {
         boiler.destroyInitialObjects();
     }
 
-    private static void startNewWindowThread(BoilerInstance boiler, WindowLoop windowLoop) {
+    private static void startNewWindowThread(BoilerInstance boiler, WindowEventLoop windowLoop) {
         var rng = new Random();
         float red = rng.nextFloat();
         float green = rng.nextFloat();

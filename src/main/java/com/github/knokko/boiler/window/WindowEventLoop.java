@@ -6,7 +6,7 @@ import java.util.concurrent.*;
 
 import static org.lwjgl.glfw.GLFW.*;
 
-public class WindowLoop {
+public class WindowEventLoop {
 
 	private final BlockingQueue<Task> queue = new LinkedBlockingQueue<>();
 	private final ConcurrentHashMap<VkbWindow, State> stateMap = new ConcurrentHashMap<>();

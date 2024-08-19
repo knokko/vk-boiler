@@ -39,7 +39,7 @@ public class VkbWindow {
 
     private boolean hasBeenDestroyed;
 
-    WindowLoop windowLoop;
+    WindowEventLoop windowLoop;
 
     public VkbWindow(
             boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface, Collection<Integer> supportedPresentModes,
