@@ -373,6 +373,9 @@ public class TestBoilerBuilder {
             throw new RuntimeException("Mission completed");
         }).validation().forbidValidationErrors();
 
-        assertEquals("Mission completed", assertThrows(RuntimeException.class, builder::build).getMessage());
+        String message = assertThrows(RuntimeException.class, builder::build).getMessage();
+        if (!message.equals("Vulkan layer \"VK_LAYER_LUNARG_api_dump\" is required, but not supported")) {
+            assertEquals("Mission completed", message);
+        }
     }
 }
