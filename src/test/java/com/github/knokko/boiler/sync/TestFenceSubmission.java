@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.sync;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkSubmitInfo;
 
@@ -119,13 +119,13 @@ public class TestFenceSubmission {
 		).getMessage(), "Fence is not signaled, nor pending");
 	}
 
-	private void emptySubmission(BoilerInstance boiler, VkbFence fence) {
+	private void emptySubmission(BoilerInstance instance, VkbFence fence) {
 		try (var stack = stackPush()) {
 			var emptySubmitInfo = VkSubmitInfo.calloc(stack);
 			emptySubmitInfo.sType$Default();
 
 			assertVkSuccess(vkQueueSubmit(
-					boiler.queueFamilies().compute().queues().get(0).vkQueue(), emptySubmitInfo, fence.getVkFenceAndSubmit()
+					instance.queueFamilies().compute().queues().get(0).vkQueue(), emptySubmitInfo, fence.getVkFenceAndSubmit()
 			), "QueueSubmit", "test");
 		}
 	}

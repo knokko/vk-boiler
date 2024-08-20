@@ -3,7 +3,7 @@ package com.github.knokko.boiler.samples;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.WindowBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.window.*;

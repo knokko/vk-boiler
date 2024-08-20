@@ -38,7 +38,7 @@ public class TestImageEncode {
 		assertEquals((byte) 150, memGetByte(buffer.hostAddress() + 7));
 		assertEquals((byte) 200, memGetByte(buffer.hostAddress() + 8));
 
-		buffer.destroy(instance.vmaAllocator());
+		buffer.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 
@@ -64,7 +64,7 @@ public class TestImageEncode {
 		assertEquals(Color.RED, new Color(image.getRGB(0, 0), true));
 		assertEquals(new Color(50, 100, 150, 200), new Color(image.getRGB(0, 1), true));
 
-		buffer.destroy(instance.vmaAllocator());
+		buffer.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 
@@ -95,7 +95,7 @@ public class TestImageEncode {
 		assertEquals(image.getRGB(0, 1), copied.getRGB(0, 1));
 		assertEquals(255, new Color(copied.getRGB(0, 0), true).getAlpha());
 
-		buffer.destroy(instance.vmaAllocator());
+		buffer.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 }

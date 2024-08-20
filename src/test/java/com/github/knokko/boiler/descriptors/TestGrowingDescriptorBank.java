@@ -20,7 +20,7 @@ public class TestGrowingDescriptorBank {
 				.forbidValidationErrors()
 				.build();
 
-		DescriptorSetLayout layout;
+		VkbDescriptorSetLayout layout;
 		try (var stack = stackPush()) {
 			var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
 			bindings.binding(0);

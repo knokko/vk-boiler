@@ -26,7 +26,7 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class GrowingDescriptorBank {
 
-	private final DescriptorSetLayout layout;
+	private final VkbDescriptorSetLayout layout;
 	private final int flags;
 
 	private final List<HomogeneousDescriptorPool> descriptorPools = new ArrayList<>();
@@ -34,7 +34,7 @@ public class GrowingDescriptorBank {
 
 	private final ConcurrentSkipListSet<Long> unusedDescriptorSets, borrowedDescriptorSets;
 
-	public GrowingDescriptorBank(DescriptorSetLayout layout, int flags) {
+	public GrowingDescriptorBank(VkbDescriptorSetLayout layout, int flags) {
 		this.layout = layout;
 		this.flags = flags;
 		this.unusedDescriptorSets = new ConcurrentSkipListSet<>();

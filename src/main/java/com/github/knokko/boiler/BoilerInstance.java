@@ -1,4 +1,4 @@
-package com.github.knokko.boiler.instance;
+package com.github.knokko.boiler;
 
 import com.github.knokko.boiler.buffer.BoilerBuffers;
 import com.github.knokko.boiler.builder.WindowBuilder;

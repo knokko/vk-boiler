@@ -15,7 +15,7 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public abstract class SessionLoop {
 
-	protected final BoilerSession session;
+	protected final VkbSession session;
 	protected final XrBoiler xr;
 	protected final XrSpace renderSpace;
 	protected final XrSwapchain swapchain;
@@ -27,7 +27,7 @@ public abstract class SessionLoop {
 	private volatile boolean wantsToStop;
 
 	public SessionLoop(
-			BoilerSession session, XrSpace renderSpace, XrSwapchain swapchain, int width, int height
+			VkbSession session, XrSpace renderSpace, XrSwapchain swapchain, int width, int height
 	) {
 		this.session = session;
 		this.xr = session.xr;
@@ -68,7 +68,7 @@ public abstract class SessionLoop {
 						|| this.state == XR_SESSION_STATE_EXITING || this.state == XR_SESSION_STATE_LOSS_PENDING
 				) {
 					assertXrSuccess(vkQueueWaitIdle(
-							xr.boiler.queueFamilies().graphics().queues().get(0).vkQueue()
+							xr.boilerInstance.queueFamilies().graphics().queues().get(0).vkQueue()
 					), "QueueWaitIdle", "End of last frame");
 					break;
 				}
@@ -266,7 +266,7 @@ public abstract class SessionLoop {
 	}
 
 	protected long getSwapchainWaitTimeout() {
-		return xr.boiler.defaultTimeout;
+		return xr.boilerInstance.defaultTimeout;
 	}
 
 	protected abstract void update();

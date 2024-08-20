@@ -66,9 +66,9 @@ public class TestBufferCopies {
 			assertEquals((byte) index, destinationHostBuffer.get());
 		}
 
-		sourceBuffer.destroy(instance.vmaAllocator());
-		middleBuffer.destroy(instance.vmaAllocator());
-		destinationBuffer.destroy(instance.vmaAllocator());
+		sourceBuffer.destroy(instance);
+		middleBuffer.destroy(instance);
+		destinationBuffer.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 }

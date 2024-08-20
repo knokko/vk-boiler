@@ -277,7 +277,7 @@ public class HelloTriangle {
 		vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
 		vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
 		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-		vertexBuffer.destroy(boiler.vmaAllocator());
+		vertexBuffer.destroy(boiler);
 		boiler.destroyInitialObjects();
 	}
 

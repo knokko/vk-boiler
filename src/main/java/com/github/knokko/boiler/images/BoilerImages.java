@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.images;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.vma.VmaAllocationCreateInfo;
 import org.lwjgl.vulkan.*;
@@ -36,7 +36,7 @@ public class BoilerImages {
 		range.layerCount(1);
 	}
 
-	public VmaImage createSimple(
+	public VkbImage createSimple(
 			MemoryStack stack, int width, int height, int format, int usage, int aspectMask, String name
 	) {
 		return create(
@@ -45,7 +45,7 @@ public class BoilerImages {
 		);
 	}
 
-	public VmaImage create(
+	public VkbImage create(
 			MemoryStack stack, int width, int height, int format, int usage, int aspectMask,
 			int samples, int mipLevels, int arrayLayers, boolean createView, String name
 	) {
@@ -75,7 +75,7 @@ public class BoilerImages {
 		instance.debug.name(stack, image, VK_OBJECT_TYPE_IMAGE, name);
 
 		long view = createView ? createView(stack, image, format, aspectMask, mipLevels, arrayLayers, name) : 0L;
-		return new VmaImage(image, view, allocation, width, height);
+		return new VkbImage(image, view, allocation, width, height);
 	}
 
 	public long createSimpleView(MemoryStack stack, long image, int format, int aspectMask, String name) {

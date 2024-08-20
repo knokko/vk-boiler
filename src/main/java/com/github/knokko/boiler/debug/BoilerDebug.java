@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.debug;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDebugUtilsMessengerCallbackDataEXT;
 import org.lwjgl.vulkan.VkDebugUtilsMessengerCreateInfoEXT;

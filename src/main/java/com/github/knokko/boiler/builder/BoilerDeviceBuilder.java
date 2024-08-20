@@ -1,9 +1,9 @@
 package com.github.knokko.boiler.builder;
 
 import com.github.knokko.boiler.exceptions.NoVkPhysicalDeviceException;
-import com.github.knokko.boiler.queue.BoilerQueue;
+import com.github.knokko.boiler.queue.VkbQueue;
 import com.github.knokko.boiler.queue.QueueFamilies;
-import com.github.knokko.boiler.queue.QueueFamily;
+import com.github.knokko.boiler.queue.VkbQueueFamily;
 import com.github.knokko.boiler.util.CollectionHelper;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.vma.VmaAllocatorCreateInfo;
@@ -85,7 +85,7 @@ class BoilerDeviceBuilder {
 			}
 		}
 
-		QueueFamily[] presentFamilies;
+		VkbQueueFamily[] presentFamilies;
 		try (var stack = stackPush()) {
 			if (VK_API_VERSION_MAJOR(builder.apiVersion) != 1) {
 				throw new UnsupportedOperationException("Unknown api major version: " + VK_API_VERSION_MAJOR(builder.apiVersion));
@@ -206,12 +206,12 @@ class BoilerDeviceBuilder {
 					ciDevice, instanceResult.enabledExtensions(), vkPhysicalDevice, stack
 			);
 
-			var queueFamilyMap = new HashMap<Integer, QueueFamily>();
+			var queueFamilyMap = new HashMap<Integer, VkbQueueFamily>();
 			for (var entry : uniqueQueueFamilies.entrySet()) {
 				queueFamilyMap.put(entry.getKey(), getQueueFamily(stack, vkDevice, entry.getKey(), entry.getValue().length));
 			}
 
-			presentFamilies = new QueueFamily[windowSurfaces.length];
+			presentFamilies = new VkbQueueFamily[windowSurfaces.length];
 			for (int surfaceIndex = 0; surfaceIndex < windowSurfaces.length; surfaceIndex++) {
 				presentFamilies[surfaceIndex] = queueFamilyMap.get(queueFamilyMapping.presentFamilyIndices()[surfaceIndex]);
 			}
@@ -270,19 +270,19 @@ class BoilerDeviceBuilder {
 		return vmaFlags;
 	}
 
-	private static QueueFamily getQueueFamily(MemoryStack stack, VkDevice vkDevice, int familyIndex, int queueCount) {
-		List<BoilerQueue> queues = new ArrayList<>(queueCount);
+	private static VkbQueueFamily getQueueFamily(MemoryStack stack, VkDevice vkDevice, int familyIndex, int queueCount) {
+		List<VkbQueue> queues = new ArrayList<>(queueCount);
 		for (int queueIndex = 0; queueIndex < queueCount; queueIndex++) {
 			var pQueue = stack.callocPointer(1);
 			vkGetDeviceQueue(vkDevice, familyIndex, queueIndex, pQueue);
-			queues.add(new BoilerQueue(new VkQueue(pQueue.get(0), vkDevice)));
+			queues.add(new VkbQueue(new VkQueue(pQueue.get(0), vkDevice)));
 		}
-		return new QueueFamily(familyIndex, Collections.unmodifiableList(queues));
+		return new VkbQueueFamily(familyIndex, Collections.unmodifiableList(queues));
 	}
 
 	record Result(
 			VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice, Set<String> enabledExtensions,
-			long[] windowSurfaces, QueueFamily[] presentFamilies, QueueFamilies queueFamilies, long vmaAllocator
+			long[] windowSurfaces, VkbQueueFamily[] presentFamilies, QueueFamilies queueFamilies, long vmaAllocator
 	) {
 	}
 }

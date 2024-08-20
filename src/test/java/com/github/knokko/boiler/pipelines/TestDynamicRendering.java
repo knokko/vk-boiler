@@ -1,9 +1,9 @@
 package com.github.knokko.boiler.pipelines;
 
-import com.github.knokko.boiler.buffer.MappedVmaBuffer;
+import com.github.knokko.boiler.buffer.MappedVkbBuffer;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
-import com.github.knokko.boiler.images.VmaImage;
+import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
@@ -30,8 +30,8 @@ public class TestDynamicRendering {
 		int height = 50;
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 
-		VmaImage image;
-		MappedVmaBuffer destBuffer = instance.buffers.createMapped(
+		VkbImage image;
+		MappedVkbBuffer destBuffer = instance.buffers.createMapped(
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 		long pipelineLayout;
@@ -111,7 +111,7 @@ public class TestDynamicRendering {
 		}
 
 		image.destroy(instance);
-		destBuffer.destroy(instance.vmaAllocator());
+		destBuffer.destroy(instance);
 		vkDestroyPipeline(instance.vkDevice(), graphicsPipeline, null);
 		vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
 		instance.sync.fenceBank.returnFence(fence);
@@ -149,7 +149,7 @@ public class TestDynamicRendering {
 		int width = 20;
 		int height = 30;
 
-		VmaImage image;
+		VkbImage image;
 		try (var stack = stackPush()) {
 			image = instance.images.createSimple(
 					stack, width, height, VK_FORMAT_D32_SFLOAT,
@@ -200,7 +200,7 @@ public class TestDynamicRendering {
 		}
 
 		instance.sync.fenceBank.returnFence(fence);
-		destBuffer.destroy(instance.vmaAllocator());
+		destBuffer.destroy(instance);
 		image.destroy(instance);
 		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
 		instance.destroyInitialObjects();

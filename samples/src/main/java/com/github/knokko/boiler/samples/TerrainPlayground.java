@@ -5,10 +5,10 @@ import com.github.knokko.boiler.builder.WindowBuilder;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.cull.FrustumCuller;
-import com.github.knokko.boiler.descriptors.DescriptorSetLayout;
+import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
 import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
-import com.github.knokko.boiler.images.VmaImage;
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.images.VkbImage;
+import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
@@ -139,7 +139,7 @@ public class TerrainPlayground {
 		return renderPass;
 	}
 
-	private static DescriptorSetLayout createDescriptorSetLayout(MemoryStack stack, BoilerInstance boiler) {
+	private static VkbDescriptorSetLayout createDescriptorSetLayout(MemoryStack stack, BoilerInstance boiler) {
 		var bindings = VkDescriptorSetLayoutBinding.calloc(3, stack);
 		var camera = bindings.get(0);
 		camera.binding(0);
@@ -210,7 +210,7 @@ public class TerrainPlayground {
 		return groundPipeline;
 	}
 
-	private static VmaImage[] createHeightImages(BoilerInstance boiler) {
+	private static VkbImage[] createHeightImages(BoilerInstance boiler) {
 		try (var stack = stackPush()) {
 			var input = TerrainPlayground.class.getClassLoader().getResourceAsStream("com/github/knokko/boiler/samples/height/N44E006.hgt");
 			assert input != null;
@@ -326,7 +326,7 @@ public class TerrainPlayground {
 			vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 			vmaDestroyBuffer(boiler.vmaAllocator(), stagingBuffer.vkBuffer(), stagingBuffer.vmaAllocation());
 			vmaDestroyBuffer(boiler.vmaAllocator(), normalStagingBuffer.vkBuffer(), normalStagingBuffer.vmaAllocation());
-			return new VmaImage[]{image, normalImage};
+			return new VkbImage[]{image, normalImage};
 		} catch (IOException shouldNotHappen) {
 			throw new RuntimeException(shouldNotHappen);
 		}
@@ -360,7 +360,7 @@ public class TerrainPlayground {
 				64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "UniformBuffer"
 		);
 		long renderPass;
-		DescriptorSetLayout descriptorSetLayout;
+		VkbDescriptorSetLayout descriptorSetLayout;
 		long pipelineLayout;
 		long groundPipeline;
 		HomogeneousDescriptorPool descriptorPool;
@@ -664,7 +664,7 @@ public class TerrainPlayground {
 	private record AssociatedSwapchainResources(
 			long framebuffer,
 			long imageView,
-			VmaImage depthImage
+			VkbImage depthImage
 	) {
 	}
 

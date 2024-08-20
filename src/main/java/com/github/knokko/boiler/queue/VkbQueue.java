@@ -9,7 +9,7 @@ import static org.lwjgl.vulkan.KHRSwapchain.vkQueuePresentKHR;
 import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
 
-public record BoilerQueue(VkQueue vkQueue) {
+public record VkbQueue(VkQueue vkQueue) {
 
 	public FenceSubmission submit(
 			VkCommandBuffer commandBuffer, String context,

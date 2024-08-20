@@ -6,7 +6,7 @@ import com.github.knokko.boiler.builder.device.SimpleDeviceSelector;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.builder.window.SimpleCompositeAlphaPicker;
 import com.github.knokko.boiler.commands.CommandRecorder;
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import com.github.knokko.boiler.window.*;
 import org.lwjgl.glfw.GLFW;

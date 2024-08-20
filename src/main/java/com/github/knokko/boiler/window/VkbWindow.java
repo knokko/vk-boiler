@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.window;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
-import com.github.knokko.boiler.queue.QueueFamily;
+import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.queue.VkbQueueFamily;
 import com.github.knokko.boiler.sync.AwaitableSubmission;
 import org.lwjgl.vulkan.*;
 
@@ -31,7 +31,7 @@ public class VkbWindow {
 	private final VkSurfaceCapabilitiesKHR surfaceCapabilities;
 	public final int swapchainImageUsage;
 	public final int swapchainCompositeAlpha;
-	public final QueueFamily presentFamily;
+	public final VkbQueueFamily presentFamily;
 
 	private int width, height;
 	private VkbSwapchain currentSwapchain;
@@ -46,7 +46,7 @@ public class VkbWindow {
 			boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface,
 			Collection<Integer> supportedPresentModes, Set<Integer> preparedPresentModes,
 			String title, int surfaceFormat, int surfaceColorSpace, VkSurfaceCapabilitiesKHR surfaceCapabilities,
-			int swapchainImageUsage, int swapchainCompositeAlpha, QueueFamily presentFamily
+			int swapchainImageUsage, int swapchainCompositeAlpha, VkbQueueFamily presentFamily
 	) {
 		if (hasSwapchainMaintenance) cleaner = new SwapchainMaintenanceCleaner();
 		else cleaner = new LegacySwapchainCleaner();

@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.buffer;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.util.vma.VmaAllocationCreateInfo;
 import org.lwjgl.util.vma.VmaAllocationInfo;
 import org.lwjgl.vulkan.VkBufferCreateInfo;
@@ -23,7 +23,7 @@ public class BoilerBuffers {
 		this.instance = instance;
 	}
 
-	public DeviceOnlyVmaBuffer create(long size, int usage, String name) {
+	public DeviceVkbBuffer create(long size, int usage, String name) {
 		try (var stack = stackPush()) {
 			var ciBuffer = VkBufferCreateInfo.calloc(stack);
 			ciBuffer.sType$Default();
@@ -42,11 +42,11 @@ public class BoilerBuffers {
 					instance.vmaAllocator(), ciBuffer, ciAllocation, pBuffer, pAllocation, null
 			), "CreateBuffer", name);
 			instance.debug.name(stack, pBuffer.get(0), VK_OBJECT_TYPE_BUFFER, name);
-			return new DeviceOnlyVmaBuffer(pBuffer.get(0), pAllocation.get(0), size);
+			return new DeviceVkbBuffer(pBuffer.get(0), pAllocation.get(0), size);
 		}
 	}
 
-	public MappedVmaBuffer createMapped(long size, int usage, String name) {
+	public MappedVkbBuffer createMapped(long size, int usage, String name) {
 		try (var stack = stackPush()) {
 			var ciBuffer = VkBufferCreateInfo.calloc(stack);
 			ciBuffer.sType$Default();
@@ -69,11 +69,11 @@ public class BoilerBuffers {
 					instance.vmaAllocator(), ciBuffer, ciAllocation, pBuffer, pAllocation, pInfo
 			), "CreateBuffer", name);
 			instance.debug.name(stack, pBuffer.get(0), VK_OBJECT_TYPE_BUFFER, name);
-			return new MappedVmaBuffer(pBuffer.get(0), pAllocation.get(0), size, pInfo.pMappedData());
+			return new MappedVkbBuffer(pBuffer.get(0), pAllocation.get(0), size, pInfo.pMappedData());
 		}
 	}
 
-	public void encodeBufferedImageRGBA(MappedVmaBuffer mappedBuffer, BufferedImage image, long offset) {
+	public void encodeBufferedImageRGBA(MappedVkbBuffer mappedBuffer, BufferedImage image, long offset) {
 		int requiredSize = 4 * image.getWidth() * image.getHeight();
 		if (offset + requiredSize > mappedBuffer.size()) throw new IllegalArgumentException("Buffer is too small");
 
@@ -89,7 +89,7 @@ public class BoilerBuffers {
 		}
 	}
 
-	public BufferedImage decodeBufferedImageRGBA(MappedVmaBuffer mappedBuffer, long offset, int width, int height) {
+	public BufferedImage decodeBufferedImageRGBA(MappedVkbBuffer mappedBuffer, long offset, int width, int height) {
 		int requiredSize = 4 * width * height;
 		if (offset + requiredSize > mappedBuffer.size()) throw new IllegalArgumentException("Buffer is too small");
 

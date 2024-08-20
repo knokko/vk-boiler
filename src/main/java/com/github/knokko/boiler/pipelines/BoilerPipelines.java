@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.pipelines;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 

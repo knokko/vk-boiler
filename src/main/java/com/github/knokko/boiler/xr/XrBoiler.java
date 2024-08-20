@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.xr;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import org.joml.Matrix4f;
 import org.lwjgl.openxr.*;
 import org.lwjgl.system.MemoryStack;
@@ -15,16 +15,16 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 
 public class XrBoiler {
 
-	public final XrInstance instance;
-	public final long system;
+	public final XrInstance xrInstance;
+	public final long xrSystem;
 
 	public final BoilerActions actions = new BoilerActions(this);
 
-	public BoilerInstance boiler;
+	public BoilerInstance boilerInstance;
 
 	public XrBoiler(XrInstance xrInstance, long xrSystemId) {
-		this.instance = xrInstance;
-		this.system = xrSystemId;
+		this.xrInstance = xrInstance;
+		this.xrSystem = xrSystemId;
 	}
 
 	public XrViewConfigurationView.Buffer getViewConfigurationViews(
@@ -32,13 +32,13 @@ public class XrBoiler {
 	) {
 		IntBuffer pNumConfigs = stack.callocInt(1);
 		assertXrSuccess(xrEnumerateViewConfigurations(
-				instance, system, pNumConfigs, null
+				xrInstance, xrSystem, pNumConfigs, null
 		), "EnumerateViewConfigurations", "count");
 		int numConfigs = pNumConfigs.get(0);
 
 		IntBuffer pConfigs = stack.callocInt(numConfigs);
 		assertXrSuccess(xrEnumerateViewConfigurations(
-				instance, system, pNumConfigs, pConfigs
+				xrInstance, xrSystem, pNumConfigs, pConfigs
 		), "EnumerateViewConfigurations", "configs");
 
 		boolean hasConfiguration = false;
@@ -49,7 +49,7 @@ public class XrBoiler {
 
 		IntBuffer pNumViews = stack.callocInt(1);
 		assertXrSuccess(xrEnumerateViewConfigurationViews(
-				instance, system, viewConfiguration, pNumViews, null
+				xrInstance, xrSystem, viewConfiguration, pNumViews, null
 		), "EnumerateViewConfigurationViews", "count");
 		int numViews = pNumViews.get(0);
 
@@ -59,7 +59,7 @@ public class XrBoiler {
 			pViews.get(index).type$Default();
 		}
 		assertXrSuccess(xrEnumerateViewConfigurationViews(
-				instance, system, viewConfiguration, pNumViews, pViews
+				xrInstance, xrSystem, viewConfiguration, pNumViews, pViews
 		), "EnumerateViewConfigurationViews", "views");
 
 		if (requireIdenticalViews && numViews > 1) {
@@ -127,27 +127,27 @@ public class XrBoiler {
 		);
 	}
 
-	public BoilerSession createSession(int queueIndex, String context) {
+	public VkbSession createSession(int queueIndex, String context) {
 		try (var stack = stackPush()) {
 			var vulkanBinding = XrGraphicsBindingVulkan2KHR.calloc(stack);
 			vulkanBinding.type$Default();
-			vulkanBinding.instance(boiler.vkInstance());
-			vulkanBinding.physicalDevice(boiler.vkPhysicalDevice());
-			vulkanBinding.device(boiler.vkDevice());
-			vulkanBinding.queueFamilyIndex(boiler.queueFamilies().graphics().index());
+			vulkanBinding.instance(boilerInstance.vkInstance());
+			vulkanBinding.physicalDevice(boilerInstance.vkPhysicalDevice());
+			vulkanBinding.device(boilerInstance.vkDevice());
+			vulkanBinding.queueFamilyIndex(boilerInstance.queueFamilies().graphics().index());
 			vulkanBinding.queueIndex(queueIndex);
 
 			var ciSession = XrSessionCreateInfo.calloc(stack);
 			ciSession.type$Default();
 			ciSession.next(vulkanBinding.address());
 			ciSession.createFlags(0);
-			ciSession.systemId(system);
+			ciSession.systemId(xrSystem);
 
 			var pSession = stack.callocPointer(1);
 			assertXrSuccess(xrCreateSession(
-					instance, ciSession, pSession
+					xrInstance, ciSession, pSession
 			), "CreateSession", context);
-			return new BoilerSession(this, new XrSession(pSession.get(0), instance));
+			return new VkbSession(this, new XrSession(pSession.get(0), xrInstance));
 		}
 	}
 
@@ -158,7 +158,7 @@ public class XrBoiler {
 			eventData.type$Default();
 			eventData.next(0L);
 
-			int pollResult = xrPollEvent(instance, eventData);
+			int pollResult = xrPollEvent(xrInstance, eventData);
 			if (pollResult == XR_EVENT_UNAVAILABLE) return;
 			assertXrSuccess(pollResult, "PollEvent", context);
 			processEvent.accept(eventData);
@@ -166,6 +166,6 @@ public class XrBoiler {
 	}
 
 	public void destroyInitialObjects() {
-		assertXrSuccess(xrDestroyInstance(instance), "DestroyInstance", "XrBoiler");
+		assertXrSuccess(xrDestroyInstance(xrInstance), "DestroyInstance", "XrBoiler");
 	}
 }

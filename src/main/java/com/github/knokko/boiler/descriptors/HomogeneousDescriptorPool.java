@@ -8,12 +8,12 @@ import static org.lwjgl.vulkan.VK10.vkDestroyDescriptorPool;
 
 public class HomogeneousDescriptorPool {
 
-	public final DescriptorSetLayout layout;
+	public final VkbDescriptorSetLayout layout;
 	public final long vkDescriptorPool;
 	private final String name;
 	private long counter;
 
-	HomogeneousDescriptorPool(DescriptorSetLayout layout, long vkDescriptorPool, String name) {
+	HomogeneousDescriptorPool(VkbDescriptorSetLayout layout, long vkDescriptorPool, String name) {
 		this.layout = layout;
 		this.vkDescriptorPool = vkDescriptorPool;
 		this.name = name;

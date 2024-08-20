@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.descriptors;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDescriptorPoolCreateInfo;
 import org.lwjgl.vulkan.VkDescriptorPoolSize;
@@ -14,14 +14,14 @@ import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertV
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
-public class DescriptorSetLayout {
+public class VkbDescriptorSetLayout {
 
 	final BoilerInstance instance;
 	public final long vkDescriptorSetLayout;
 
 	final Map<Integer, Integer> descriptorTypeCounts = new HashMap<>();
 
-	DescriptorSetLayout(MemoryStack stack, VkDescriptorSetLayoutBinding.Buffer bindings, BoilerInstance instance, String name) {
+	VkbDescriptorSetLayout(MemoryStack stack, VkDescriptorSetLayoutBinding.Buffer bindings, BoilerInstance instance, String name) {
 		this.instance = instance;
 
 		var ciLayout = VkDescriptorSetLayoutCreateInfo.calloc(stack);

@@ -2,8 +2,8 @@ package com.github.knokko.boiler.builder;
 
 import com.github.knokko.boiler.builder.window.*;
 import com.github.knokko.boiler.exceptions.GLFWFailureException;
-import com.github.knokko.boiler.instance.BoilerInstance;
-import com.github.knokko.boiler.queue.QueueFamily;
+import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.queue.VkbQueueFamily;
 import com.github.knokko.boiler.window.VkbWindow;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkSurfaceCapabilitiesKHR;
@@ -75,7 +75,7 @@ public class WindowBuilder {
 
 	VkbWindow build(
 			VkPhysicalDevice vkPhysicalDevice, long vkSurface,
-			boolean hasSwapchainMaintenance, QueueFamily presentFamily
+			boolean hasSwapchainMaintenance, VkbQueueFamily presentFamily
 	) {
 		// Note: do NOT allocate the capabilities on the stack because it needs to be read later!
 		var capabilities = VkSurfaceCapabilitiesKHR.calloc();
@@ -165,14 +165,14 @@ public class WindowBuilder {
 		}
 
 		var qf = instance.queueFamilies();
-		List<QueueFamily> candidateFamilies = new ArrayList<>();
+		List<VkbQueueFamily> candidateFamilies = new ArrayList<>();
 		candidateFamilies.add(qf.graphics());
 		if (!candidateFamilies.contains(qf.compute())) candidateFamilies.add(qf.compute());
 		for (var family : qf.allEnabledFamilies()) {
 			if (!candidateFamilies.contains(family)) candidateFamilies.add(family);
 		}
 
-		QueueFamily presentFamily = null;
+		VkbQueueFamily presentFamily = null;
 		try (var stack = stackPush()) {
 			var pSupported = stack.callocInt(1);
 			for (var family : candidateFamilies) {

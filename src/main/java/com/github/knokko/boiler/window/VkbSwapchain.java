@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.window;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
-import com.github.knokko.boiler.queue.QueueFamily;
+import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.queue.VkbQueueFamily;
 import com.github.knokko.boiler.sync.AwaitableSubmission;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 import org.lwjgl.vulkan.VkSwapchainPresentModeInfoEXT;
@@ -21,7 +21,7 @@ class VkbSwapchain { // TODO Update README
 	private final Set<Integer> supportedPresentModes;
 	private int presentMode;
 	final int width, height;
-	QueueFamily presentFamily;
+	VkbQueueFamily presentFamily;
 	final long[] images;
 
 	final Collection<Runnable> destructionCallbacks = new ArrayList<>();
@@ -31,7 +31,7 @@ class VkbSwapchain { // TODO Update README
 
 	VkbSwapchain(
 			BoilerInstance instance, long vkSwapchain, String title, SwapchainCleaner cleaner,
-			int presentMode, int width, int height, QueueFamily presentFamily, Set<Integer> supportedPresentModes
+			int presentMode, int width, int height, VkbQueueFamily presentFamily, Set<Integer> supportedPresentModes
 	) {
 		this.instance = instance;
 		this.vkSwapchain = vkSwapchain;

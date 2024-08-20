@@ -3,7 +3,7 @@ package com.github.knokko.boiler.sync;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.exceptions.VulkanFailureException;
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures2KHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceTimelineSemaphoreFeaturesKHR;

@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.commands;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.images.VmaImage;
+import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
@@ -31,8 +31,8 @@ public class TestCommandRecorder {
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 
-		VmaImage sourceImage;
-		VmaImage destImage;
+		VkbImage sourceImage;
+		VkbImage destImage;
 		try (var stack = stackPush()) {
 			sourceImage = instance.images.create(
 					stack, width, height, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
@@ -82,7 +82,7 @@ public class TestCommandRecorder {
 
 		instance.sync.fenceBank.returnFence(fence);
 		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
-		destBuffer.destroy(instance.vmaAllocator());
+		destBuffer.destroy(instance);
 		sourceImage.destroy(instance);
 		destImage.destroy(instance);
 		instance.destroyInitialObjects();
@@ -107,8 +107,8 @@ public class TestCommandRecorder {
 				VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 
-		VmaImage sourceImage;
-		VmaImage destImage;
+		VkbImage sourceImage;
+		VkbImage destImage;
 		try (var stack = stackPush()) {
 			sourceImage = instance.images.create(
 					stack, width1, height1, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
@@ -169,7 +169,7 @@ public class TestCommandRecorder {
 
 		instance.sync.fenceBank.returnFence(fence);
 		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
-		buffer.destroy(instance.vmaAllocator());
+		buffer.destroy(instance);
 		sourceImage.destroy(instance);
 		destImage.destroy(instance);
 		instance.destroyInitialObjects();

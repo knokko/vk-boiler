@@ -17,7 +17,7 @@ public class TestFixedDescriptorBank {
 				.forbidValidationErrors()
 				.build();
 
-		DescriptorSetLayout descriptorSetLayout;
+		VkbDescriptorSetLayout descriptorSetLayout;
 		try (var stack = stackPush()) {
 			var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
 			bindings.binding(0);

@@ -9,7 +9,7 @@ import com.github.knokko.boiler.builder.queue.QueueFamilyMapper;
 import com.github.knokko.boiler.builder.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.exceptions.*;
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.util.CollectionHelper;
 import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.*;
@@ -493,7 +493,7 @@ public class BoilerBuilder {
 				instanceResult.enabledLayers(), instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
 				deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower
 		);
-		if (xr != null) xr.boiler = instance;
+		if (xr != null) xr.boilerInstance = instance;
 
 		for (int windowIndex = 0; windowIndex < windows.size(); windowIndex++) {
 			this.windows.get(windowIndex).callback.accept(windows.get(windowIndex));

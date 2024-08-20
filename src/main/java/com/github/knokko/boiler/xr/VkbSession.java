@@ -9,12 +9,12 @@ import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 
-public class BoilerSession {
+public class VkbSession {
 
 	public final XrBoiler xr;
 	public final XrSession session;
 
-	public BoilerSession(XrBoiler xr, XrSession session) {
+	public VkbSession(XrBoiler xr, XrSession session) {
 		this.xr = xr;
 		this.session = session;
 	}

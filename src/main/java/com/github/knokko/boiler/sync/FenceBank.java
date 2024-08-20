@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.sync;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.vulkan.VkFenceCreateInfo;
 
 import java.util.concurrent.ConcurrentSkipListSet;

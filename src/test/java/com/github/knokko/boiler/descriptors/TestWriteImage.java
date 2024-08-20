@@ -113,8 +113,8 @@ public class TestWriteImage {
 			descriptorSetLayout.destroy();
 			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
 			vkDestroySampler(instance.vkDevice(), sampler, null);
-			destBuffer.destroy(instance.vmaAllocator());
-			sourceBuffer.destroy(instance.vmaAllocator());
+			destBuffer.destroy(instance);
+			sourceBuffer.destroy(instance);
 			image.destroy(instance);
 		}
 

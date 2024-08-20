@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.descriptors;
 
-import com.github.knokko.boiler.buffer.VmaBuffer;
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.buffer.VkbBuffer;
+import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
@@ -16,8 +16,8 @@ public class BoilerDescriptors {
 		this.instance = instance;
 	}
 
-	public DescriptorSetLayout createLayout(MemoryStack stack, VkDescriptorSetLayoutBinding.Buffer bindings, String name) {
-		return new DescriptorSetLayout(stack, bindings, instance, name);
+	public VkbDescriptorSetLayout createLayout(MemoryStack stack, VkDescriptorSetLayoutBinding.Buffer bindings, String name) {
+		return new VkbDescriptorSetLayout(stack, bindings, instance, name);
 	}
 
 	public long[] allocate(MemoryStack stack, int amount, long descriptorPool, String name, long... layouts) {
@@ -41,7 +41,7 @@ public class BoilerDescriptors {
 	}
 
 	@SuppressWarnings("resource")
-	public VkDescriptorBufferInfo.Buffer bufferInfo(MemoryStack stack, VmaBuffer... buffers) {
+	public VkDescriptorBufferInfo.Buffer bufferInfo(MemoryStack stack, VkbBuffer... buffers) {
 		var descriptorBufferInfo = VkDescriptorBufferInfo.calloc(buffers.length, stack);
 		for (int index = 0; index < buffers.length; index++) {
 			descriptorBufferInfo.get(index).buffer(buffers[index].vkBuffer());
@@ -54,7 +54,7 @@ public class BoilerDescriptors {
 
 	public void writeBuffer(
 			MemoryStack stack, VkWriteDescriptorSet.Buffer descriptorWrites,
-			long descriptorSet, int binding, int type, VmaBuffer buffer
+			long descriptorSet, int binding, int type, VkbBuffer buffer
 	) {
 		var write = descriptorWrites.get(binding);
 		write.sType$Default();

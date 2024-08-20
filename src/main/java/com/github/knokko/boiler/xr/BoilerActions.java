@@ -24,15 +24,15 @@ public class BoilerActions {
 
 		var pActionSet = stack.callocPointer(1);
 		assertXrSuccess(xrCreateActionSet(
-				xr.instance, ciActionSet, pActionSet
+				xr.xrInstance, ciActionSet, pActionSet
 		), "CreateActionSet", name);
-		return new XrActionSet(pActionSet.get(0), xr.instance);
+		return new XrActionSet(pActionSet.get(0), xr.xrInstance);
 	}
 
 	public long getPath(MemoryStack stack, String path) {
 		var pPath = stack.callocLong(1);
 		assertXrSuccess(xrStringToPath(
-				xr.instance, stack.UTF8(path), pPath
+				xr.xrInstance, stack.UTF8(path), pPath
 		), "StringToPath", path);
 		return pPath.get(0);
 	}

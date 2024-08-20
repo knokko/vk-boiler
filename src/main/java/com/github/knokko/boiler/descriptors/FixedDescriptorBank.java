@@ -28,7 +28,7 @@ public class FixedDescriptorBank {
 	private final ConcurrentSkipListSet<Long> borrowedDescriptorSets;
 	private final ConcurrentSkipListSet<Long> unusedDescriptorSets;
 
-	public FixedDescriptorBank(DescriptorSetLayout layout, int capacity, int flags, String name) {
+	public FixedDescriptorBank(VkbDescriptorSetLayout layout, int capacity, int flags, String name) {
 		try (var stack = stackPush()) {
 			this.pool = layout.createPool(capacity, flags, name);
 			long[] descriptorSets = this.pool.allocate(stack, capacity);

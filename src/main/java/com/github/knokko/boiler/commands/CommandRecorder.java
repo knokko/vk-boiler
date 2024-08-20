@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.commands;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -16,22 +16,22 @@ import static org.lwjgl.vulkan.VK13.*;
 public class CommandRecorder {
 
 	public static CommandRecorder begin(
-			VkCommandBuffer commandBuffer, BoilerInstance boiler, MemoryStack stack, String context
+			VkCommandBuffer commandBuffer, BoilerInstance instance, MemoryStack stack, String context
 	) {
-		return begin(commandBuffer, boiler, stack, 0, context);
+		return begin(commandBuffer, instance, stack, 0, context);
 	}
 
 	public static CommandRecorder begin(
-			VkCommandBuffer commandBuffer, BoilerInstance boiler, MemoryStack stack, int flags, String context
+			VkCommandBuffer commandBuffer, BoilerInstance instance, MemoryStack stack, int flags, String context
 	) {
-		boiler.commands.begin(commandBuffer, stack, flags, context);
-		return new CommandRecorder(commandBuffer, boiler, stack, context);
+		instance.commands.begin(commandBuffer, stack, flags, context);
+		return new CommandRecorder(commandBuffer, instance, stack, context);
 	}
 
 	public static CommandRecorder alreadyRecording(
-			VkCommandBuffer commandBuffer, BoilerInstance boiler, MemoryStack stack
+			VkCommandBuffer commandBuffer, BoilerInstance instance, MemoryStack stack
 	) {
-		return new CommandRecorder(commandBuffer, boiler, stack, null);
+		return new CommandRecorder(commandBuffer, instance, stack, null);
 	}
 
 	public final VkCommandBuffer commandBuffer;

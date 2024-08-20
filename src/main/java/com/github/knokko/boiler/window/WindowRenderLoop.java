@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.window;
 
-import com.github.knokko.boiler.instance.BoilerInstance;
+import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.sync.AwaitableSubmission;
 import org.lwjgl.system.MemoryStack;
 

@@ -3,13 +3,13 @@ package com.github.knokko.boiler.samples;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.builder.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
-import com.github.knokko.boiler.descriptors.DescriptorSetLayout;
+import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
 import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
-import com.github.knokko.boiler.images.VmaImage;
+import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.sync.WaitSemaphore;
-import com.github.knokko.boiler.xr.BoilerSession;
+import com.github.knokko.boiler.xr.VkbSession;
 import com.github.knokko.boiler.xr.SessionLoop;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -130,7 +130,7 @@ public class HelloXR {
 
 		long[] swapchainImages = boiler.xr().getSwapchainImages(swapchain);
 		long[] swapchainImageViews = new long[swapchainImages.length];
-		VmaImage depthImage;
+		VkbImage depthImage;
 		try (var stack = stackPush()) {
 			for (int index = 0; index < swapchainImages.length; index++) {
 				swapchainImageViews[index] = boiler.images.createView(
@@ -178,7 +178,7 @@ public class HelloXR {
 				5 * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "MatrixBuffer"
 		);
 
-		DescriptorSetLayout descriptorSetLayout;
+		VkbDescriptorSetLayout descriptorSetLayout;
 		HomogeneousDescriptorPool descriptorPool;
 		long descriptorSet;
 		long pipelineLayout;
@@ -292,7 +292,7 @@ public class HelloXR {
 
 			var pInteractionProfile = stack.callocLong(1);
 			assertXrSuccess(xrStringToPath(
-					boiler.xr().instance, stack.UTF8("/interaction_profiles/khr/simple_controller"), pInteractionProfile
+					boiler.xr().xrInstance, stack.UTF8("/interaction_profiles/khr/simple_controller"), pInteractionProfile
 			), "StringToPath", "Khronos simple controller interaction profile");
 			interactionProfile = pInteractionProfile.get(0);
 
@@ -316,7 +316,7 @@ public class HelloXR {
 			suggestedInteractionBindings.suggestedBindings(suggestedBindings);
 
 			assertXrSuccess(xrSuggestInteractionProfileBindings(
-					boiler.xr().instance, suggestedInteractionBindings
+					boiler.xr().xrInstance, suggestedInteractionBindings
 			), "SuggestInteractionProfileBindings", null);
 
 			leftHandSpace = session.createActionSpace(stack, handPoseAction, pathLeftHand, "left hand");
@@ -333,7 +333,7 @@ public class HelloXR {
 			private Matrix4f leftHandMatrix, rightHandMatrix;
 
 			public HelloSessionLoop(
-					BoilerSession session, XrSpace renderSpace,
+					VkbSession session, XrSpace renderSpace,
 					XrSwapchain swapchain, int width, int height
 			) {
 				super(session, renderSpace, swapchain, width, height);
@@ -448,7 +448,7 @@ public class HelloXR {
 				dynamicRenderingInfo.pColorAttachments(colorAttachments);
 				dynamicRenderingInfo.pDepthAttachment(depthAttachment);
 
-				var commands = CommandRecorder.begin(commandBuffer, xr.boiler, stack, "Drawing");
+				var commands = CommandRecorder.begin(commandBuffer, xr.boilerInstance, stack, "Drawing");
 				vkCmdBeginRenderingKHR(commandBuffer, dynamicRenderingInfo);
 
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -520,13 +520,13 @@ public class HelloXR {
 
 			@Override
 			protected void submitAndWaitRender() {
-				xr.boiler.queueFamilies().graphics().queues().get(0).submit(
+				xr.boilerInstance.queueFamilies().graphics().queues().get(0).submit(
 						commandBuffer, "Drawing", new WaitSemaphore[0], fence
 				);
 
 				fence.waitAndReset();
 				assertVkSuccess(vkResetCommandPool(
-						xr.boiler.vkDevice(), commandPool, 0
+						xr.boilerInstance.vkDevice(), commandPool, 0
 				), "ResetCommandPool", "Drawing");
 			}
 		}
@@ -543,9 +543,9 @@ public class HelloXR {
 			vkDestroyImageView(boiler.vkDevice(), imageView, null);
 		}
 
-		vertexBuffer.destroy(boiler.vmaAllocator());
-		indexBuffer.destroy(boiler.vmaAllocator());
-		matrixBuffer.destroy(boiler.vmaAllocator());
+		vertexBuffer.destroy(boiler);
+		indexBuffer.destroy(boiler);
+		matrixBuffer.destroy(boiler);
 		vkDestroyImageView(boiler.vkDevice(), depthImage.vkImageView(), null);
 		vmaDestroyImage(boiler.vmaAllocator(), depthImage.vkImage(), depthImage.vmaAllocation());
 
