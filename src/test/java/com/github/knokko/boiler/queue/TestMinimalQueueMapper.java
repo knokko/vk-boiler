@@ -182,5 +182,37 @@ public class TestMinimalQueueMapper {
         }
     }
 
-    // TODO Test with multiple windows
+    @Test
+    public void testWithMultipleWindows() {
+        try (var stack = stackPush()) {
+            var pQueueFamilies = VkQueueFamilyProperties.calloc(3, stack);
+            memPutInt(
+                    pQueueFamilies.get(0).address() + VkQueueFamilyProperties.QUEUEFLAGS,
+                    VK_QUEUE_VIDEO_ENCODE_BIT_KHR | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT
+            );
+            memPutInt(
+                    pQueueFamilies.get(1).address() + VkQueueFamilyProperties.QUEUEFLAGS,
+                    VK_QUEUE_TRANSFER_BIT
+            );
+            memPutInt(
+                    pQueueFamilies.get(2).address() + VkQueueFamilyProperties.QUEUEFLAGS,
+                    VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT
+            );
+
+            boolean[][] presentSupportMatrix = {
+                    { true, false, true },
+                    { true, true, true },
+                    { true, false, true }
+            };
+            var mapping = new MinimalQueueFamilyMapper().mapQueueFamilies(pQueueFamilies, new HashSet<>(), presentSupportMatrix);
+            assertEquals(2, mapping.graphics().index());
+            assertEquals(2, mapping.compute().index());
+            assertEquals(2, mapping.transfer().index());
+            assertNull(mapping.videoEncode());
+            assertNull(mapping.videoDecode());
+            assertEquals(2, mapping.presentFamilyIndices()[0]);
+            assertEquals(1, mapping.presentFamilyIndices()[1]);
+            assertEquals(2, mapping.presentFamilyIndices()[2]);
+        }
+    }
 }

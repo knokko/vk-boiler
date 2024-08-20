@@ -45,7 +45,7 @@ public class MinimalQueueFamilyMapper implements QueueFamilyMapper {
 
         int graphicsIndex = -1;
         int computeIndex = -1;
-        int[] presentIndices = new int[presentSupportMatrix[0].length]; // TODO Test multiple present indices
+        int[] presentIndices = new int[presentSupportMatrix[0].length];
         Arrays.fill(presentIndices, -1);
 
         for (int familyIndex = 0; familyIndex < queueFamilies.limit(); familyIndex++) {
