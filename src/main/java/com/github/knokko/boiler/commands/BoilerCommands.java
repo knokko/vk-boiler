@@ -17,6 +17,10 @@ public class BoilerCommands {
     }
 
     public long createPool(int flags, int queueFamilyIndex, String name) {
+        return createPools(flags, queueFamilyIndex, 1, name)[0];
+    }
+
+    public long[] createPools(int flags, int queueFamilyIndex, int amount, String name) {
         try (var stack = stackPush()) {
             var ciCommandPool = VkCommandPoolCreateInfo.calloc(stack);
             ciCommandPool.sType$Default();
@@ -24,11 +28,17 @@ public class BoilerCommands {
             ciCommandPool.queueFamilyIndex(queueFamilyIndex);
 
             var pCommandPool = stack.callocLong(1);
-            assertVkSuccess(vkCreateCommandPool(
-                    instance.vkDevice(), ciCommandPool, null, pCommandPool
-            ), "CreateCommandPool", name);
-            instance.debug.name(stack, pCommandPool.get(0), VK_OBJECT_TYPE_COMMAND_POOL, name);
-            return pCommandPool.get(0);
+
+            long[] commandPools = new long[amount];
+            for (int index = 0; index < amount; index++) {
+                String nameSuffix = amount > 1 ? Integer.toString(amount) : "";
+                assertVkSuccess(vkCreateCommandPool(
+                        instance.vkDevice(), ciCommandPool, null, pCommandPool
+                ), "CreateCommandPool", name + nameSuffix);
+                commandPools[index] = pCommandPool.get(0);
+                instance.debug.name(stack, pCommandPool.get(0), VK_OBJECT_TYPE_COMMAND_POOL, nameSuffix);
+            }
+            return commandPools;
         }
     }
 
@@ -49,6 +59,30 @@ public class BoilerCommands {
                 result[index] = new VkCommandBuffer(pCommandBuffer.get(index), instance.vkDevice());
                 instance.debug.name(stack, result[index].address(), VK_OBJECT_TYPE_COMMAND_BUFFER, name);
             }
+            return result;
+        }
+    }
+
+    public VkCommandBuffer[] createPrimaryBufferPerPool(String name, long[] commandPools) {
+        try (var stack = stackPush()) {
+            var result = new VkCommandBuffer[commandPools.length];
+
+            var aiCommandBuffer = VkCommandBufferAllocateInfo.calloc(stack);
+            aiCommandBuffer.sType$Default();
+            aiCommandBuffer.level(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+            aiCommandBuffer.commandBufferCount(1);
+
+            var pCommandBuffer = stack.callocPointer(1);
+
+            for (int index = 0; index < commandPools.length; index++) {
+                aiCommandBuffer.commandPool(commandPools[index]);
+                assertVkSuccess(vkAllocateCommandBuffers(
+                        instance.vkDevice(), aiCommandBuffer, pCommandBuffer
+                ), "AllocateCommandBuffers", name);
+                result[index] = new VkCommandBuffer(pCommandBuffer.get(0), instance.vkDevice());
+                instance.debug.name(stack, result[index].address(), VK_OBJECT_TYPE_COMMAND_BUFFER, name + index);
+            }
+
             return result;
         }
     }
