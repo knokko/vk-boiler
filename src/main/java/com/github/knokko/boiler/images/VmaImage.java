@@ -7,10 +7,10 @@ import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 import static org.lwjgl.vulkan.VK10.vkDestroyImageView;
 
 public record VmaImage(
-        long vkImage,
-        long vkImageView,
-        long vmaAllocation,
-        int width, int height
+		long vkImage,
+		long vkImageView,
+		long vmaAllocation,
+		int width, int height
 ) {
 	public void destroy(BoilerInstance boiler) {
 		if (vkImageView != VK_NULL_HANDLE) vkDestroyImageView(boiler.vkDevice(), vkImageView, null);

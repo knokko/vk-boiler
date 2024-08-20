@@ -10,55 +10,55 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class TestFixedDescriptorBank {
 
-    @Test
-    public void testFixedDescriptorBank() {
-        var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFixedDescriptorBank", 1)
-                .validation()
-                .forbidValidationErrors()
-                .build();
+	@Test
+	public void testFixedDescriptorBank() {
+		var instance = new BoilerBuilder(VK_API_VERSION_1_0, "TestFixedDescriptorBank", 1)
+				.validation()
+				.forbidValidationErrors()
+				.build();
 
-        DescriptorSetLayout descriptorSetLayout;
-        try (var stack = stackPush()) {
-            var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-            bindings.binding(0);
-            bindings.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            bindings.descriptorCount(5);
-            bindings.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
+		DescriptorSetLayout descriptorSetLayout;
+		try (var stack = stackPush()) {
+			var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
+			bindings.binding(0);
+			bindings.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			bindings.descriptorCount(5);
+			bindings.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
-            descriptorSetLayout = instance.descriptors.createLayout(stack, bindings, "Test");
-        }
+			descriptorSetLayout = instance.descriptors.createLayout(stack, bindings, "Test");
+		}
 
-        var bank = new FixedDescriptorBank(descriptorSetLayout, 2, 0, "Test");
+		var bank = new FixedDescriptorBank(descriptorSetLayout, 2, 0, "Test");
 
-        long descriptorSet1 = bank.borrowDescriptorSet("DS1");
-        long descriptorSet2 = bank.borrowDescriptorSet("DS2");
-        assertNotEquals(0, descriptorSet1);
-        assertNotEquals(0, descriptorSet2);
-        assertNotEquals(descriptorSet1, descriptorSet2);
-        assertNull(bank.borrowDescriptorSet("ShouldBeNull"));
+		long descriptorSet1 = bank.borrowDescriptorSet("DS1");
+		long descriptorSet2 = bank.borrowDescriptorSet("DS2");
+		assertNotEquals(0, descriptorSet1);
+		assertNotEquals(0, descriptorSet2);
+		assertNotEquals(descriptorSet1, descriptorSet2);
+		assertNull(bank.borrowDescriptorSet("ShouldBeNull"));
 
-        bank.returnDescriptorSet(descriptorSet1);
-        assertEquals(descriptorSet1, bank.borrowDescriptorSet("DS1"));
+		bank.returnDescriptorSet(descriptorSet1);
+		assertEquals(descriptorSet1, bank.borrowDescriptorSet("DS1"));
 
-        bank.returnDescriptorSet(descriptorSet2);
-        assertEquals(descriptorSet2, bank.borrowDescriptorSet("DS2"));
+		bank.returnDescriptorSet(descriptorSet2);
+		assertEquals(descriptorSet2, bank.borrowDescriptorSet("DS2"));
 
-        assertNull(bank.borrowDescriptorSet("ShouldBeNull"));
+		assertNull(bank.borrowDescriptorSet("ShouldBeNull"));
 
-        bank.returnDescriptorSet(descriptorSet1);
-        bank.returnDescriptorSet(descriptorSet2);
+		bank.returnDescriptorSet(descriptorSet1);
+		bank.returnDescriptorSet(descriptorSet2);
 
-        long descriptorSet12 = bank.borrowDescriptorSet("DS12");
-        long descriptorSet21 = bank.borrowDescriptorSet("DS21");
-        assertNotEquals(0, descriptorSet12);
-        assertNotEquals(0, descriptorSet21);
-        assertNull(bank.borrowDescriptorSet("ShouldBeNull"));
-        assertNotEquals(descriptorSet12, descriptorSet21);
-        assertTrue(descriptorSet12 == descriptorSet1 || descriptorSet12 == descriptorSet2);
-        assertTrue(descriptorSet21 == descriptorSet1 || descriptorSet21 == descriptorSet2);
+		long descriptorSet12 = bank.borrowDescriptorSet("DS12");
+		long descriptorSet21 = bank.borrowDescriptorSet("DS21");
+		assertNotEquals(0, descriptorSet12);
+		assertNotEquals(0, descriptorSet21);
+		assertNull(bank.borrowDescriptorSet("ShouldBeNull"));
+		assertNotEquals(descriptorSet12, descriptorSet21);
+		assertTrue(descriptorSet12 == descriptorSet1 || descriptorSet12 == descriptorSet2);
+		assertTrue(descriptorSet21 == descriptorSet1 || descriptorSet21 == descriptorSet2);
 
-        bank.destroy(false);
-        descriptorSetLayout.destroy();
-        instance.destroyInitialObjects();
-    }
+		bank.destroy(false);
+		descriptorSetLayout.destroy();
+		instance.destroyInitialObjects();
+	}
 }

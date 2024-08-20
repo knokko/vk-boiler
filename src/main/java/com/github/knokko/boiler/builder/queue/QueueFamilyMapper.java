@@ -7,9 +7,9 @@ import java.util.Set;
 @FunctionalInterface
 public interface QueueFamilyMapper {
 
-    QueueFamilyMapping mapQueueFamilies(
-            VkQueueFamilyProperties.Buffer queueFamilies,
-            Set<String> deviceExtensions,
-            boolean[][] presentSupportMatrix
-    );
+	QueueFamilyMapping mapQueueFamilies(
+			VkQueueFamilyProperties.Buffer queueFamilies,
+			Set<String> deviceExtensions,
+			boolean[][] presentSupportMatrix
+	);
 }

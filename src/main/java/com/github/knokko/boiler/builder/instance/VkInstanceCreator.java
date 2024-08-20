@@ -7,5 +7,5 @@ import org.lwjgl.vulkan.VkInstanceCreateInfo;
 @FunctionalInterface
 public interface VkInstanceCreator {
 
-    VkInstance vkCreateInstance(VkInstanceCreateInfo ciInstance, MemoryStack stack);
+	VkInstance vkCreateInstance(VkInstanceCreateInfo ciInstance, MemoryStack stack);
 }

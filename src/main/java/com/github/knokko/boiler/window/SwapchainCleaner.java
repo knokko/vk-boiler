@@ -15,121 +15,122 @@ import static org.lwjgl.vulkan.VK10.vkDeviceWaitIdle;
 
 abstract class SwapchainCleaner {
 
-    BoilerInstance instance;
-    final List<State> swapchains = new ArrayList<>();
+	BoilerInstance instance;
+	final List<State> swapchains = new ArrayList<>();
 
-    void onAcquire(AcquiredImage acquiredImage) {
-        if (swapchains.isEmpty()) {
-            throw new IllegalStateException("Unexpected image acquire: call onChangeCurrentSwapchain first");
-        }
-        var lastState = swapchains.get(swapchains.size() - 1);
-        if (acquiredImage.swapchain != lastState.swapchain) {
-            throw new IllegalStateException("Unexpected swapchain at image acquire");
-        }
+	void onAcquire(AcquiredImage acquiredImage) {
+		if (swapchains.isEmpty()) {
+			throw new IllegalStateException("Unexpected image acquire: call onChangeCurrentSwapchain first");
+		}
+		var lastState = swapchains.get(swapchains.size() - 1);
+		if (acquiredImage.swapchain != lastState.swapchain) {
+			throw new IllegalStateException("Unexpected swapchain at image acquire");
+		}
 
-        lastState.acquiredImages.add(acquiredImage);
+		lastState.acquiredImages.add(acquiredImage);
 
-        destroyOldResources();
-    }
+		destroyOldResources();
+	}
 
-    private void destroyOldResources() {
-        for (int swapchainIndex = swapchains.size() - 1; swapchainIndex >= 0; swapchainIndex--) {
-            var state = swapchains.get(swapchainIndex);
+	private void destroyOldResources() {
+		for (int swapchainIndex = swapchains.size() - 1; swapchainIndex >= 0; swapchainIndex--) {
+			var state = swapchains.get(swapchainIndex);
 
-            List<AcquiredImage> remainingImages = new ArrayList<>(state.acquiredImages.size());
+			List<AcquiredImage> remainingImages = new ArrayList<>(state.acquiredImages.size());
 
-            boolean canDestroyOldSwapchains = chooseRemainingImages(state, remainingImages);
+			boolean canDestroyOldSwapchains = chooseRemainingImages(state, remainingImages);
 
-            state.acquiredImages.clear();
-            Collections.reverse(remainingImages);
-            state.acquiredImages.addAll(remainingImages);
+			state.acquiredImages.clear();
+			Collections.reverse(remainingImages);
+			state.acquiredImages.addAll(remainingImages);
 
-            if (canDestroyOldSwapchains && swapchainIndex > 0) {
-                int oldSwapchainIndex = swapchainIndex;
-                while (swapchainIndex > 0) {
-                    swapchainIndex -= 1;
-                    destroyStateNow(swapchains.get(swapchainIndex), true);
-                }
-                var newSwapchains = new ArrayList<>(swapchains.subList(oldSwapchainIndex, swapchains.size()));
-                swapchains.clear();
-                swapchains.addAll(newSwapchains);
-            }
-        }
-    }
+			if (canDestroyOldSwapchains && swapchainIndex > 0) {
+				int oldSwapchainIndex = swapchainIndex;
+				while (swapchainIndex > 0) {
+					swapchainIndex -= 1;
+					destroyStateNow(swapchains.get(swapchainIndex), true);
+				}
+				var newSwapchains = new ArrayList<>(swapchains.subList(oldSwapchainIndex, swapchains.size()));
+				swapchains.clear();
+				swapchains.addAll(newSwapchains);
+			}
+		}
+	}
 
-    abstract boolean chooseRemainingImages(State state, List<AcquiredImage> remainingImages);
+	abstract boolean chooseRemainingImages(State state, List<AcquiredImage> remainingImages);
 
-    private void destroyStateNow(State state, boolean doSafetyChecks) {
-        for (var image : state.acquiredImages) destroyImageNow(image, doSafetyChecks);
-        state.swapchain.destroyNow();
-    }
+	private void destroyStateNow(State state, boolean doSafetyChecks) {
+		for (var image : state.acquiredImages) destroyImageNow(image, doSafetyChecks);
+		state.swapchain.destroyNow();
+	}
 
-    void destroyImageNow(AcquiredImage image, boolean doSafetyChecks) {
-        if (doSafetyChecks) {
-            if (!image.acquireFence.isSignaled()) {
-                throw new IllegalStateException("Acquire fence should be signaled by now!");
-            }
+	void destroyImageNow(AcquiredImage image, boolean doSafetyChecks) {
+		if (doSafetyChecks) {
+			if (!image.acquireFence.isSignaled()) {
+				throw new IllegalStateException("Acquire fence should be signaled by now!");
+			}
 
-            if (image.renderSubmission == null) {
-                System.out.println("VkBoiler.SwapchainCleaner: it looks like a acquired image was never presented: " +
-                        "falling back to vkDeviceWaitIdle...");
-                assertVkSuccess(vkDeviceWaitIdle(
-                        instance.vkDevice()
-                ), "DeviceWaitIdle", "SwapchainCleaner.destroyImageNow");
-            } else {
-                image.renderSubmission.awaitCompletion();
-            }
-        }
+			if (image.renderSubmission == null) {
+				System.out.println("VkBoiler.SwapchainCleaner: it looks like a acquired image was never presented: " +
+						"falling back to vkDeviceWaitIdle...");
+				assertVkSuccess(vkDeviceWaitIdle(
+						instance.vkDevice()
+				), "DeviceWaitIdle", "SwapchainCleaner.destroyImageNow");
+			} else {
+				image.renderSubmission.awaitCompletion();
+			}
+		}
 
-        instance.sync.fenceBank.returnFence(image.acquireFence);
-        if (image.presentFence != null) instance.sync.fenceBank.returnFence(image.presentFence);
-        if (image.acquireSemaphore != VK_NULL_HANDLE) {
-            instance.sync.semaphoreBank.returnSemaphores(image.acquireSemaphore);
-        }
-        instance.sync.semaphoreBank.returnSemaphores(image.presentSemaphore());
-    }
+		instance.sync.fenceBank.returnFence(image.acquireFence);
+		if (image.presentFence != null) instance.sync.fenceBank.returnFence(image.presentFence);
+		if (image.acquireSemaphore != VK_NULL_HANDLE) {
+			instance.sync.semaphoreBank.returnSemaphores(image.acquireSemaphore);
+		}
+		instance.sync.semaphoreBank.returnSemaphores(image.presentSemaphore());
+	}
 
-    public long getLatestSwapchainHandle() {
-        if (swapchains.isEmpty()) return VK_NULL_HANDLE;
-        return swapchains.get(swapchains.size() - 1).swapchain.vkSwapchain;
-    }
+	public long getLatestSwapchainHandle() {
+		if (swapchains.isEmpty()) return VK_NULL_HANDLE;
+		return swapchains.get(swapchains.size() - 1).swapchain.vkSwapchain;
+	}
 
-    public void onChangeCurrentSwapchain(VkbSwapchain oldSwapchain, VkbSwapchain newSwapchain) {
-        if (!swapchains.isEmpty() && swapchains.get(swapchains.size() - 1).swapchain != oldSwapchain && oldSwapchain != null) {
-            throw new IllegalStateException("Missed the switch to swapchain " + oldSwapchain);
-        }
-        if (newSwapchain != null) {
-            if (swapchains.stream().anyMatch(state -> state.swapchain == newSwapchain)) {
-                throw new IllegalStateException("Swapchain used twice? " + newSwapchain);
-            }
+	public void onChangeCurrentSwapchain(VkbSwapchain oldSwapchain, VkbSwapchain newSwapchain) {
+		if (!swapchains.isEmpty() && swapchains.get(swapchains.size() - 1).swapchain != oldSwapchain && oldSwapchain != null) {
+			throw new IllegalStateException("Missed the switch to swapchain " + oldSwapchain);
+		}
+		if (newSwapchain != null) {
+			if (swapchains.stream().anyMatch(state -> state.swapchain == newSwapchain)) {
+				throw new IllegalStateException("Swapchain used twice? " + newSwapchain);
+			}
 
-            // Prevent swapchains from piling up when they are destroyed too quickly
-            if (swapchains.size() > 5) {
-                for (var state : swapchains) {
-                    waitUntilStateCanBeDestroyed(state);
-                    destroyStateNow(state, true);
-                }
-                swapchains.clear();
-            }
+			// Prevent swapchains from piling up when they are destroyed too quickly
+			if (swapchains.size() > 5) {
+				for (var state : swapchains) {
+					waitUntilStateCanBeDestroyed(state);
+					destroyStateNow(state, true);
+				}
+				swapchains.clear();
+			}
 
-            swapchains.add(new State(newSwapchain, new ArrayList<>()));
-        }
-    }
+			swapchains.add(new State(newSwapchain, new ArrayList<>()));
+		}
+	}
 
-    abstract VkbFence getPresentFence();
+	abstract VkbFence getPresentFence();
 
-    abstract void beforePresent(MemoryStack stack, VkPresentInfoKHR presentInfo, AcquiredImage acquiredImage);
+	abstract void beforePresent(MemoryStack stack, VkPresentInfoKHR presentInfo, AcquiredImage acquiredImage);
 
-    abstract void waitUntilStateCanBeDestroyed(State state);
+	abstract void waitUntilStateCanBeDestroyed(State state);
 
-    void destroyEverything() {
-        for (var state : swapchains) {
-            for (var image : state.acquiredImages) image.acquireFence.waitIfSubmitted();
-            waitUntilStateCanBeDestroyed(state);
-            destroyStateNow(state, false);
-        }
-        swapchains.clear();
-    }
+	void destroyEverything() {
+		for (var state : swapchains) {
+			for (var image : state.acquiredImages) image.acquireFence.waitIfSubmitted();
+			waitUntilStateCanBeDestroyed(state);
+			destroyStateNow(state, false);
+		}
+		swapchains.clear();
+	}
 
-    record State(VkbSwapchain swapchain, List<AcquiredImage> acquiredImages) {}
+	record State(VkbSwapchain swapchain, List<AcquiredImage> acquiredImages) {
+	}
 }

@@ -10,10 +10,10 @@ import java.util.Set;
 @FunctionalInterface
 public interface VkDeviceCreator {
 
-    VkDevice vkCreateDevice(
-            VkDeviceCreateInfo ciDevice,
-            Set<String> enabledInstanceExtensions,
-            VkPhysicalDevice physicalDevice,
-            MemoryStack stack
-    );
+	VkDevice vkCreateDevice(
+			VkDeviceCreateInfo ciDevice,
+			Set<String> enabledInstanceExtensions,
+			VkPhysicalDevice physicalDevice,
+			MemoryStack stack
+	);
 }

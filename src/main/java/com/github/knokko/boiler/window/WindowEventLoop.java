@@ -83,7 +83,8 @@ public class WindowEventLoop {
 	private State getState(VkbWindow window) {
 		State state = stateMap.get(window);
 
-		if (state == null) throw new IllegalArgumentException("window " + window + " wasn't added using this.addWindow");
+		if (state == null)
+			throw new IllegalArgumentException("window " + window + " wasn't added using this.addWindow");
 		if (!state.initialized.isDone()) {
 			try {
 				state.initialized.get();
@@ -109,7 +110,8 @@ public class WindowEventLoop {
 		state.resizeCompleted.acquireUninterruptibly();
 	}
 
-	private record Task(Runnable runnable, State state, VkbWindow window) {}
+	private record Task(Runnable runnable, State state, VkbWindow window) {
+	}
 
 	private static class State {
 

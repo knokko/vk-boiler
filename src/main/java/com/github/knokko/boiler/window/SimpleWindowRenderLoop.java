@@ -51,16 +51,16 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 				VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 				"SimpleWindowRenderLoop"
 		);
-		var waitSemaphores = acquireSwapchainImageWithFence ? null : new WaitSemaphore[] { new WaitSemaphore(
+		var waitSemaphores = acquireSwapchainImageWithFence ? null : new WaitSemaphore[]{new WaitSemaphore(
 				acquiredImage.acquireSemaphore(), VK_PIPELINE_STAGE_TRANSFER_BIT
-		) };
+		)};
 
 		recordFrame(stack, recorder, acquiredImage, instance);
 		recorder.end();
 
 		return instance.queueFamilies().graphics().queues().get(0).submit(
-                commandBuffer, "Fill", waitSemaphores, fence, acquiredImage.presentSemaphore()
-        );
+				commandBuffer, "Fill", waitSemaphores, fence, acquiredImage.presentSemaphore()
+		);
 	}
 
 	protected abstract void recordFrame(MemoryStack stack, CommandRecorder recorder, AcquiredImage acquiredImage, BoilerInstance instance);

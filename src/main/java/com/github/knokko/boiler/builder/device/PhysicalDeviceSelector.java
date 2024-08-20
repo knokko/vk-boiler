@@ -7,5 +7,5 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 @FunctionalInterface
 public interface PhysicalDeviceSelector {
 
-    VkPhysicalDevice choosePhysicalDevice(MemoryStack stack, VkPhysicalDevice[] candidates, VkInstance vkInstance);
+	VkPhysicalDevice choosePhysicalDevice(MemoryStack stack, VkPhysicalDevice[] candidates, VkInstance vkInstance);
 }

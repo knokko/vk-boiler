@@ -14,42 +14,42 @@ import static org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceProperties;
 
 class XrDeviceSelector implements PhysicalDeviceSelector {
 
-    private final XrInstance xrInstance;
-    private final long xrSystem;
+	private final XrInstance xrInstance;
+	private final long xrSystem;
 
-    XrDeviceSelector(XrInstance xrInstance, long xrSystem) {
-        this.xrInstance = xrInstance;
-        this.xrSystem = xrSystem;
-    }
+	XrDeviceSelector(XrInstance xrInstance, long xrSystem) {
+		this.xrInstance = xrInstance;
+		this.xrSystem = xrSystem;
+	}
 
-    @Override
-    public VkPhysicalDevice choosePhysicalDevice(MemoryStack stack, VkPhysicalDevice[] candidates, VkInstance vkInstance) {
-        var giDevice = XrVulkanGraphicsDeviceGetInfoKHR.calloc(stack);
-        giDevice.type$Default();
-        giDevice.systemId(xrSystem);
-        giDevice.vulkanInstance(vkInstance);
+	@Override
+	public VkPhysicalDevice choosePhysicalDevice(MemoryStack stack, VkPhysicalDevice[] candidates, VkInstance vkInstance) {
+		var giDevice = XrVulkanGraphicsDeviceGetInfoKHR.calloc(stack);
+		giDevice.type$Default();
+		giDevice.systemId(xrSystem);
+		giDevice.vulkanInstance(vkInstance);
 
-        var pDevice = stack.callocPointer(1);
-        assertXrSuccess(xrGetVulkanGraphicsDevice2KHR(
-            xrInstance, giDevice, pDevice
-        ), "GetVulkanGraphicsDevice2KHR", "XrDeviceSelector");
-        var device = new VkPhysicalDevice(pDevice.get(0), vkInstance);
+		var pDevice = stack.callocPointer(1);
+		assertXrSuccess(xrGetVulkanGraphicsDevice2KHR(
+				xrInstance, giDevice, pDevice
+		), "GetVulkanGraphicsDevice2KHR", "XrDeviceSelector");
+		var device = new VkPhysicalDevice(pDevice.get(0), vkInstance);
 
-        var properties = VkPhysicalDeviceProperties.calloc(stack);
-        vkGetPhysicalDeviceProperties(device, properties);
-        int vendorID = properties.vendorID();
-        int deviceID = properties.deviceID();
-        String deviceName = properties.deviceNameString();
+		var properties = VkPhysicalDeviceProperties.calloc(stack);
+		vkGetPhysicalDeviceProperties(device, properties);
+		int vendorID = properties.vendorID();
+		int deviceID = properties.deviceID();
+		String deviceName = properties.deviceNameString();
 
-        for (VkPhysicalDevice candidate : candidates) {
-            vkGetPhysicalDeviceProperties(candidate, properties);
-            if (vendorID == properties.vendorID() && deviceID == properties.deviceID()) return device;
-        }
+		for (VkPhysicalDevice candidate : candidates) {
+			vkGetPhysicalDeviceProperties(candidate, properties);
+			if (vendorID == properties.vendorID() && deviceID == properties.deviceID()) return device;
+		}
 
-        System.out.println(
-                "The OpenXR runtime requires physical device " + deviceName +
-                        ", but this device doesn't satisfy the (application) requirements given to BoilderBuilder"
-        );
-        return null;
-    }
+		System.out.println(
+				"The OpenXR runtime requires physical device " + deviceName +
+						", but this device doesn't satisfy the (application) requirements given to BoilderBuilder"
+		);
+		return null;
+	}
 }

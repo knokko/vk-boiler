@@ -6,5 +6,5 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 @FunctionalInterface
 public interface ExtraDeviceRequirements {
 
-    boolean satisfiesRequirements(VkPhysicalDevice physicalDevice, long[] windowSurfaces, MemoryStack stack);
+	boolean satisfiesRequirements(VkPhysicalDevice physicalDevice, long[] windowSurfaces, MemoryStack stack);
 }

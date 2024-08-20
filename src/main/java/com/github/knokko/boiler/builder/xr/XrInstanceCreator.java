@@ -14,31 +14,31 @@ import static org.lwjgl.openxr.KHRVulkanEnable2.xrCreateVulkanInstanceKHR;
 
 class XrInstanceCreator implements VkInstanceCreator {
 
-    private final XrInstance xrInstance;
-    private final long xrSystem;
+	private final XrInstance xrInstance;
+	private final long xrSystem;
 
-    XrInstanceCreator(XrInstance xrInstance, long xrSystem) {
-        this.xrInstance = xrInstance;
-        this.xrSystem = xrSystem;
-    }
+	XrInstanceCreator(XrInstance xrInstance, long xrSystem) {
+		this.xrInstance = xrInstance;
+		this.xrSystem = xrSystem;
+	}
 
-    @Override
-    public VkInstance vkCreateInstance(VkInstanceCreateInfo ciInstance, MemoryStack stack) {
-        var ciXrInstance = XrVulkanInstanceCreateInfoKHR.calloc(stack);
-        ciXrInstance.type$Default();
-        ciXrInstance.systemId(xrSystem);
-        ciXrInstance.createFlags(0);
-        ciXrInstance.pfnGetInstanceProcAddr(VK.getFunctionProvider().getFunctionAddress("vkGetInstanceProcAddr"));
-        ciXrInstance.vulkanCreateInfo(ciInstance);
-        ciXrInstance.vulkanAllocator(null);
+	@Override
+	public VkInstance vkCreateInstance(VkInstanceCreateInfo ciInstance, MemoryStack stack) {
+		var ciXrInstance = XrVulkanInstanceCreateInfoKHR.calloc(stack);
+		ciXrInstance.type$Default();
+		ciXrInstance.systemId(xrSystem);
+		ciXrInstance.createFlags(0);
+		ciXrInstance.pfnGetInstanceProcAddr(VK.getFunctionProvider().getFunctionAddress("vkGetInstanceProcAddr"));
+		ciXrInstance.vulkanCreateInfo(ciInstance);
+		ciXrInstance.vulkanAllocator(null);
 
-        var pInstance = stack.callocPointer(1);
-        var pResult = stack.callocInt(1);
-        assertXrSuccess(xrCreateVulkanInstanceKHR(
-                xrInstance, ciXrInstance, pInstance, pResult
-        ), "CreateVulkanInstanceKHR", "XrInstanceCreator");
-        assertVkSuccess(pResult.get(0), "xrCreateVulkanInstanceKHR", "XrInstanceCreator");
+		var pInstance = stack.callocPointer(1);
+		var pResult = stack.callocInt(1);
+		assertXrSuccess(xrCreateVulkanInstanceKHR(
+				xrInstance, ciXrInstance, pInstance, pResult
+		), "CreateVulkanInstanceKHR", "XrInstanceCreator");
+		assertVkSuccess(pResult.get(0), "xrCreateVulkanInstanceKHR", "XrInstanceCreator");
 
-        return new VkInstance(pInstance.get(0), ciInstance);
-    }
+		return new VkInstance(pInstance.get(0), ciInstance);
+	}
 }

@@ -6,9 +6,9 @@ import org.lwjgl.vulkan.VkPhysicalDeviceVulkan13Features;
 @FunctionalInterface
 public interface FeaturePicker13 {
 
-    void enableFeatures(
-            MemoryStack stack,
-            VkPhysicalDeviceVulkan13Features supportedFeatures,
-            VkPhysicalDeviceVulkan13Features toEnable
-    );
+	void enableFeatures(
+			MemoryStack stack,
+			VkPhysicalDeviceVulkan13Features supportedFeatures,
+			VkPhysicalDeviceVulkan13Features toEnable
+	);
 }

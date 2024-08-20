@@ -17,35 +17,35 @@ import static org.lwjgl.openxr.KHRVulkanEnable2.xrCreateVulkanDeviceKHR;
 
 class XrDeviceCreator implements VkDeviceCreator {
 
-    private final XrInstance xrInstance;
-    private final long xrSystem;
+	private final XrInstance xrInstance;
+	private final long xrSystem;
 
-    XrDeviceCreator(XrInstance xrInstance, long xrSystem) {
-        this.xrInstance = xrInstance;
-        this.xrSystem = xrSystem;
-    }
+	XrDeviceCreator(XrInstance xrInstance, long xrSystem) {
+		this.xrInstance = xrInstance;
+		this.xrSystem = xrSystem;
+	}
 
-    @Override
-    public VkDevice vkCreateDevice(
-            VkDeviceCreateInfo ciDevice, Set<String> instanceExtensions,
-            VkPhysicalDevice physicalDevice, MemoryStack stack
-    ) {
-        var xrCiDevice = XrVulkanDeviceCreateInfoKHR.calloc(stack);
-        xrCiDevice.type$Default();
-        xrCiDevice.systemId(xrSystem);
-        xrCiDevice.createFlags(0L);
-        xrCiDevice.pfnGetInstanceProcAddr(VK.getFunctionProvider().getFunctionAddress("vkGetInstanceProcAddr"));
-        xrCiDevice.vulkanPhysicalDevice(physicalDevice);
-        xrCiDevice.vulkanCreateInfo(ciDevice);
-        xrCiDevice.vulkanAllocator(null);
+	@Override
+	public VkDevice vkCreateDevice(
+			VkDeviceCreateInfo ciDevice, Set<String> instanceExtensions,
+			VkPhysicalDevice physicalDevice, MemoryStack stack
+	) {
+		var xrCiDevice = XrVulkanDeviceCreateInfoKHR.calloc(stack);
+		xrCiDevice.type$Default();
+		xrCiDevice.systemId(xrSystem);
+		xrCiDevice.createFlags(0L);
+		xrCiDevice.pfnGetInstanceProcAddr(VK.getFunctionProvider().getFunctionAddress("vkGetInstanceProcAddr"));
+		xrCiDevice.vulkanPhysicalDevice(physicalDevice);
+		xrCiDevice.vulkanCreateInfo(ciDevice);
+		xrCiDevice.vulkanAllocator(null);
 
-        var pDevice = stack.callocPointer(1);
-        var pResult = stack.callocInt(1);
-        assertXrSuccess(xrCreateVulkanDeviceKHR(
-                xrInstance, xrCiDevice, pDevice, pResult
-        ), "CreateVulkanDeviceKHR", "XrDeviceCreator");
-        assertVkSuccess(pResult.get(0), "xrCreateVulkanDeviceKHR", "XrDeviceSelector");
+		var pDevice = stack.callocPointer(1);
+		var pResult = stack.callocInt(1);
+		assertXrSuccess(xrCreateVulkanDeviceKHR(
+				xrInstance, xrCiDevice, pDevice, pResult
+		), "CreateVulkanDeviceKHR", "XrDeviceCreator");
+		assertVkSuccess(pResult.get(0), "xrCreateVulkanDeviceKHR", "XrDeviceSelector");
 
-        return new VkDevice(pDevice.get(0), physicalDevice, ciDevice);
-    }
+		return new VkDevice(pDevice.get(0), physicalDevice, ciDevice);
+	}
 }

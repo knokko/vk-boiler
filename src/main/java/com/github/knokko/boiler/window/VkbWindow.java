@@ -20,269 +20,269 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class VkbWindow {
 
-    BoilerInstance instance;
-    private final SwapchainCleaner cleaner;
-    public final long glfwWindow;
-    public final long vkSurface;
-    public final Set<Integer> supportedPresentModes;
-    private final Set<Integer> usedPresentModes;
-    public final int surfaceFormat;
-    public final int surfaceColorSpace;
-    private final VkSurfaceCapabilitiesKHR surfaceCapabilities;
-    public final int swapchainImageUsage;
-    public final int swapchainCompositeAlpha;
-    public final QueueFamily presentFamily;
+	BoilerInstance instance;
+	private final SwapchainCleaner cleaner;
+	public final long glfwWindow;
+	public final long vkSurface;
+	public final Set<Integer> supportedPresentModes;
+	private final Set<Integer> usedPresentModes;
+	public final int surfaceFormat;
+	public final int surfaceColorSpace;
+	private final VkSurfaceCapabilitiesKHR surfaceCapabilities;
+	public final int swapchainImageUsage;
+	public final int swapchainCompositeAlpha;
+	public final QueueFamily presentFamily;
 
-    private int width, height;
-    private VkbSwapchain currentSwapchain;
-    private long currentSwapchainID;
-    private final String title;
+	private int width, height;
+	private VkbSwapchain currentSwapchain;
+	private long currentSwapchainID;
+	private final String title;
 
-    private boolean hasBeenDestroyed;
+	private boolean hasBeenDestroyed;
 
-    WindowEventLoop windowLoop;
+	WindowEventLoop windowLoop;
 
-    public VkbWindow(
-            boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface,
-            Collection<Integer> supportedPresentModes, Set<Integer> preparedPresentModes,
-            String title, int surfaceFormat, int surfaceColorSpace, VkSurfaceCapabilitiesKHR surfaceCapabilities,
-            int swapchainImageUsage, int swapchainCompositeAlpha, QueueFamily presentFamily
-    ) {
-        if (hasSwapchainMaintenance) cleaner = new SwapchainMaintenanceCleaner();
-        else cleaner = new LegacySwapchainCleaner();
-        this.glfwWindow = glfwWindow;
-        this.vkSurface = vkSurface;
-        this.supportedPresentModes = Set.copyOf(supportedPresentModes);
-        this.usedPresentModes = new HashSet<>(preparedPresentModes);
-        this.surfaceFormat = surfaceFormat;
-        this.surfaceColorSpace = surfaceColorSpace;
-        this.surfaceCapabilities = Objects.requireNonNull(surfaceCapabilities);
-        this.swapchainImageUsage = swapchainImageUsage;
-        this.swapchainCompositeAlpha = swapchainCompositeAlpha;
-        this.presentFamily = presentFamily;
-        this.title = title;
-    }
-
-    public void setInstance(BoilerInstance instance) {
-        if (this.instance != null) throw new IllegalStateException();
-        this.instance = instance;
-        this.cleaner.instance = instance;
-        this.updateSize();
-    }
-
-    public AcquiredImage acquireSwapchainImageWithFence(int presentMode) {
-        return acquireSwapchainImage(presentMode, true);
-    }
-
-    public AcquiredImage acquireSwapchainImageWithSemaphore(int presentMode) {
-        return acquireSwapchainImage(presentMode, false);
-    }
-
-    private void assertMainThread() {
-        if (!Thread.currentThread().getName().equals("main")) throw new Error("updateSize must happen on main thread");
-    }
-
-    private void updateSize() {
-        assertMainThread();
-        try (var stack = stackPush()) {
-            assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-                    instance.vkPhysicalDevice(), vkSurface, surfaceCapabilities
-            ), "GetPhysicalDeviceSurfaceCapabilitiesKHR", "Update window size");
-            int width = surfaceCapabilities.currentExtent().width();
-            int height = surfaceCapabilities.currentExtent().height();
-
-            if (width == -1 || height == -1) {
-                var pWidth = stack.callocInt(1);
-                var pHeight = stack.callocInt(1);
-                glfwGetFramebufferSize(glfwWindow, pWidth, pHeight);
-                width = pWidth.get(0);
-                height = pHeight.get(0);
-            }
-
-            this.width = width;
-            this.height = height;
-        }
-    }
-
-    public int getWidth() {
-        return width;
-    }
-
-    public int getHeight() {
-        return height;
-    }
-
-    private void createSwapchain(int presentMode, boolean updateSize) {
-        assertMainThread();
-        try (var stack = stackPush()) {
-            if (updateSize) updateSize();
-            if (width == 0 || height == 0) {
-                currentSwapchain = null;
-                return;
-            }
-
-            int desiredImageCount = presentMode == VK_PRESENT_MODE_MAILBOX_KHR ? 3 : 2;
-            var ciSwapchain = VkSwapchainCreateInfoKHR.calloc(stack);
-            ciSwapchain.sType$Default();
-            ciSwapchain.flags(0);
-            ciSwapchain.surface(vkSurface);
-            ciSwapchain.minImageCount(max(desiredImageCount, surfaceCapabilities.minImageCount()));
-            ciSwapchain.imageFormat(surfaceFormat);
-            ciSwapchain.imageColorSpace(surfaceColorSpace);
-            ciSwapchain.imageExtent().set(width, height);
-            ciSwapchain.imageArrayLayers(1);
-            ciSwapchain.imageUsage(swapchainImageUsage);
-
-            if (instance.queueFamilies().graphics() == presentFamily) {
-                ciSwapchain.imageSharingMode(VK_SHARING_MODE_EXCLUSIVE);
-            } else {
-                ciSwapchain.imageSharingMode(VK_SHARING_MODE_CONCURRENT);
-                ciSwapchain.queueFamilyIndexCount(2);
-                ciSwapchain.pQueueFamilyIndices(stack.ints(
-                        instance.queueFamilies().graphics().index(), presentFamily.index()
-                ));
-            }
-
-            ciSwapchain.preTransform(surfaceCapabilities.currentTransform());
-            ciSwapchain.compositeAlpha(swapchainCompositeAlpha);
-            ciSwapchain.presentMode(presentMode);
-            ciSwapchain.clipped(true);
-            ciSwapchain.oldSwapchain(cleaner.getLatestSwapchainHandle());
-
-            Set<Integer> compatibleUsedPresentModes = new HashSet<>();
-            compatibleUsedPresentModes.add(presentMode);
-
-            if (instance.hasSwapchainMaintenance() && usedPresentModes.size() > 1) {
-                var presentModeCompatibility = VkSurfacePresentModeCompatibilityEXT.calloc(stack);
-                presentModeCompatibility.sType$Default();
-
-                var queriedPresentMode = VkSurfacePresentModeEXT.calloc(stack);
-                queriedPresentMode.sType$Default();
-                queriedPresentMode.presentMode(presentMode);
-
-                var surfaceInfo = VkPhysicalDeviceSurfaceInfo2KHR.calloc(stack);
-                surfaceInfo.sType$Default();
-                surfaceInfo.pNext(queriedPresentMode);
-                surfaceInfo.surface(vkSurface);
-
-                var surfaceCapabilities2 = VkSurfaceCapabilities2KHR.calloc(stack);
-                surfaceCapabilities2.sType$Default();
-                surfaceCapabilities2.pNext(presentModeCompatibility);
-
-                assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilities2KHR(
-                        instance.vkPhysicalDevice(), surfaceInfo, surfaceCapabilities2
-                ), "GetPhysicalDeviceSurfaceCapabilities2KHR", "Present mode compatibility: count");
-
-                int numCompatiblePresentModes = presentModeCompatibility.presentModeCount();
-
-                var compatiblePresentModeBuffer = stack.callocInt(numCompatiblePresentModes);
-                presentModeCompatibility.pPresentModes(compatiblePresentModeBuffer);
-                assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilities2KHR(
-                        instance.vkPhysicalDevice(), surfaceInfo, surfaceCapabilities2
-                ), "GetPhysicalDeviceSurfaceCapabilities2KHR", "Present mode compatibility: modes");
-
-                for (int index = 0; index < numCompatiblePresentModes; index++) {
-                    int compatiblePresentMode = compatiblePresentModeBuffer.get(index);
-                    if (usedPresentModes.contains(compatiblePresentMode)) {
-                        compatibleUsedPresentModes.add(compatiblePresentMode);
-                    }
-                }
-            }
-
-            if (instance.hasSwapchainMaintenance()) {
-                var pPresentModes = stack.callocInt(compatibleUsedPresentModes.size());
-                for (int compatiblePresentMode : compatibleUsedPresentModes) {
-                    pPresentModes.put(compatiblePresentMode);
-                }
-                pPresentModes.flip();
-
-                var ciPresentModes = VkSwapchainPresentModesCreateInfoEXT.calloc(stack);
-                ciPresentModes.sType$Default();
-                ciPresentModes.pPresentModes(pPresentModes);
-
-                ciSwapchain.pNext(ciPresentModes);
-            }
-
-            var pSwapchain = stack.callocLong(1);
-            assertVkSuccess(vkCreateSwapchainKHR(
-                    instance.vkDevice(), ciSwapchain, null, pSwapchain
-            ), "CreateSwapchainKHR", null);
-            long vkSwapchain = pSwapchain.get(0);
-
-            currentSwapchainID += 1;
-            instance.debug.name(stack, vkSwapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, "Swapchain-" + title + currentSwapchainID);
-
-            currentSwapchain = new VkbSwapchain(
-                    instance, vkSwapchain, title, cleaner, presentMode,
-                    width, height, presentFamily, compatibleUsedPresentModes
-            );
-        }
+	public VkbWindow(
+			boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface,
+			Collection<Integer> supportedPresentModes, Set<Integer> preparedPresentModes,
+			String title, int surfaceFormat, int surfaceColorSpace, VkSurfaceCapabilitiesKHR surfaceCapabilities,
+			int swapchainImageUsage, int swapchainCompositeAlpha, QueueFamily presentFamily
+	) {
+		if (hasSwapchainMaintenance) cleaner = new SwapchainMaintenanceCleaner();
+		else cleaner = new LegacySwapchainCleaner();
+		this.glfwWindow = glfwWindow;
+		this.vkSurface = vkSurface;
+		this.supportedPresentModes = Set.copyOf(supportedPresentModes);
+		this.usedPresentModes = new HashSet<>(preparedPresentModes);
+		this.surfaceFormat = surfaceFormat;
+		this.surfaceColorSpace = surfaceColorSpace;
+		this.surfaceCapabilities = Objects.requireNonNull(surfaceCapabilities);
+		this.swapchainImageUsage = swapchainImageUsage;
+		this.swapchainCompositeAlpha = swapchainCompositeAlpha;
+		this.presentFamily = presentFamily;
+		this.title = title;
 	}
 
-    private void recreateSwapchain(int presentMode) {
-        var oldSwapchain = currentSwapchain;
+	public void setInstance(BoilerInstance instance) {
+		if (this.instance != null) throw new IllegalStateException();
+		this.instance = instance;
+		this.cleaner.instance = instance;
+		this.updateSize();
+	}
 
-        if (windowLoop == null) createSwapchain(presentMode, true);
-        else windowLoop.queueResize(() -> createSwapchain(presentMode, true), this);
+	public AcquiredImage acquireSwapchainImageWithFence(int presentMode) {
+		return acquireSwapchainImage(presentMode, true);
+	}
 
-        cleaner.onChangeCurrentSwapchain(oldSwapchain, currentSwapchain);
-    }
+	public AcquiredImage acquireSwapchainImageWithSemaphore(int presentMode) {
+		return acquireSwapchainImage(presentMode, false);
+	}
 
-    private void maybeRecreateSwapchain(int presentMode) {
-        int oldWidth = width;
-        int oldHeight = height;
+	private void assertMainThread() {
+		if (!Thread.currentThread().getName().equals("main")) throw new Error("updateSize must happen on main thread");
+	}
 
-        updateSize();
+	private void updateSize() {
+		assertMainThread();
+		try (var stack = stackPush()) {
+			assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+					instance.vkPhysicalDevice(), vkSurface, surfaceCapabilities
+			), "GetPhysicalDeviceSurfaceCapabilitiesKHR", "Update window size");
+			int width = surfaceCapabilities.currentExtent().width();
+			int height = surfaceCapabilities.currentExtent().height();
 
-        boolean shouldRecreate = oldWidth != width || oldHeight != height;
-        if (width == 0 || height == 0) shouldRecreate = false;
+			if (width == -1 || height == -1) {
+				var pWidth = stack.callocInt(1);
+				var pHeight = stack.callocInt(1);
+				glfwGetFramebufferSize(glfwWindow, pWidth, pHeight);
+				width = pWidth.get(0);
+				height = pHeight.get(0);
+			}
 
-        if (shouldRecreate) {
-            var oldSwapchain = currentSwapchain;
-            createSwapchain(presentMode, false);
-            cleaner.onChangeCurrentSwapchain(oldSwapchain, currentSwapchain);
-        }
-    }
+			this.width = width;
+			this.height = height;
+		}
+	}
 
-    private AcquiredImage acquireSwapchainImage(int presentMode, boolean useAcquireFence) {
-        if (!supportedPresentModes.contains(presentMode)) {
-            throw new IllegalArgumentException("Unsupported present mode " + presentMode + ": supported are " + supportedPresentModes);
-        }
-        this.usedPresentModes.add(presentMode);
+	public int getWidth() {
+		return width;
+	}
 
-        if (windowLoop != null && windowLoop.shouldCheckResize(this)) {
-            windowLoop.queueResize(() -> maybeRecreateSwapchain(presentMode), this);
-        }
+	public int getHeight() {
+		return height;
+	}
 
-        if (currentSwapchain == null) recreateSwapchain(presentMode);
-        if (currentSwapchain == null) return null;
-        if (currentSwapchain.isOutdated()) recreateSwapchain(presentMode);
-        if (currentSwapchain == null) return null;
+	private void createSwapchain(int presentMode, boolean updateSize) {
+		assertMainThread();
+		try (var stack = stackPush()) {
+			if (updateSize) updateSize();
+			if (width == 0 || height == 0) {
+				currentSwapchain = null;
+				return;
+			}
 
-        var acquiredImage = currentSwapchain.acquireImage(presentMode, width, height, useAcquireFence);
-        if (acquiredImage == null) {
-            recreateSwapchain(presentMode);
-            if (currentSwapchain == null) return null;
-            acquiredImage = currentSwapchain.acquireImage(presentMode, width, height, useAcquireFence);
-        }
+			int desiredImageCount = presentMode == VK_PRESENT_MODE_MAILBOX_KHR ? 3 : 2;
+			var ciSwapchain = VkSwapchainCreateInfoKHR.calloc(stack);
+			ciSwapchain.sType$Default();
+			ciSwapchain.flags(0);
+			ciSwapchain.surface(vkSurface);
+			ciSwapchain.minImageCount(max(desiredImageCount, surfaceCapabilities.minImageCount()));
+			ciSwapchain.imageFormat(surfaceFormat);
+			ciSwapchain.imageColorSpace(surfaceColorSpace);
+			ciSwapchain.imageExtent().set(width, height);
+			ciSwapchain.imageArrayLayers(1);
+			ciSwapchain.imageUsage(swapchainImageUsage);
 
-        return acquiredImage;
-    }
+			if (instance.queueFamilies().graphics() == presentFamily) {
+				ciSwapchain.imageSharingMode(VK_SHARING_MODE_EXCLUSIVE);
+			} else {
+				ciSwapchain.imageSharingMode(VK_SHARING_MODE_CONCURRENT);
+				ciSwapchain.queueFamilyIndexCount(2);
+				ciSwapchain.pQueueFamilyIndices(stack.ints(
+						instance.queueFamilies().graphics().index(), presentFamily.index()
+				));
+			}
 
-    public void presentSwapchainImage(AcquiredImage image, AwaitableSubmission renderSubmission) {
-        image.swapchain.presentImage(image, Objects.requireNonNull(renderSubmission));
-    }
+			ciSwapchain.preTransform(surfaceCapabilities.currentTransform());
+			ciSwapchain.compositeAlpha(swapchainCompositeAlpha);
+			ciSwapchain.presentMode(presentMode);
+			ciSwapchain.clipped(true);
+			ciSwapchain.oldSwapchain(cleaner.getLatestSwapchainHandle());
 
-    public synchronized void destroy() {
-        if (hasBeenDestroyed) return;
+			Set<Integer> compatibleUsedPresentModes = new HashSet<>();
+			compatibleUsedPresentModes.add(presentMode);
 
-        cleaner.destroyEverything();
-        vkDestroySurfaceKHR(instance.vkInstance(), vkSurface, null);
-        surfaceCapabilities.free();
+			if (instance.hasSwapchainMaintenance() && usedPresentModes.size() > 1) {
+				var presentModeCompatibility = VkSurfacePresentModeCompatibilityEXT.calloc(stack);
+				presentModeCompatibility.sType$Default();
 
-        if (windowLoop != null) windowLoop.destroy(this);
-        else glfwDestroyWindow(glfwWindow);
+				var queriedPresentMode = VkSurfacePresentModeEXT.calloc(stack);
+				queriedPresentMode.sType$Default();
+				queriedPresentMode.presentMode(presentMode);
 
-        hasBeenDestroyed = true;
-    }
+				var surfaceInfo = VkPhysicalDeviceSurfaceInfo2KHR.calloc(stack);
+				surfaceInfo.sType$Default();
+				surfaceInfo.pNext(queriedPresentMode);
+				surfaceInfo.surface(vkSurface);
+
+				var surfaceCapabilities2 = VkSurfaceCapabilities2KHR.calloc(stack);
+				surfaceCapabilities2.sType$Default();
+				surfaceCapabilities2.pNext(presentModeCompatibility);
+
+				assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilities2KHR(
+						instance.vkPhysicalDevice(), surfaceInfo, surfaceCapabilities2
+				), "GetPhysicalDeviceSurfaceCapabilities2KHR", "Present mode compatibility: count");
+
+				int numCompatiblePresentModes = presentModeCompatibility.presentModeCount();
+
+				var compatiblePresentModeBuffer = stack.callocInt(numCompatiblePresentModes);
+				presentModeCompatibility.pPresentModes(compatiblePresentModeBuffer);
+				assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilities2KHR(
+						instance.vkPhysicalDevice(), surfaceInfo, surfaceCapabilities2
+				), "GetPhysicalDeviceSurfaceCapabilities2KHR", "Present mode compatibility: modes");
+
+				for (int index = 0; index < numCompatiblePresentModes; index++) {
+					int compatiblePresentMode = compatiblePresentModeBuffer.get(index);
+					if (usedPresentModes.contains(compatiblePresentMode)) {
+						compatibleUsedPresentModes.add(compatiblePresentMode);
+					}
+				}
+			}
+
+			if (instance.hasSwapchainMaintenance()) {
+				var pPresentModes = stack.callocInt(compatibleUsedPresentModes.size());
+				for (int compatiblePresentMode : compatibleUsedPresentModes) {
+					pPresentModes.put(compatiblePresentMode);
+				}
+				pPresentModes.flip();
+
+				var ciPresentModes = VkSwapchainPresentModesCreateInfoEXT.calloc(stack);
+				ciPresentModes.sType$Default();
+				ciPresentModes.pPresentModes(pPresentModes);
+
+				ciSwapchain.pNext(ciPresentModes);
+			}
+
+			var pSwapchain = stack.callocLong(1);
+			assertVkSuccess(vkCreateSwapchainKHR(
+					instance.vkDevice(), ciSwapchain, null, pSwapchain
+			), "CreateSwapchainKHR", null);
+			long vkSwapchain = pSwapchain.get(0);
+
+			currentSwapchainID += 1;
+			instance.debug.name(stack, vkSwapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, "Swapchain-" + title + currentSwapchainID);
+
+			currentSwapchain = new VkbSwapchain(
+					instance, vkSwapchain, title, cleaner, presentMode,
+					width, height, presentFamily, compatibleUsedPresentModes
+			);
+		}
+	}
+
+	private void recreateSwapchain(int presentMode) {
+		var oldSwapchain = currentSwapchain;
+
+		if (windowLoop == null) createSwapchain(presentMode, true);
+		else windowLoop.queueResize(() -> createSwapchain(presentMode, true), this);
+
+		cleaner.onChangeCurrentSwapchain(oldSwapchain, currentSwapchain);
+	}
+
+	private void maybeRecreateSwapchain(int presentMode) {
+		int oldWidth = width;
+		int oldHeight = height;
+
+		updateSize();
+
+		boolean shouldRecreate = oldWidth != width || oldHeight != height;
+		if (width == 0 || height == 0) shouldRecreate = false;
+
+		if (shouldRecreate) {
+			var oldSwapchain = currentSwapchain;
+			createSwapchain(presentMode, false);
+			cleaner.onChangeCurrentSwapchain(oldSwapchain, currentSwapchain);
+		}
+	}
+
+	private AcquiredImage acquireSwapchainImage(int presentMode, boolean useAcquireFence) {
+		if (!supportedPresentModes.contains(presentMode)) {
+			throw new IllegalArgumentException("Unsupported present mode " + presentMode + ": supported are " + supportedPresentModes);
+		}
+		this.usedPresentModes.add(presentMode);
+
+		if (windowLoop != null && windowLoop.shouldCheckResize(this)) {
+			windowLoop.queueResize(() -> maybeRecreateSwapchain(presentMode), this);
+		}
+
+		if (currentSwapchain == null) recreateSwapchain(presentMode);
+		if (currentSwapchain == null) return null;
+		if (currentSwapchain.isOutdated()) recreateSwapchain(presentMode);
+		if (currentSwapchain == null) return null;
+
+		var acquiredImage = currentSwapchain.acquireImage(presentMode, width, height, useAcquireFence);
+		if (acquiredImage == null) {
+			recreateSwapchain(presentMode);
+			if (currentSwapchain == null) return null;
+			acquiredImage = currentSwapchain.acquireImage(presentMode, width, height, useAcquireFence);
+		}
+
+		return acquiredImage;
+	}
+
+	public void presentSwapchainImage(AcquiredImage image, AwaitableSubmission renderSubmission) {
+		image.swapchain.presentImage(image, Objects.requireNonNull(renderSubmission));
+	}
+
+	public synchronized void destroy() {
+		if (hasBeenDestroyed) return;
+
+		cleaner.destroyEverything();
+		vkDestroySurfaceKHR(instance.vkInstance(), vkSurface, null);
+		surfaceCapabilities.free();
+
+		if (windowLoop != null) windowLoop.destroy(this);
+		else glfwDestroyWindow(glfwWindow);
+
+		hasBeenDestroyed = true;
+	}
 }

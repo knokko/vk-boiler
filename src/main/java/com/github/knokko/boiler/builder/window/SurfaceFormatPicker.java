@@ -5,5 +5,5 @@ import java.util.Set;
 @FunctionalInterface
 public interface SurfaceFormatPicker {
 
-    SurfaceFormat chooseSurfaceFormat(Set<SurfaceFormat> availableSurfaceFormats);
+	SurfaceFormat chooseSurfaceFormat(Set<SurfaceFormat> availableSurfaceFormats);
 }
