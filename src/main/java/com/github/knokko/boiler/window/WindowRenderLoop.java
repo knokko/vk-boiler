@@ -1,5 +1,6 @@
 package com.github.knokko.boiler.window;
 
+import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.sync.AwaitableSubmission;
 import org.lwjgl.system.MemoryStack;
 
@@ -8,28 +9,25 @@ import static org.lwjgl.glfw.GLFW.glfwPollEvents;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import static org.lwjgl.system.MemoryStack.stackPush;
 
-public class WindowRenderLoop {
+public abstract class WindowRenderLoop {
 
-	private final VkbWindow window;
-	public volatile boolean useAcquireFence;
-	public volatile int presentMode;
-	private final int numFramesInFlight;
-	private final RenderFunction renderFunction;
-	private final Runnable destructor;
+	protected final VkbWindow window;
+	protected final int numFramesInFlight;
+	protected boolean acquireSwapchainImageWithFence;
+	protected int presentMode;
 
 	public WindowRenderLoop(
-			VkbWindow window, boolean useAcquireFence, int presentMode,
-			int numFramesInFlight, RenderFunction renderFunction, Runnable destructor
+			VkbWindow window, int numFramesInFlight, boolean acquireSwapchainImageWithFence, int presentMode
 	) {
 		this.window = window;
-		this.useAcquireFence = useAcquireFence;
-		this.presentMode = presentMode;
 		this.numFramesInFlight = numFramesInFlight;
-		this.renderFunction = renderFunction;
-		this.destructor = destructor;
+		this.acquireSwapchainImageWithFence = acquireSwapchainImageWithFence;
+		this.presentMode = presentMode;
 	}
 
 	private void run() {
+		setup(window.instance);
+
 		long currentFrame = 0;
 		while (!glfwWindowShouldClose(window.glfwWindow)) {
 			if (window.windowLoop == null) glfwPollEvents();
@@ -38,7 +36,7 @@ public class WindowRenderLoop {
 
 			try (var stack = stackPush()) {
 				AcquiredImage acquiredImage;
-				if (useAcquireFence) acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
+				if (acquireSwapchainImageWithFence) acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
 				else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);
 				if (acquiredImage == null) {
 					//noinspection BusyWait
@@ -46,9 +44,9 @@ public class WindowRenderLoop {
 					continue;
 				}
 
-				if (useAcquireFence) acquiredImage.acquireFence.awaitSignal();
+				if (acquireSwapchainImageWithFence) acquiredImage.acquireFence.awaitSignal();
 
-				var renderSubmission = renderFunction.renderFrame(stack, frameIndex, acquiredImage);
+				var renderSubmission = renderFrame(stack, frameIndex, acquiredImage, window.instance);
 				if (renderSubmission == null) throw new RuntimeException(
 						"Submission must not be null, make sure to submit a fence or timeline signal semaphore"
 				);
@@ -59,7 +57,7 @@ public class WindowRenderLoop {
 			currentFrame += 1;
 		}
 
-		destructor.run();
+		cleanUp(window.instance);
 		window.destroy();
 	}
 
@@ -68,9 +66,11 @@ public class WindowRenderLoop {
 		else new Thread(this::run).start();
 	}
 
-	@FunctionalInterface
-	public interface RenderFunction {
+	protected abstract void setup(BoilerInstance instance);
 
-		AwaitableSubmission renderFrame(MemoryStack stack, int frameIndex, AcquiredImage acquiredImage);
-	}
+	protected abstract AwaitableSubmission renderFrame(
+			MemoryStack stack, int frameIndex, AcquiredImage acquiredImage, BoilerInstance instance
+	);
+
+	protected abstract void cleanUp(BoilerInstance instance);
 }

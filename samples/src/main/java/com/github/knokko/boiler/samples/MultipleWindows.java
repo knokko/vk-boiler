@@ -6,18 +6,13 @@ import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.sync.ResourceUsage;
-import com.github.knokko.boiler.sync.WaitSemaphore;
-import com.github.knokko.boiler.window.SwapchainResourceManager;
-import com.github.knokko.boiler.window.VkbWindow;
-import com.github.knokko.boiler.window.WindowEventLoop;
-import com.github.knokko.boiler.window.WindowRenderLoop;
+import com.github.knokko.boiler.window.*;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPushConstantRange;
 import org.lwjgl.vulkan.VkRenderingAttachmentInfo;
 
 import java.util.Random;
-import java.util.stream.IntStream;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.joml.Math.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -44,58 +39,68 @@ public class MultipleWindows {
                 ).callback(window -> windows[1] = window))
                 .build();
 
-        var fillWindow = windows[0];
-        var spinWindow = windows[1];
-
         var windowLoop = new WindowEventLoop();
-        windowLoop.addWindow(spinWindow);
-        windowLoop.addWindow(fillWindow);
+        windowLoop.addWindow(new SpinWindowLoop(windows[1]));
+        windowLoop.addWindow(new FillWindowLoop(windows[0], 1f, 0f, 1f));
 
-        {
-            int numFramesInFlight = 2;
-            var commandPools = IntStream.range(0, numFramesInFlight).mapToLong(index -> boiler.commands.createPool(
-                    VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, boiler.queueFamilies().graphics().index(), "FillPool" + index
-            )).toArray();
-            var commandBuffers = IntStream.range(0, numFramesInFlight).mapToObj(index -> boiler.commands.createPrimaryBuffers(
-                    commandPools[index], 1, "FillCommandBuffer" + index
-            )[0]).toList();
-            var fences = boiler.sync.fenceBank.borrowFences(numFramesInFlight, true, "FillCommandFence");
+        //noinspection resource
+        glfwSetMouseButtonCallback(windows[1].glfwWindow, (clickedWindow, button, action, modifiers) -> {
+            if (action == GLFW_PRESS) startNewWindowThread(boiler, windowLoop);
+        });
 
-            new WindowRenderLoop(fillWindow, false, VK_PRESENT_MODE_FIFO_KHR, numFramesInFlight,
-                    (stack, frameIndex, swapchainImage) -> {
+        windowLoop.runMain();
 
-                WaitSemaphore[] waitSemaphores = {
-                        new WaitSemaphore(swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_TRANSFER_BIT)
-                };
-                fences[frameIndex].waitAndReset();
-                assertVkSuccess(vkResetCommandPool(
-                        boiler.vkDevice(), commandPools[frameIndex], 0
-                ), "ResetCommandPool", "FillCommand");
+        boiler.destroyInitialObjects();
+    }
 
-                var commandBuffer = commandBuffers.get(frameIndex);
-                var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Fill");
-                recorder.transitionColorLayout(
-                        swapchainImage.vkImage(),
-                        ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
-                        ResourceUsage.TRANSFER_DEST
-                );
-                recorder.clearColorImage(swapchainImage.vkImage(), 1f, 0f, 1f, 1f);
-                recorder.transitionColorLayout(swapchainImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
-                recorder.end();
+    private static void startNewWindowThread(BoilerInstance boiler, WindowEventLoop windowLoop) {
 
-                return boiler.queueFamilies().graphics().queues().get(0).submit(
-                        commandBuffer, "Fill", waitSemaphores,
-                        fences[frameIndex], swapchainImage.presentSemaphore()
-                );
-            }, () -> {
-                for (var fence : fences) fence.waitIfSubmitted();
-                boiler.sync.fenceBank.returnFences(fences);
-                for (var commandPool : commandPools) vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-            }).start();
+        var rng = new Random();
+        float red = rng.nextFloat();
+        float green = rng.nextFloat();
+        float blue = rng.nextFloat();
+
+        String contextSuffix = String.format("Extra(%.1f, %.1f, %.1f)", red, green, blue);
+        windowLoop.addWindow(new FillWindowLoop(boiler.addWindow(
+                new WindowBuilder(1000, 700, VK_IMAGE_USAGE_TRANSFER_DST_BIT).title(contextSuffix)
+        ), red, green, blue));
+    }
+
+    private static class FillWindowLoop extends SimpleWindowRenderLoop {
+
+        private final float red, green, blue;
+
+        public FillWindowLoop(VkbWindow window, float red, float green, float blue) {
+            super(window, 2, false, VK_PRESENT_MODE_FIFO_KHR);
+            this.red = red;
+            this.green = green;
+            this.blue = blue;
         }
 
-        {
-            long pipeline, pipelineLayout;
+        @Override
+        protected void recordFrame(MemoryStack stack, CommandRecorder recorder, AcquiredImage swapchainImage, BoilerInstance boiler) {
+            recorder.transitionColorLayout(
+                    swapchainImage.vkImage(),
+                    ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
+                    ResourceUsage.TRANSFER_DEST
+            );
+            recorder.clearColorImage(swapchainImage.vkImage(), red, green, blue, 1f);
+            recorder.transitionColorLayout(swapchainImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
+        }
+    }
+
+    private static class SpinWindowLoop extends SimpleWindowRenderLoop {
+
+        private long pipelineLayout, pipeline;
+        private SwapchainResourceManager<Long> associatedResources;
+
+        public SpinWindowLoop(VkbWindow window) {
+            super(window, 1, true, VK_PRESENT_MODE_MAILBOX_KHR);
+        }
+
+        @Override
+        protected void setup(BoilerInstance boiler) {
+            super.setup(boiler);
             try (var stack = stackPush()) {
                 var pushConstants = VkPushConstantRange.calloc(1, stack);
                 pushConstants.offset(0);
@@ -119,135 +124,67 @@ public class MultipleWindows {
                 builder.noColorBlending(1);
                 builder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
                 builder.ciPipeline.layout(pipelineLayout);
-                builder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, spinWindow.surfaceFormat);
+                builder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
 
                 pipeline = builder.build("SpinPipeline");
             }
 
-            var commandPool = boiler.commands.createPool(0, boiler.queueFamilies().graphics().index(), "SpinPool");
-            var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "SpinCommandBuffer")[0];
-
-            var fence = boiler.sync.fenceBank.borrowFence(true, "SpinCommandFence");
-
-            var associatedResources = new SwapchainResourceManager<>(swapchainImage -> {
+            associatedResources = new SwapchainResourceManager<>(swapchainImage -> {
                 try (var stack = stackPush()) {
                     return boiler.images.createSimpleView(
-                            stack, swapchainImage.vkImage(), spinWindow.surfaceFormat,
+                            stack, swapchainImage.vkImage(), window.surfaceFormat,
                             VK_IMAGE_ASPECT_COLOR_BIT, "SpinSwapchainImageView"
                     );
                 }
             }, imageView -> vkDestroyImageView(boiler.vkDevice(), imageView, null));
-
-            new WindowRenderLoop(spinWindow, true, VK_PRESENT_MODE_MAILBOX_KHR, 1,
-                    (stack, i, swapchainImage) -> {
-
-                        fence.waitAndReset();
-                        vkResetCommandPool(boiler.vkDevice(), commandPool, 0);
-
-                        var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "SpinCommands");
-                        recorder.transitionColorLayout(
-                                swapchainImage.vkImage(),
-                                ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
-                                ResourceUsage.COLOR_ATTACHMENT_WRITE
-                        );
-
-                        var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
-                        recorder.simpleColorRenderingAttachment(
-                                colorAttachments.get(0), associatedResources.get(swapchainImage), VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                VK_ATTACHMENT_STORE_OP_STORE, 0f, 0f, 0.7f, 1f
-                        );
-
-                        recorder.beginSimpleDynamicRendering(
-                                swapchainImage.width(), swapchainImage.height(),
-                                colorAttachments, null, null
-                        );
-
-                        recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
-                        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
-                        long periodFactor = 6_000_000L;
-                        long period = 360L * periodFactor;
-                        long progress = System.nanoTime() % period;
-                        float angle = toRadians(progress / (float) periodFactor);
-                        var pushConstants = stack.callocFloat(2);
-                        pushConstants.put(0, 0.8f * cos(angle));
-                        pushConstants.put(1, 0.8f * sin(angle));
-                        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants);
-
-                        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-                        recorder.endDynamicRendering();
-                        recorder.transitionColorLayout(
-                                swapchainImage.vkImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT
-                        );
-                        recorder.end();
-
-                        return boiler.queueFamilies().graphics().queues().get(0).submit(
-                                commandBuffer, "SpinSubmission", null, fence, swapchainImage.presentSemaphore()
-                        );
-            }, () -> {
-                fence.waitIfSubmitted();
-                boiler.sync.fenceBank.returnFence(fence);
-                vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-                vkDestroyPipeline(boiler.vkDevice(), pipeline, null);
-                vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-            }).start();
         }
 
-        //noinspection resource
-        glfwSetMouseButtonCallback(spinWindow.glfwWindow, (clickedWindow, button, action, modifiers) -> {
-            if (action == GLFW_PRESS) {
-                startNewWindowThread(boiler, windowLoop);
-            }
-        });
-
-        windowLoop.runMain();
-
-        boiler.destroyInitialObjects();
-    }
-
-    private static void startNewWindowThread(BoilerInstance boiler, WindowEventLoop windowLoop) {
-        var rng = new Random();
-        float red = rng.nextFloat();
-        float green = rng.nextFloat();
-        float blue = rng.nextFloat();
-
-        String contextSuffix = String.format("Extra(%.1f, %.1f, %.1f)", red, green, blue);
-        var window = boiler.addWindow(new WindowBuilder(1000, 700, VK_IMAGE_USAGE_TRANSFER_DST_BIT).title(contextSuffix));
-
-        windowLoop.addWindow(window);
-
-        var commandPool = boiler.commands.createPool(
-                0, boiler.queueFamilies().graphics().index(), "CommandPool" + contextSuffix
-        );
-        var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "CommandBuffer " + contextSuffix)[0];
-        var fence = boiler.sync.fenceBank.borrowFence(true, "Fence" + contextSuffix);
-
-        new WindowRenderLoop(
-                window, true, VK_PRESENT_MODE_FIFO_KHR, 1, (stack, i, swapchainImage) -> {
-
-            fence.waitAndReset();
-            assertVkSuccess(vkResetCommandPool(
-                    boiler.vkDevice(), commandPool, 0
-            ), "ResetCommandPool", "Reset" + contextSuffix);
-
-            var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Record" + contextSuffix);
+        @Override
+        protected void recordFrame(
+                MemoryStack stack, CommandRecorder recorder, AcquiredImage swapchainImage, BoilerInstance boiler
+        ) {
             recorder.transitionColorLayout(
                     swapchainImage.vkImage(),
-                    ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
-                    ResourceUsage.TRANSFER_DEST
+                    ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+                    ResourceUsage.COLOR_ATTACHMENT_WRITE
             );
-            recorder.clearColorImage(swapchainImage.vkImage(), red, green, blue, 1f);
-            recorder.transitionColorLayout(swapchainImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
-            recorder.end();
 
-            return boiler.queueFamilies().graphics().queues().get(0).submit(
-                    commandBuffer, contextSuffix, null, fence, swapchainImage.presentSemaphore()
+            var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
+            recorder.simpleColorRenderingAttachment(
+                    colorAttachments.get(0), associatedResources.get(swapchainImage), VK_ATTACHMENT_LOAD_OP_CLEAR,
+                    VK_ATTACHMENT_STORE_OP_STORE, 0f, 0f, 0.7f, 1f
             );
-        }, () -> {
-            fence.waitIfSubmitted();
-            boiler.sync.fenceBank.returnFence(fence);
-            vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-        }).start();
+
+            recorder.beginSimpleDynamicRendering(
+                    swapchainImage.width(), swapchainImage.height(),
+                    colorAttachments, null, null
+            );
+
+            recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
+            vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+            long periodFactor = 6_000_000L;
+            long period = 360L * periodFactor;
+            long progress = System.nanoTime() % period;
+            float angle = toRadians(progress / (float) periodFactor);
+            var pushConstants = stack.callocFloat(2);
+            pushConstants.put(0, 0.8f * cos(angle));
+            pushConstants.put(1, 0.8f * sin(angle));
+            vkCmdPushConstants(recorder.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants);
+
+            vkCmdDraw(recorder.commandBuffer, 3, 1, 0, 0);
+
+            recorder.endDynamicRendering();
+            recorder.transitionColorLayout(
+                    swapchainImage.vkImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT
+            );
+        }
+
+        @Override
+        protected void cleanUp(BoilerInstance boiler) {
+            super.cleanUp(boiler);
+            vkDestroyPipeline(boiler.vkDevice(), pipeline, null);
+            vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
+        }
     }
 }

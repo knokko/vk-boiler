@@ -11,7 +11,6 @@ public class WindowEventLoop {
 	private final BlockingQueue<Task> queue = new LinkedBlockingQueue<>();
 	private final ConcurrentHashMap<VkbWindow, State> stateMap = new ConcurrentHashMap<>();
 
-
 	private void update(VkbWindow resizedWindow) {
 		Task task;
 		if (resizedWindow != null) {
@@ -63,6 +62,11 @@ public class WindowEventLoop {
 	public void addWindow(VkbWindow window) {
 		stateMap.put(window, new State());
 		window.windowLoop = this;
+	}
+
+	public void addWindow(WindowRenderLoop renderLoop) {
+		addWindow(renderLoop.window);
+		renderLoop.start();
 	}
 
 	/**

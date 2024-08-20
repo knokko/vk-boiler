@@ -6,12 +6,13 @@ import com.github.knokko.boiler.builder.device.SimpleDeviceSelector;
 import com.github.knokko.boiler.builder.instance.ValidationFeatures;
 import com.github.knokko.boiler.builder.window.SimpleCompositeAlphaPicker;
 import com.github.knokko.boiler.commands.CommandRecorder;
+import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.sync.ResourceUsage;
-import com.github.knokko.boiler.sync.WaitSemaphore;
-import com.github.knokko.boiler.window.WindowEventLoop;
-import com.github.knokko.boiler.window.WindowRenderLoop;
+import com.github.knokko.boiler.window.*;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSurface;
+
 import static com.github.knokko.boiler.util.ReflectionHelper.getIntConstantName;
 import static java.lang.Math.*;
 import static org.lwjgl.glfw.GLFW.*;
@@ -19,7 +20,7 @@ import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.VK10.*;
 
-public class TranslucentWindowPlayground {
+public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 
     public static void main(String[] args) throws InterruptedException {
         //noinspection resource
@@ -69,52 +70,28 @@ public class TranslucentWindowPlayground {
         );
 
         var windowLoop = new WindowEventLoop();
-        windowLoop.addWindow(boiler.window());
-
-        var commandPool = boiler.commands.createPool(
-                VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-                boiler.queueFamilies().graphics().index(), "Fill"
-        );
-        var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, 5, "Fill");
-        var commandFences = boiler.sync.fenceBank.borrowFences(commandBuffers.length, true, "Acquire");
-
-        new WindowRenderLoop(
-                boiler.window(), false, VK_PRESENT_MODE_MAILBOX_KHR, commandBuffers.length,
-                (stack, frameIndex, acquired) -> {
-
-            var fence = commandFences[frameIndex];
-            fence.waitAndReset();
-
-            var commandBuffer = commandBuffers[frameIndex];
-            var recorder = CommandRecorder.begin(
-                    commandBuffer, boiler, stack,
-                    VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-                    "Fill"
-            );
-            recorder.transitionColorLayout(
-                    acquired.vkImage(),
-                    ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
-                    ResourceUsage.TRANSFER_DEST
-            );
-            float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
-            float colorScale = boiler.window().swapchainCompositeAlpha == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
-            recorder.clearColorImage(acquired.vkImage(), 0f, 0.6f * colorScale, colorScale, alpha);
-            recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
-            recorder.end();
-
-            return boiler.queueFamilies().graphics().queues().get(0).submit(
-                    commandBuffer, "Fill", new WaitSemaphore[] { new WaitSemaphore(
-                            acquired.acquireSemaphore(), VK_PIPELINE_STAGE_TRANSFER_BIT
-                    ) }, fence, acquired.presentSemaphore()
-            );
-        }, () -> {
-            for (var fence : commandFences) fence.waitIfSubmitted();
-            boiler.sync.fenceBank.returnFences(commandFences);
-            vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-        }).start();
-
+        windowLoop.addWindow(new TranslucentWindowPlayground(boiler.window()));
         windowLoop.runMain();
 
         boiler.destroyInitialObjects();
+    }
+
+    public TranslucentWindowPlayground(VkbWindow window) {
+        super(window, 5, false, VK_PRESENT_MODE_MAILBOX_KHR);
+    }
+
+    @Override
+    protected void recordFrame(
+            MemoryStack stack, CommandRecorder recorder, AcquiredImage acquired, BoilerInstance boiler
+    ) {
+        recorder.transitionColorLayout(
+                acquired.vkImage(),
+                ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
+                ResourceUsage.TRANSFER_DEST
+        );
+        float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
+        float colorScale = boiler.window().swapchainCompositeAlpha == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
+        recorder.clearColorImage(acquired.vkImage(), 0f, 0.6f * colorScale, colorScale, alpha);
+        recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
     }
 }

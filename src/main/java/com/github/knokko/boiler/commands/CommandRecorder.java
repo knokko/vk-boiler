@@ -34,7 +34,7 @@ public class CommandRecorder {
         return new CommandRecorder(commandBuffer, boiler, stack, null);
     }
 
-    private final VkCommandBuffer commandBuffer;
+    public final VkCommandBuffer commandBuffer;
     private final BoilerInstance instance;
     private final MemoryStack stack;
     private final String context;
