@@ -11,7 +11,6 @@ import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.window.VkbWindow;
 import com.github.knokko.boiler.window.WindowEventLoop;
 import com.github.knokko.boiler.window.WindowRenderLoop;
-import org.lwjgl.vulkan.VkClearColorValue;
 import org.lwjgl.vulkan.VkPushConstantRange;
 import org.lwjgl.vulkan.VkRenderingAttachmentInfo;
 
@@ -75,26 +74,13 @@ public class MultipleWindows {
 
                 var commandBuffer = commandBuffers.get(frameIndex);
                 var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "Fill");
-
                 recorder.transitionColorLayout(
                         swapchainImage.vkImage(),
                         ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
                         ResourceUsage.TRANSFER_DEST
                 );
-
-                var clearColor = VkClearColorValue.calloc(stack);
-                clearColor.float32(0, 1f);
-                clearColor.float32(1, 0f);
-                clearColor.float32(2, 1f);
-                clearColor.float32(3, 1f);
-
-                vkCmdClearColorImage(
-                        commandBuffer, swapchainImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, clearColor,
-                        boiler.images.subresourceRange(stack, null, VK_IMAGE_ASPECT_COLOR_BIT)
-                );
-
+                recorder.clearColorImage(swapchainImage.vkImage(), 1f, 0f, 1f, 1f);
                 recorder.transitionColorLayout(swapchainImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
-
                 recorder.end();
 
                 return boiler.queueFamilies().graphics().queues().get(0).submit(
@@ -251,19 +237,7 @@ public class MultipleWindows {
                     ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
                     ResourceUsage.TRANSFER_DEST
             );
-
-            var clearColor = VkClearColorValue.calloc(stack);
-            clearColor.float32(0, red);
-            clearColor.float32(1, green);
-            clearColor.float32(2, blue);
-            clearColor.float32(3, 1f);
-
-            // TODO Add helper method for this
-            vkCmdClearColorImage(
-                    commandBuffer, swapchainImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    clearColor, boiler.images.subresourceRange(stack, null, VK_IMAGE_ASPECT_COLOR_BIT)
-            );
-
+            recorder.clearColorImage(swapchainImage.vkImage(), red, green, blue, 1f);
             recorder.transitionColorLayout(swapchainImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
             recorder.end();
 

@@ -148,6 +148,14 @@ public class CommandRecorder {
         );
     }
 
+    public void clearColorImage(long vkImage, float red, float green, float blue, float alpha) {
+        var pColor = VkClearColorValue.calloc(stack);
+        pColor.float32(stack.floats(red, green, blue, alpha));
+
+        var pRange = instance.images.subresourceRange(stack, null, VK_IMAGE_ASPECT_COLOR_BIT);
+        vkCmdClearColorImage(commandBuffer, vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pColor, pRange);
+    }
+
     public void transitionColorLayout(
             long vkImage, ResourceUsage oldUsage, ResourceUsage newUsage
     ) {

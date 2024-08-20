@@ -12,10 +12,8 @@ import com.github.knokko.boiler.window.WindowEventLoop;
 import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.vulkan.KHRSurface;
-import org.lwjgl.vulkan.VkClearColorValue;
 import static com.github.knokko.boiler.util.ReflectionHelper.getIntConstantName;
 import static java.lang.Math.*;
-import static java.lang.Thread.sleep;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.KHRSurface.*;
@@ -93,22 +91,14 @@ public class TranslucentWindowPlayground {
                     VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
                     "Fill"
             );
-
             recorder.transitionColorLayout(
                     acquired.vkImage(),
                     ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
                     ResourceUsage.TRANSFER_DEST
             );
-
             float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
             float colorScale = boiler.window().swapchainCompositeAlpha == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
-            var pClearColor = VkClearColorValue.calloc(stack);
-            pClearColor.float32(stack.floats(0f, 0.6f * colorScale, colorScale, alpha));
-
-            var pRanges = boiler.images.subresourceRange(stack, null, VK_IMAGE_ASPECT_COLOR_BIT);
-
-            vkCmdClearColorImage(commandBuffer, acquired.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pClearColor, pRanges);
-
+            recorder.clearColorImage(acquired.vkImage(), 0f, 0.6f * colorScale, colorScale, alpha);
             recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
             recorder.end();
 

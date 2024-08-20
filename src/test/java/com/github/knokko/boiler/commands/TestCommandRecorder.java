@@ -4,9 +4,7 @@ import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.images.VmaImage;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import org.junit.jupiter.api.Test;
-import org.lwjgl.vulkan.VkClearColorValue;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
-import org.lwjgl.vulkan.VkImageSubresourceRange;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,28 +61,16 @@ public class TestCommandRecorder {
 			var recorder = CommandRecorder.alreadyRecording(commandBuffer, instance, stack);
 
 			recorder.transitionColorLayout(sourceImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
-
-			var clearColor = VkClearColorValue.calloc(stack);
-			clearColor.float32(0, 0f);
-			clearColor.float32(1, 1f);
-			clearColor.float32(2, 1f);
-			clearColor.float32(3, 1f);
-
-			var clearRange = VkImageSubresourceRange.calloc(1, stack);
-			instance.images.subresourceRange(stack, clearRange.get(0), VK_IMAGE_ASPECT_COLOR_BIT);
-
-			vkCmdClearColorImage(commandBuffer, sourceImage.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, clearColor, clearRange);
-
+			recorder.clearColorImage(sourceImage.vkImage(), 0f, 1f, 1f, 1f);
 			recorder.transitionColorLayout(sourceImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+
 			recorder.transitionColorLayout(destImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
-
 			recorder.copyImage(width, height, VK_IMAGE_ASPECT_COLOR_BIT, sourceImage.vkImage(), destImage.vkImage());
-
 			recorder.transitionColorLayout(destImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, destImage.vkImage(), width, height, destBuffer.vkBuffer());
 
 			recorder.end("Copying");
+
 			instance.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Copying", null, fence);
 			fence.waitAndReset();
 
