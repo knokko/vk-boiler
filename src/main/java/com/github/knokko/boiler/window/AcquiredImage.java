@@ -15,10 +15,11 @@ public class AcquiredImage {
     private final long presentSemaphore;
     final VkbFence presentFence;
     AwaitableSubmission renderSubmission;
+    final int presentMode;
 
     AcquiredImage(
-            VkbSwapchain swapchain, int index,
-            VkbFence acquireFence, long acquireSemaphore, long presentSemaphore, VkbFence presentFence
+            VkbSwapchain swapchain, int index, VkbFence acquireFence, long acquireSemaphore,
+            long presentSemaphore, VkbFence presentFence, int presentMode
     ) {
         this.swapchain = swapchain;
         this.index = index;
@@ -26,6 +27,7 @@ public class AcquiredImage {
         this.acquireSemaphore = acquireSemaphore;
         this.presentSemaphore = presentSemaphore;
         this.presentFence = presentFence;
+        this.presentMode = presentMode;
     }
 
     public int index() {

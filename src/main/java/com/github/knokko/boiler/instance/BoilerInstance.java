@@ -99,10 +99,13 @@ public class BoilerInstance {
         return windows.iterator().next();
     }
 
+    public boolean hasSwapchainMaintenance() {
+        return hasSwapchainMaintenance;
+    }
+
     public VkbWindow addWindow(WindowBuilder builder) {
         checkDestroyed();
-
-        return builder.buildLate(this, hasSwapchainMaintenance);
+        return builder.buildLate(this);
     }
 
     public XrBoiler xr() {

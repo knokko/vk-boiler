@@ -9,9 +9,7 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkSurfaceCapabilitiesKHR;
 import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 import java.util.function.Consumer;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
@@ -36,6 +34,7 @@ public class WindowBuilder {
             VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR
     );
     Consumer<VkbWindow> callback = window -> {};
+    Set<Integer> presentModes = new HashSet<>();
 
     public WindowBuilder(int width, int height, int swapchainImageUsage) {
         this.width = width;
@@ -65,6 +64,11 @@ public class WindowBuilder {
 
     public WindowBuilder callback(Consumer<VkbWindow> callback) {
         this.callback = callback;
+        return this;
+    }
+
+    public WindowBuilder presentModes(Integer... presentModes) {
+        Collections.addAll(this.presentModes, presentModes);
         return this;
     }
 
@@ -113,12 +117,16 @@ public class WindowBuilder {
                 presentModes.add(pPresentModes.get(index));
             }
 
+            var preparedPresentModes = new HashSet<>(this.presentModes);
+            preparedPresentModes.removeIf(presentMode -> !presentModes.contains(presentMode));
+
             var surfaceFormat = surfaceFormatPicker.chooseSurfaceFormat(formats);
             var compositeAlpha = compositeAlphaPicker.chooseCompositeAlpha(capabilities.supportedCompositeAlpha());
 
             return new VkbWindow(
-                    hasSwapchainMaintenance, glfwWindow, vkSurface, presentModes, title, surfaceFormat.format(),
-                    surfaceFormat.colorSpace(), capabilities, swapchainImageUsage, compositeAlpha, presentFamily
+                    hasSwapchainMaintenance, glfwWindow, vkSurface, presentModes, preparedPresentModes, title,
+                    surfaceFormat.format(), surfaceFormat.colorSpace(), capabilities,
+                    swapchainImageUsage, compositeAlpha, presentFamily
             );
         }
     }
@@ -143,7 +151,7 @@ public class WindowBuilder {
         }
     }
 
-    public VkbWindow buildLate(BoilerInstance instance, boolean hasSwapchainMaintenance) {
+    public VkbWindow buildLate(BoilerInstance instance) {
         createGlfwWindow();
 
         long vkSurface;
@@ -181,7 +189,7 @@ public class WindowBuilder {
             throw new UnsupportedOperationException("No enabled queue family supports this window surface");
         }
 
-        var window = build(instance.vkPhysicalDevice(), vkSurface, hasSwapchainMaintenance, presentFamily);
+        var window = build(instance.vkPhysicalDevice(), vkSurface, instance.hasSwapchainMaintenance(), presentFamily);
         window.setInstance(instance);
         return window;
     }

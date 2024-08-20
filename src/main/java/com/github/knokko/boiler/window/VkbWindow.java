@@ -3,8 +3,7 @@ package com.github.knokko.boiler.window;
 import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.queue.QueueFamily;
 import com.github.knokko.boiler.sync.AwaitableSubmission;
-import org.lwjgl.vulkan.VkSurfaceCapabilitiesKHR;
-import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
+import org.lwjgl.vulkan.*;
 
 import java.util.*;
 
@@ -13,6 +12,7 @@ import static java.lang.Math.max;
 import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
 import static org.lwjgl.glfw.GLFW.glfwGetFramebufferSize;
 import static org.lwjgl.system.MemoryStack.stackPush;
+import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.vkGetPhysicalDeviceSurfaceCapabilities2KHR;
 import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_OBJECT_TYPE_SWAPCHAIN_KHR;
 import static org.lwjgl.vulkan.KHRSwapchain.vkCreateSwapchainKHR;
@@ -24,7 +24,8 @@ public class VkbWindow {
     private final SwapchainCleaner cleaner;
     public final long glfwWindow;
     public final long vkSurface;
-    public final Collection<Integer> supportedPresentModes;
+    public final Set<Integer> supportedPresentModes;
+    private final Set<Integer> usedPresentModes;
     public final int surfaceFormat;
     public final int surfaceColorSpace;
     private final VkSurfaceCapabilitiesKHR surfaceCapabilities;
@@ -42,7 +43,8 @@ public class VkbWindow {
     WindowEventLoop windowLoop;
 
     public VkbWindow(
-            boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface, Collection<Integer> supportedPresentModes,
+            boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface,
+            Collection<Integer> supportedPresentModes, Set<Integer> preparedPresentModes,
             String title, int surfaceFormat, int surfaceColorSpace, VkSurfaceCapabilitiesKHR surfaceCapabilities,
             int swapchainImageUsage, int swapchainCompositeAlpha, QueueFamily presentFamily
     ) {
@@ -50,7 +52,8 @@ public class VkbWindow {
         else cleaner = new LegacySwapchainCleaner();
         this.glfwWindow = glfwWindow;
         this.vkSurface = vkSurface;
-        this.supportedPresentModes = List.copyOf(supportedPresentModes);
+        this.supportedPresentModes = Set.copyOf(supportedPresentModes);
+        this.usedPresentModes = new HashSet<>(preparedPresentModes);
         this.surfaceFormat = surfaceFormat;
         this.surfaceColorSpace = surfaceColorSpace;
         this.surfaceCapabilities = Objects.requireNonNull(surfaceCapabilities);
@@ -146,6 +149,60 @@ public class VkbWindow {
             ciSwapchain.clipped(true);
             ciSwapchain.oldSwapchain(cleaner.getLatestSwapchainHandle());
 
+            Set<Integer> compatibleUsedPresentModes = new HashSet<>();
+            compatibleUsedPresentModes.add(presentMode);
+
+            if (instance.hasSwapchainMaintenance() && usedPresentModes.size() > 1) {
+                var presentModeCompatibility = VkSurfacePresentModeCompatibilityEXT.calloc(stack);
+                presentModeCompatibility.sType$Default();
+
+                var queriedPresentMode = VkSurfacePresentModeEXT.calloc(stack);
+                queriedPresentMode.sType$Default();
+                queriedPresentMode.presentMode(presentMode);
+
+                var surfaceInfo = VkPhysicalDeviceSurfaceInfo2KHR.calloc(stack);
+                surfaceInfo.sType$Default();
+                surfaceInfo.pNext(queriedPresentMode);
+                surfaceInfo.surface(vkSurface);
+
+                var surfaceCapabilities2 = VkSurfaceCapabilities2KHR.calloc(stack);
+                surfaceCapabilities2.sType$Default();
+                surfaceCapabilities2.pNext(presentModeCompatibility);
+
+                assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilities2KHR(
+                        instance.vkPhysicalDevice(), surfaceInfo, surfaceCapabilities2
+                ), "GetPhysicalDeviceSurfaceCapabilities2KHR", "Present mode compatibility: count");
+
+                int numCompatiblePresentModes = presentModeCompatibility.presentModeCount();
+
+                var compatiblePresentModeBuffer = stack.callocInt(numCompatiblePresentModes);
+                presentModeCompatibility.pPresentModes(compatiblePresentModeBuffer);
+                assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilities2KHR(
+                        instance.vkPhysicalDevice(), surfaceInfo, surfaceCapabilities2
+                ), "GetPhysicalDeviceSurfaceCapabilities2KHR", "Present mode compatibility: modes");
+
+                for (int index = 0; index < numCompatiblePresentModes; index++) {
+                    int compatiblePresentMode = compatiblePresentModeBuffer.get(index);
+                    if (usedPresentModes.contains(compatiblePresentMode)) {
+                        compatibleUsedPresentModes.add(compatiblePresentMode);
+                    }
+                }
+            }
+
+            if (instance.hasSwapchainMaintenance()) {
+                var pPresentModes = stack.callocInt(compatibleUsedPresentModes.size());
+                for (int compatiblePresentMode : compatibleUsedPresentModes) {
+                    pPresentModes.put(compatiblePresentMode);
+                }
+                pPresentModes.flip();
+
+                var ciPresentModes = VkSwapchainPresentModesCreateInfoEXT.calloc(stack);
+                ciPresentModes.sType$Default();
+                ciPresentModes.pPresentModes(pPresentModes);
+
+                ciSwapchain.pNext(ciPresentModes);
+            }
+
             var pSwapchain = stack.callocLong(1);
             assertVkSuccess(vkCreateSwapchainKHR(
                     instance.vkDevice(), ciSwapchain, null, pSwapchain
@@ -155,7 +212,10 @@ public class VkbWindow {
             currentSwapchainID += 1;
             instance.debug.name(stack, vkSwapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, "Swapchain-" + title + currentSwapchainID);
 
-            currentSwapchain = new VkbSwapchain(instance, vkSwapchain, title, cleaner, presentMode, width, height, presentFamily);
+            currentSwapchain = new VkbSwapchain(
+                    instance, vkSwapchain, title, cleaner, presentMode,
+                    width, height, presentFamily, compatibleUsedPresentModes
+            );
         }
 	}
 
@@ -188,6 +248,7 @@ public class VkbWindow {
         if (!supportedPresentModes.contains(presentMode)) {
             throw new IllegalArgumentException("Unsupported present mode " + presentMode + ": supported are " + supportedPresentModes);
         }
+        this.usedPresentModes.add(presentMode);
 
         if (windowLoop != null && windowLoop.shouldCheckResize(this)) {
             windowLoop.queueResize(() -> maybeRecreateSwapchain(presentMode), this);

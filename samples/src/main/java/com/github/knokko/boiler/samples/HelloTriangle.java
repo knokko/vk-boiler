@@ -12,11 +12,10 @@ import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static java.lang.Thread.sleep;
-import static org.lwjgl.glfw.GLFW.glfwPollEvents;
-import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
+import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memFloatBuffer;
-import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
+import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -27,7 +26,9 @@ public class HelloTriangle {
                 VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
         )
                 .validation().forbidValidationErrors()
-                .addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+                .addWindow(new WindowBuilder(
+                        1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+                ).presentModes(VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR))
                 .build();
 
         int numFramesInFlight = 3;
@@ -188,6 +189,19 @@ public class HelloTriangle {
         long referenceTime = System.currentTimeMillis();
         long referenceFrames = 0;
 
+        int[] pPresentMode = { VK_PRESENT_MODE_FIFO_KHR };
+
+        //noinspection resource
+        glfwSetKeyCallback(boiler.window().glfwWindow, ((window, key, scancode, action, mods) -> {
+            if (action == GLFW_PRESS) {
+                var spm = boiler.window().supportedPresentModes;
+                if (key == GLFW_KEY_F) pPresentMode[0] = VK_PRESENT_MODE_FIFO_KHR;
+                if (key == GLFW_KEY_M && spm.contains(VK_PRESENT_MODE_MAILBOX_KHR)) pPresentMode[0] = VK_PRESENT_MODE_MAILBOX_KHR;
+                if (key == GLFW_KEY_I && spm.contains(VK_PRESENT_MODE_IMMEDIATE_KHR)) pPresentMode[0] = VK_PRESENT_MODE_IMMEDIATE_KHR;
+                if (key == GLFW_KEY_R && spm.contains(VK_PRESENT_MODE_FIFO_RELAXED_KHR)) pPresentMode[0] = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+            }
+        }));
+
         while (!glfwWindowShouldClose(boiler.window().glfwWindow)) {
             glfwPollEvents();
 
@@ -199,7 +213,7 @@ public class HelloTriangle {
             }
 
             try (var stack = stackPush()) {
-                var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_FIFO_KHR);
+                var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(pPresentMode[0]);
                 if (swapchainImage == null) {
                     //noinspection BusyWait
                     sleep(100);

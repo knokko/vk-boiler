@@ -4,10 +4,9 @@ import com.github.knokko.boiler.instance.BoilerInstance;
 import com.github.knokko.boiler.queue.QueueFamily;
 import com.github.knokko.boiler.sync.AwaitableSubmission;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
+import org.lwjgl.vulkan.VkSwapchainPresentModeInfoEXT;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Objects;
+import java.util.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -19,7 +18,8 @@ class VkbSwapchain { // TODO Update README
     private final BoilerInstance instance;
     final long vkSwapchain;
     private final SwapchainCleaner cleaner;
-    private final int presentMode; // TODO Support for switching present mode
+    private final Set<Integer> supportedPresentModes;
+    private int presentMode;
     final int width, height;
     QueueFamily presentFamily;
     final long[] images;
@@ -31,13 +31,14 @@ class VkbSwapchain { // TODO Update README
 
     VkbSwapchain(
             BoilerInstance instance, long vkSwapchain, String title, SwapchainCleaner cleaner,
-            int presentMode, int width, int height, QueueFamily presentFamily
+            int presentMode, int width, int height, QueueFamily presentFamily, Set<Integer> supportedPresentModes
     ) {
         this.instance = instance;
         this.vkSwapchain = vkSwapchain;
         this.cleaner = cleaner;
 
         this.presentMode = presentMode;
+        this.supportedPresentModes = Collections.unmodifiableSet(supportedPresentModes);
         this.width = width;
         this.height = height;
         this.presentFamily = presentFamily;
@@ -67,7 +68,7 @@ class VkbSwapchain { // TODO Update README
     }
 
     AcquiredImage acquireImage(int presentMode, int width, int height, boolean useAcquireFence) {
-        if (presentMode != this.presentMode) outdated = true;
+        if (!this.supportedPresentModes.contains(presentMode)) outdated = true;
         if (width != this.width || height != this.height) outdated = true;
         if (outdated) return null;
 
@@ -97,7 +98,8 @@ class VkbSwapchain { // TODO Update README
                 var presentSemaphore = instance.sync.semaphoreBank.borrowSemaphore("PresentSemaphore");
                 var presentFence = cleaner.getPresentFence();
                 AcquiredImage acquiredImage = new AcquiredImage(
-                        this, imageIndex, acquireFence, acquireSemaphore, presentSemaphore, presentFence
+                        this, imageIndex, acquireFence, acquireSemaphore,
+                        presentSemaphore, presentFence, presentMode
                 );
 
                 cleaner.onAcquire(acquiredImage);
@@ -122,6 +124,16 @@ class VkbSwapchain { // TODO Update README
             presentInfo.pSwapchains(stack.longs(vkSwapchain));
             presentInfo.pImageIndices(stack.ints(image.index()));
             presentInfo.pResults(stack.callocInt(1));
+
+            if (image.presentMode != this.presentMode) {
+                this.presentMode = image.presentMode;
+
+                var changePresentMode = VkSwapchainPresentModeInfoEXT.calloc(stack);
+                changePresentMode.sType$Default();
+                changePresentMode.pPresentModes(stack.ints(image.presentMode));
+
+                presentInfo.pNext(changePresentMode);
+            }
 
             image.renderSubmission = renderSubmission;
             cleaner.beforePresent(stack, presentInfo, image);
