@@ -95,7 +95,7 @@ public class TestDynamicRendering {
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(), width, height, destBuffer.vkBuffer());
 
 			recorder.end();
-			instance.queueFamilies().graphics().queues().get(0).submit(commandBuffer, "Test", null, fence);
+			instance.queueFamilies().graphics().first().submit(commandBuffer, "Test", null, fence);
 			fence.waitAndReset();
 
 			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress()));
@@ -191,7 +191,7 @@ public class TestDynamicRendering {
 			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_DEPTH_BIT, image.vkImage(), width, height, destBuffer.vkBuffer());
 
 			recorder.end();
-			instance.queueFamilies().graphics().queues().get(0).submit(
+			instance.queueFamilies().graphics().first().submit(
 					commandBuffer, "DepthSubmission", null, fence
 			);
 			fence.waitAndReset();

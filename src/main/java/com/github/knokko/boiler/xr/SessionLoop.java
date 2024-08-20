@@ -68,7 +68,7 @@ public abstract class SessionLoop {
 						|| this.state == XR_SESSION_STATE_EXITING || this.state == XR_SESSION_STATE_LOSS_PENDING
 				) {
 					assertXrSuccess(vkQueueWaitIdle(
-							xr.boilerInstance.queueFamilies().graphics().queues().get(0).vkQueue()
+							xr.boilerInstance.queueFamilies().graphics().first().vkQueue()
 					), "QueueWaitIdle", "End of last frame");
 					break;
 				}

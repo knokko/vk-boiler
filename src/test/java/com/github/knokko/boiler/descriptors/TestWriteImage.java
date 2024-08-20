@@ -98,7 +98,7 @@ public class TestWriteImage {
 			vkCmdDispatch(commandBuffer, 1, 1, 1);
 
 			assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Sampling");
-			instance.queueFamilies().graphics().queues().get(0).submit(
+			instance.queueFamilies().graphics().first().submit(
 					commandBuffer, "Sampling", null, fence
 			);
 

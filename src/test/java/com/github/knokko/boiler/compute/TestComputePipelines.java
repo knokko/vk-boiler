@@ -88,7 +88,7 @@ public class TestComputePipelines {
 
 			assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Filling");
 			long startTime = System.currentTimeMillis();
-			instance.queueFamilies().graphics().queues().get(0).submit(
+			instance.queueFamilies().graphics().first().submit(
 					commandBuffer, "Filling", new WaitSemaphore[0], fence
 			);
 

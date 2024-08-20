@@ -58,7 +58,7 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 		recordFrame(stack, recorder, acquiredImage, instance);
 		recorder.end();
 
-		return instance.queueFamilies().graphics().queues().get(0).submit(
+		return instance.queueFamilies().graphics().first().submit(
 				commandBuffer, "Fill", waitSemaphores, fence, acquiredImage.presentSemaphore()
 		);
 	}

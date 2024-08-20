@@ -261,7 +261,7 @@ public class HelloTriangle {
 				vkCmdEndRenderPass(commandBuffer);
 				assertVkSuccess(vkEndCommandBuffer(commandBuffer), "TriangleDrawing", null);
 
-				var renderSubmission = boiler.queueFamilies().graphics().queues().get(0).submit(
+				var renderSubmission = boiler.queueFamilies().graphics().first().submit(
 						commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
 				);
 

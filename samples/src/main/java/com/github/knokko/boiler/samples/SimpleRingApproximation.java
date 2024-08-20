@@ -146,7 +146,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 
 		recorder.end();
 
-		return boiler.queueFamilies().graphics().queues().get(0).submit(
+		return boiler.queueFamilies().graphics().first().submit(
 				commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore()
 		);
 	}

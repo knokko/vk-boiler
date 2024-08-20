@@ -318,7 +318,7 @@ public class TerrainPlayground {
 			);
 			recorder.end();
 
-			boiler.queueFamilies().graphics().queues().get(0).submit(
+			boiler.queueFamilies().graphics().first().submit(
 					commandBuffer, "CopyHeightImage", new WaitSemaphore[0], fence
 			);
 			fence.awaitSignal();
@@ -630,9 +630,9 @@ public class TerrainPlayground {
 				recorder.end();
 
 				var timelineFinished = new TimelineInstant(timeline, frameCounter + numFramesInFlight);
-				boiler.queueFamilies().graphics().queues().get(0).submit(
+				boiler.queueFamilies().graphics().first().submit(
 						commandBuffer, "TerrainDraw", waitSemaphores, null,
-						new long[]{swapchainImage.presentSemaphore()}, null, timelineFinished
+						new long[]{ swapchainImage.presentSemaphore() }, null, timelineFinished
 				);
 
 				boiler.window().presentSwapchainImage(swapchainImage, timelineFinished);

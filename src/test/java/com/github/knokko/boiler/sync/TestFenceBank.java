@@ -22,8 +22,8 @@ public class TestFenceBank {
 			var commands = CommandRecorder.begin(commandBuffer, instance, stack, "Signal");
 			commands.end();
 
-			instance.queueFamilies().graphics().queues().get(0).submit(
-					commandBuffer, "Signal", new WaitSemaphore[0], fence
+			instance.queueFamilies().graphics().first().submit(
+					commandBuffer, "Signal", null, fence
 			);
 			fence.awaitSignal();
 		}

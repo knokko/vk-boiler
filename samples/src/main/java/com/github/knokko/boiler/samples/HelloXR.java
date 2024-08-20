@@ -520,8 +520,8 @@ public class HelloXR {
 
 			@Override
 			protected void submitAndWaitRender() {
-				xr.boilerInstance.queueFamilies().graphics().queues().get(0).submit(
-						commandBuffer, "Drawing", new WaitSemaphore[0], fence
+				xr.boilerInstance.queueFamilies().graphics().first().submit(
+						commandBuffer, "Drawing", null, fence
 				);
 
 				fence.waitAndReset();

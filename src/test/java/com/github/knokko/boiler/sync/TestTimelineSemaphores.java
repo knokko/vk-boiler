@@ -75,8 +75,8 @@ public class TestTimelineSemaphores {
 			var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "TestBuffers")[0];
 			CommandRecorder.begin(commandBuffer, instance, stack, "TestRecording").end();
 
-			instance.queueFamilies().graphics().queues().get(0).submit(
-					commandBuffer, "TestTimeline", new WaitSemaphore[0], fence, new long[0],
+			instance.queueFamilies().graphics().first().submit(
+					commandBuffer, "TestTimeline", null, fence, null,
 					new WaitTimelineSemaphore[]{
 							new WaitTimelineSemaphore(semaphore.vkSemaphore, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 2)
 					}, new TimelineInstant(semaphore, 5)

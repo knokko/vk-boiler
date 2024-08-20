@@ -125,7 +125,7 @@ public class TestFenceSubmission {
 			emptySubmitInfo.sType$Default();
 
 			assertVkSuccess(vkQueueSubmit(
-					instance.queueFamilies().compute().queues().get(0).vkQueue(), emptySubmitInfo, fence.getVkFenceAndSubmit()
+					instance.queueFamilies().compute().first().vkQueue(), emptySubmitInfo, fence.getVkFenceAndSubmit()
 			), "QueueSubmit", "test");
 		}
 	}

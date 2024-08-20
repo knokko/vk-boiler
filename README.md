@@ -141,7 +141,7 @@ while (renderLoop) {
 
         // Do something (probably wait on some fence and start rendering)
 
-        boiler.queueFamilies().graphics().queues().get(0).submit(
+        boiler.queueFamilies().graphics().first().submit(
             commandBuffer, "RingApproximation", waitSemaphores,
             fence, swapchainImage.presentSemaphore()
         );

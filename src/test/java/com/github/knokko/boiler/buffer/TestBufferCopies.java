@@ -54,8 +54,8 @@ public class TestBufferCopies {
 
 			recorder.end();
 
-			instance.queueFamilies().graphics().queues().get(0).submit(
-					commandBuffer, "Copying", new WaitSemaphore[0], fence
+			instance.queueFamilies().graphics().first().submit(
+					commandBuffer, "Copying", null, fence
 			);
 			fence.awaitSignal();
 			instance.sync.fenceBank.returnFence(fence);

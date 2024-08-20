@@ -141,7 +141,7 @@ class VkbSwapchain { // TODO Update README
 			cleaner.beforePresent(stack, presentInfo, image);
 
 
-			int presentResult = presentFamily.queues().get(0).present(presentInfo);
+			int presentResult = presentFamily.first().present(presentInfo);
 			if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
 				outdated = true;
 				return;
