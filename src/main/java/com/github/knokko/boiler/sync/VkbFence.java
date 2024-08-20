@@ -11,13 +11,15 @@ public class VkbFence implements Comparable<VkbFence> {
 
     private final BoilerInstance instance;
     private final long vkFence;
-    private long submissionTime;
-    private boolean signaled;
+
+    private long currentTime = 1L;
+    private long lastCompletedSubmission;
+    private boolean isPending;
 
     public VkbFence(BoilerInstance instance, long vkFence, boolean startSignaled) {
         this.instance = instance;
         this.vkFence = vkFence;
-        this.signaled = startSignaled;
+        if (startSignaled) lastCompletedSubmission = 1L;
     }
 
     @Override
@@ -35,14 +37,15 @@ public class VkbFence implements Comparable<VkbFence> {
     }
 
     public synchronized boolean isPending() {
-        if (submissionTime == 0) return false;
+        if (!isPending) return false;
 
         var status = vkGetFenceStatus(instance.vkDevice(), vkFence);
         if (status == VK_NOT_READY) return true;
         assertVkSuccess(status, "GetFenceStatus", "BoilerFence.isPending");
 
-        submissionTime = 0;
-        signaled = true;
+        currentTime += 1;
+        lastCompletedSubmission = currentTime;
+        isPending = false;
         return false;
     }
 
@@ -51,30 +54,31 @@ public class VkbFence implements Comparable<VkbFence> {
      * You should use this when you submit the fence manually.
      */
     public synchronized long getVkFenceAndSubmit() {
-        if (submissionTime != 0) throw new IllegalStateException("This fence is already pending");
-        if (signaled) throw new IllegalStateException("This fence is still signaled");
-        submissionTime = System.nanoTime();
+        if (isPending) throw new IllegalStateException("This fence is already pending");
+        if (lastCompletedSubmission >= currentTime) throw new IllegalStateException("This fence is still signaled");
+        isPending = true;
         return vkFence;
     }
 
-    public long getSubmissionTime() {
-        return submissionTime;
+    synchronized long getCurrentTime() {
+        return currentTime;
     }
 
     public synchronized void reset() {
         if (isPending()) throw new IllegalStateException("Fence is still pending");
 
-        signaled = false;
         try (var stack = stackPush()) {
             assertVkSuccess(vkResetFences(
                     instance.vkDevice(), stack.longs(vkFence)
             ), "ResetFences", "VkbFence.reset");
         }
+
+        if (lastCompletedSubmission == currentTime) currentTime += 1;
     }
 
     public synchronized void signal() {
         if (isPending()) throw new IllegalStateException("Fence is still pending");
-        signaled = true;
+        lastCompletedSubmission = currentTime;
     }
 
     public void awaitSignal() {
@@ -82,20 +86,20 @@ public class VkbFence implements Comparable<VkbFence> {
     }
 
     public synchronized void awaitSignal(long timeout) {
-        if (signaled) return;
-        if (submissionTime == 0) throw new IllegalStateException("Fence is not signaled, nor pending");
+        if (lastCompletedSubmission == currentTime) return;
+        if (!isPending) throw new IllegalStateException("Fence is not signaled, nor pending");
 
         try (var stack = stackPush()) {
             assertVkSuccess(vkWaitForFences(
                     instance.vkDevice(), stack.longs(vkFence), true, timeout
             ), "WaitForFences", "VkbFence.awaitSignal");
         }
-        signaled = true;
-        submissionTime = 0;
+        lastCompletedSubmission = currentTime;
+        isPending = false;
     }
 
     public synchronized void waitIfSubmitted(long timeout) {
-        if (submissionTime == 0) return;
+        if (!isPending) return;
         awaitSignal(timeout);
     }
 
@@ -113,17 +117,17 @@ public class VkbFence implements Comparable<VkbFence> {
     }
 
     public synchronized void awaitSubmission(long referenceSubmissionTime) {
-        if (submissionTime > referenceSubmissionTime) return;
+        if (lastCompletedSubmission >= referenceSubmissionTime) return;
         awaitSignal();
     }
 
     public synchronized boolean isSignaled() {
-        return hasBeenSignaled(submissionTime);
+        return hasBeenSignaled(currentTime);
     }
 
     public synchronized boolean hasBeenSignaled(long referenceSubmissionTime) {
         isPending();
-        return signaled || submissionTime > referenceSubmissionTime;
+        return lastCompletedSubmission >= referenceSubmissionTime;
     }
 
     void destroy() {

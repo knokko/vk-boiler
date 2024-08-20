@@ -3,21 +3,20 @@ package com.github.knokko.boiler.sync;
 public class FenceSubmission implements AwaitableSubmission {
 
 	private final VkbFence fence;
-	private final long submissionTime;
+	private final long referenceTime;
 
 	public FenceSubmission(VkbFence fence) {
-		// TODO Unit test this
 		this.fence = fence;
-		this.submissionTime = fence.getSubmissionTime();
+		this.referenceTime = fence.getCurrentTime();
 	}
 
 	@Override
 	public boolean hasCompleted() {
-		return fence.hasBeenSignaled(submissionTime);
+		return fence.hasBeenSignaled(referenceTime);
 	}
 
 	@Override
 	public void awaitCompletion() {
-		fence.awaitSubmission(submissionTime);
+		fence.awaitSubmission(referenceTime);
 	}
 }
