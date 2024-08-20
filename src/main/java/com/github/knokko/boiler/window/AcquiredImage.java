@@ -1,8 +1,10 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.sync.AwaitableSubmission;
-import com.github.knokko.boiler.sync.FenceSubmission;
 import com.github.knokko.boiler.sync.VkbFence;
+import org.lwjgl.vulkan.VkPresentInfoKHR;
+
+import java.util.function.Consumer;
 
 import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 
@@ -16,6 +18,7 @@ public class AcquiredImage {
     final VkbFence presentFence;
     AwaitableSubmission renderSubmission;
     final int presentMode;
+    public Consumer<VkPresentInfoKHR> beforePresentCallback;
 
     AcquiredImage(
             VkbSwapchain swapchain, int index, VkbFence acquireFence, long acquireSemaphore,

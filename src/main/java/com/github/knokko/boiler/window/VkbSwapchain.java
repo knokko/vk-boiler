@@ -125,6 +125,8 @@ class VkbSwapchain { // TODO Update README
             presentInfo.pImageIndices(stack.ints(image.index()));
             presentInfo.pResults(stack.callocInt(1));
 
+            if (image.beforePresentCallback != null) image.beforePresentCallback.accept(presentInfo);
+
             if (image.presentMode != this.presentMode) {
                 this.presentMode = image.presentMode;
 
@@ -138,8 +140,7 @@ class VkbSwapchain { // TODO Update README
             image.renderSubmission = renderSubmission;
             cleaner.beforePresent(stack, presentInfo, image);
 
-            // TODO Check why this is needed
-            //if (beforePresentCallback != null) beforePresentCallback.accept(presentInfo);
+
 
             int presentResult = presentFamily.queues().get(0).present(presentInfo);
             if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
