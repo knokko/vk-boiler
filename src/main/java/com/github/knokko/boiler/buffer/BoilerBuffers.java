@@ -8,6 +8,7 @@ import org.lwjgl.vulkan.VkBufferCreateInfo;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
+import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVmaSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memByteBuffer;
@@ -21,6 +22,24 @@ public class BoilerBuffers {
 
 	public BoilerBuffers(BoilerInstance instance) {
 		this.instance = instance;
+	}
+
+	public DeviceVkbBuffer createRaw(long size, int usage, String name) {
+		try (var stack = stackPush()) {
+			var ciBuffer = VkBufferCreateInfo.calloc(stack);
+			ciBuffer.sType$Default();
+			ciBuffer.flags(0);
+			ciBuffer.size(size);
+			ciBuffer.usage(usage);
+			ciBuffer.sharingMode(VK_SHARING_MODE_EXCLUSIVE);
+
+			var pBuffer = stack.callocLong(1);
+			assertVkSuccess(vkCreateBuffer(
+					instance.vkDevice(), ciBuffer, null, pBuffer
+			), "CreateBuffer", name);
+			instance.debug.name(stack, pBuffer.get(0), VK_OBJECT_TYPE_BUFFER, name);
+			return new DeviceVkbBuffer(pBuffer.get(0), VK_NULL_HANDLE, size);
+		}
 	}
 
 	public DeviceVkbBuffer create(long size, int usage, String name) {

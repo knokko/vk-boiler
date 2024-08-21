@@ -15,6 +15,6 @@ public sealed interface VkbBuffer permits DeviceVkbBuffer, MappedVkbBuffer {
 
 	default void destroy(BoilerInstance instance) {
 		if (vmaAllocation() != VK_NULL_HANDLE) vmaDestroyBuffer(instance.vmaAllocator(), vkBuffer(), vmaAllocation());
-		else vkDestroyBuffer(instance.vkDevice(), vkBuffer(), null); // TODO Test this
+		else vkDestroyBuffer(instance.vkDevice(), vkBuffer(), null);
 	}
 }
