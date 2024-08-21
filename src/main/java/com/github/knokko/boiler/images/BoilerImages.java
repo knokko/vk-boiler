@@ -7,6 +7,7 @@ import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVmaSuccess;
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_AUTO;
 import static org.lwjgl.util.vma.Vma.vmaCreateImage;
 import static org.lwjgl.vulkan.VK10.*;
@@ -45,7 +46,36 @@ public class BoilerImages {
 		);
 	}
 
-	public VkbImage create(
+	public VkbImage createRaw(
+			int width, int height, int format, int usage,
+			int samples, int mipLevels, int arrayLayers, String name
+	) {
+		try (var stack = stackPush()) {
+			var ciImage = VkImageCreateInfo.calloc(stack);
+			ciImage.sType$Default();
+			ciImage.imageType(VK_IMAGE_TYPE_2D);
+			ciImage.format(format);
+			ciImage.extent().set(width, height, 1);
+			ciImage.mipLevels(mipLevels);
+			ciImage.arrayLayers(arrayLayers);
+			ciImage.samples(samples);
+			ciImage.tiling(VK_IMAGE_TILING_OPTIMAL);
+			ciImage.usage(usage);
+			ciImage.sharingMode(VK_SHARING_MODE_EXCLUSIVE);
+			ciImage.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+
+			var pImage = stack.callocLong(1);
+			assertVkSuccess(vkCreateImage(
+					instance.vkDevice(), ciImage, null, pImage
+			), "CreateImage", name);
+			long image = pImage.get(0);
+			instance.debug.name(stack, image, VK_OBJECT_TYPE_IMAGE, name);
+
+			return new VkbImage(image, VK_NULL_HANDLE, VK_NULL_HANDLE, width, height);
+		}
+	}
+
+	public VkbImage create( // TODO Get rid of stack parameter
 			MemoryStack stack, int width, int height, int format, int usage, int aspectMask,
 			int samples, int mipLevels, int arrayLayers, boolean createView, String name
 	) {
