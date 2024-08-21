@@ -1,8 +1,8 @@
 import org.gradle.internal.os.OperatingSystem
 
 plugins {
-	id 'java'
-	id 'com.github.johnrengelman.shadow' version '8.1.1'
+	id "java"
+	id "com.github.johnrengelman.shadow" version "8.1.1"
 }
 
 java {
@@ -10,7 +10,7 @@ java {
 }
 
 allprojects {
-	apply plugin: 'java'
+	apply plugin: "java"
 
 	java {
 		sourceCompatibility = "17"
@@ -44,39 +44,39 @@ allprojects {
 }
 
 dependencies {
-	testImplementation platform('org.junit:junit-bom:5.10.0')
-	testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+	testImplementation platform("org.junit:junit-bom:5.10.0")
+	testImplementation "org.junit.jupiter:junit-jupiter:5.10.0"
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	
 	compileOnly platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
-        compileOnly "org.lwjgl:lwjgl"
-        compileOnly "org.lwjgl:lwjgl-vulkan"
-        compileOnly "org.lwjgl:lwjgl-glfw"
-        compileOnly "org.lwjgl:lwjgl-vma"
-        compileOnly "org.lwjgl:lwjgl-openxr"
-        compileOnly "org.joml:joml:${jomlVersion}"
-        
-        testImplementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
-        testImplementation "org.lwjgl:lwjgl"
-        testImplementation "org.lwjgl:lwjgl-vma"
-        testImplementation "org.lwjgl:lwjgl-vulkan"
-        testImplementation "org.lwjgl:lwjgl-glfw"
-        testImplementation "org.joml:joml:${jomlVersion}"
+	compileOnly "org.lwjgl:lwjgl"
+	compileOnly "org.lwjgl:lwjgl-vulkan"
+	compileOnly "org.lwjgl:lwjgl-glfw"
+	compileOnly "org.lwjgl:lwjgl-vma"
+	compileOnly "org.lwjgl:lwjgl-openxr"
+	compileOnly "org.joml:joml:${jomlVersion}"
 
-        testRuntimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
-        testRuntimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
-        testRuntimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
-		if (lwjglNatives == "natives-macos") testRuntimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
+	testImplementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
+	testImplementation "org.lwjgl:lwjgl"
+	testImplementation "org.lwjgl:lwjgl-vma"
+	testImplementation "org.lwjgl:lwjgl-vulkan"
+	testImplementation "org.lwjgl:lwjgl-glfw"
+	testImplementation "org.joml:joml:${jomlVersion}"
+
+	testRuntimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
+	testRuntimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
+	testRuntimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
+	if (lwjglNatives == "natives-macos") testRuntimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
 
 	test {
 		useJUnitPlatform()
 	}
 }
 
-project(':samples') {
+project(":samples") {
 	apply plugin: "com.github.johnrengelman.shadow"
     dependencies {
-        implementation project(':')
+        implementation project(":")
         implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
         implementation "org.lwjgl:lwjgl"
         implementation "org.lwjgl:lwjgl-vma"
@@ -93,8 +93,7 @@ project(':samples') {
     }
     shadowJar {
         manifest {
-            attributes ('Main-Class': 'com.github.knokko.boiler.samples.MultipleWindows')
+            attributes ("Main-Class": "com.github.knokko.boiler.samples.MultipleWindows")
         }
     }
 }
-
