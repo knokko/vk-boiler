@@ -5,6 +5,10 @@ import org.lwjgl.vulkan.*;
 
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * An implementation of <i>PhysicalDeviceSelector</i> that makes its decision based on their device types.
+ * @param preferredDeviceTypes The physical device types, in order from favorite to the least favorite
+ */
 public record SimpleDeviceSelector(int... preferredDeviceTypes) implements PhysicalDeviceSelector {
 
 	@Override

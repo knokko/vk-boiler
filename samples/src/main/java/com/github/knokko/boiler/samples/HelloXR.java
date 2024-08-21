@@ -17,8 +17,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
-import static com.github.knokko.boiler.utilities.CollectionHelper.createSet;
-import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
+import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memFloatBuffer;
@@ -42,14 +41,14 @@ public class HelloXR {
 				VK_API_VERSION_1_0, "HelloXR", 1
 		)
 				.validation()
-				.requiredVkInstanceExtensions(createSet(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
-				.requiredDeviceExtensions(createSet(
+				.requiredVkInstanceExtensions(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
+				.requiredDeviceExtensions(
 						VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
 						VK_KHR_MULTIVIEW_EXTENSION_NAME,
 						VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
 						VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
 						VK_KHR_MAINTENANCE_2_EXTENSION_NAME
-				))
+				)
 				.printDeviceRejectionInfo()
 				.extraDeviceRequirements((physicalDevice, windowSurface, stack) -> {
 					var dynamicRendering = VkPhysicalDeviceDynamicRenderingFeaturesKHR.calloc(stack);

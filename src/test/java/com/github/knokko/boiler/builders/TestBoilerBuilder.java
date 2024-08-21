@@ -75,8 +75,8 @@ public class TestBoilerBuilder {
 					assertTrue(supported.dynamicRendering());
 					toEnable.dynamicRendering(true);
 				})
-				.requiredVkInstanceExtensions(createSet(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))
-				.desiredVkInstanceExtensions(createSet(VK_KHR_SURFACE_EXTENSION_NAME))
+				.requiredVkInstanceExtensions(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME)
+				.desiredVkInstanceExtensions(VK_KHR_SURFACE_EXTENSION_NAME)
 				.validation(new ValidationFeatures(
 						true, true, false, false, false
 				))
@@ -297,8 +297,7 @@ public class TestBoilerBuilder {
 	public void testForbidValidationErrorsDuringDeviceCreation() {
 		var builder = new BoilerBuilder(
 				VK_API_VERSION_1_0, "TestForbidValidationErrorsDuringDeviceCreation", 1
-		).validation().forbidValidationErrors()
-				.requiredDeviceExtensions(createSet(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME));
+		).validation().forbidValidationErrors().requiredDeviceExtensions(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 
 		String message = assertThrows(ValidationException.class, builder::build).getMessage();
 		assertTrue(message.contains("VUID-vkCreateDevice-ppEnabledExtensionNames"), "Message was " + message);
@@ -326,7 +325,7 @@ public class TestBoilerBuilder {
 	public void testDesiredLayers() {
 		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_0, "TestDesiredLayers", 1
-		).desiredVkLayers(createSet("bullshit", "VK_LAYER_KHRONOS_validation")).build();
+		).desiredVkLayers("bullshit", "VK_LAYER_KHRONOS_validation").build();
 
 		assertEquals(createSet("VK_LAYER_KHRONOS_validation"), instance.explicitLayers);
 

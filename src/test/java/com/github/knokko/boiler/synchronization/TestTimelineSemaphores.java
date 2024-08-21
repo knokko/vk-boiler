@@ -43,8 +43,8 @@ public class TestTimelineSemaphores {
 				.validation()
 				.forbidValidationErrors()
 				.defaultTimeout(250_000_000L)
-				.requiredVkInstanceExtensions(createSet(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
-				.requiredDeviceExtensions(createSet(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME))
+				.requiredVkInstanceExtensions(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
+				.requiredDeviceExtensions(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)
 				.extraDeviceRequirements(((physicalDevice, windowSurface, stack) -> {
 					var timelineSupport = VkPhysicalDeviceTimelineSemaphoreFeaturesKHR.calloc(stack);
 					timelineSupport.sType$Default();

@@ -51,6 +51,11 @@ public class BoilerInstance {
 
 	private boolean destroyed = false;
 
+	/**
+	 * Note: using this constructor is allowed, but it is subject to change, even in non-major updates of
+	 * vk-boiler. Therefor, using this constructor directly is not recommended. Use <i>BoilerBuilder</i> instead if
+	 * you can.
+	 */
 	public BoilerInstance(
 			XrBoiler xr, long defaultTimeout, Collection<VkbWindow> windows, boolean hasSwapchainMaintenance,
 			int apiVersion, VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,

@@ -12,7 +12,7 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 import java.util.Set;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
-import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
+import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.KHRVulkanEnable2.xrCreateVulkanDeviceKHR;
 
 class XrDeviceCreator implements VkDeviceCreator {

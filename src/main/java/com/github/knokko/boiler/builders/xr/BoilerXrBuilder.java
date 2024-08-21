@@ -1,15 +1,19 @@
 package com.github.knokko.boiler.builders.xr;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.exceptions.MissingOpenXrExtensionException;
+import com.github.knokko.boiler.exceptions.MissingOpenXrLayerException;
+import com.github.knokko.boiler.exceptions.XrVersionConflictException;
 import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.openxr.*;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 import static com.github.knokko.boiler.utilities.CollectionHelper.createSet;
-import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
+import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.KHRVulkanEnable2.XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME;
 import static org.lwjgl.openxr.KHRVulkanEnable2.xrGetVulkanGraphicsRequirements2KHR;
 import static org.lwjgl.openxr.XR10.*;
@@ -27,31 +31,55 @@ public class BoilerXrBuilder {
 
 	private int formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
 
-	public BoilerXrBuilder desiredLayers(Set<String> desiredLayers) {
-		this.desiredLayers.addAll(desiredLayers);
+	/**
+	 * Enables the given OpenXR layers if and only if they are supported by the OpenXR runtime. The unsupported
+	 * layers will be ignored.
+	 */
+	public BoilerXrBuilder desiredLayers(String... desiredLayers) {
+		Collections.addAll(this.desiredLayers, desiredLayers);
 		return this;
 	}
 
-	public BoilerXrBuilder requiredLayers(Set<String> requiredLayers) {
-		this.requiredLayers.addAll(requiredLayers);
+	/**
+	 * Enables the given OpenXR layers. If any of them is not supported by the OpenXR runtime, a
+	 * <i>MissingOpenXrLayerException</i> will be thrown during the `build` method.
+	 */
+	public BoilerXrBuilder requiredLayers(String... requiredLayers) {
+		Collections.addAll(this.requiredLayers, requiredLayers);
 		return this;
 	}
 
-	public BoilerXrBuilder desiredExtensions(Set<String> desiredExtensions) {
-		this.desiredExtensions.addAll(desiredExtensions);
+	/**
+	 * Enables the given OpenXR extensions if and only if they are supported by the OpenXR runtime. The unsupported
+	 * extensions will be ignored.
+	 */
+	public BoilerXrBuilder desiredExtensions(String... desiredExtensions) {
+		Collections.addAll(this.desiredExtensions, desiredExtensions);
 		return this;
 	}
 
-	public BoilerXrBuilder requiredExtensions(Set<String> requiredExtensions) {
-		this.requiredExtensions.addAll(requiredExtensions);
+	/**
+	 * Enables the given OpenXR extensions. If any of them is not supported by the OpenXR runtime, a
+	 * <i>MissingOpenXrExtensionException</i> will be thrown during the `build` method.
+	 */
+	public BoilerXrBuilder requiredExtensions(String... requiredExtensions) {
+		Collections.addAll(this.requiredExtensions, requiredExtensions);
 		return this;
 	}
 
+	/**
+	 * Changes the OpenXR form factor that will be used in <i>xrGetSystem</i>. The default value is
+	 * <i>XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY</i>.
+	 */
 	public BoilerXrBuilder formFactor(int formFactor) {
 		this.formFactor = formFactor;
 		return this;
 	}
 
+	/**
+	 * Note: this method is meant for internal use by `BoilerBuilder`. You should not need to call this method
+	 * yourself.
+	 */
 	public XrBoiler build(
 			BoilerBuilder builder, boolean enableValidation, int vkApiVersion,
 			String appName, int appVersion,

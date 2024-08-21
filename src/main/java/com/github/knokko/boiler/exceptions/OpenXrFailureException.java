@@ -1,4 +1,4 @@
-package com.github.knokko.boiler.xr;
+package com.github.knokko.boiler.exceptions;
 
 import com.github.knokko.boiler.utilities.ReflectionHelper;
 import org.lwjgl.openxr.XR10;

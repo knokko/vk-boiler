@@ -9,7 +9,7 @@ import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkInstanceCreateInfo;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
-import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
+import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.KHRVulkanEnable2.xrCreateVulkanInstanceKHR;
 
 class XrInstanceCreator implements VkInstanceCreator {

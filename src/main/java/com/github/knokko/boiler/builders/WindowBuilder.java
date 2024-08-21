@@ -37,39 +37,66 @@ public class WindowBuilder {
 	};
 	Set<Integer> presentModes = new HashSet<>();
 
+	/**
+	 * @param width The initial width of the window, in pixels
+	 * @param height The initial height of the window, in pixels
+	 * @param swapchainImageUsage The image usage flags for the swapchain images to-be-created
+	 */
 	public WindowBuilder(int width, int height, int swapchainImageUsage) {
 		this.width = width;
 		this.height = height;
 		this.swapchainImageUsage = swapchainImageUsage;
 	}
 
-	public WindowBuilder glfwWindow(long glfwWindow) {
-		this.glfwWindow = glfwWindow;
-		return this;
-	}
-
+	/**
+	 * Sets the initial title of the window, by default the application name
+	 */
 	public WindowBuilder title(String title) {
 		this.title = title;
 		return this;
 	}
 
-	public WindowBuilder surfaceFormatPicker(SurfaceFormatPicker surfaceFormatPicker) {
-		this.surfaceFormatPicker = surfaceFormatPicker;
-		return this;
-	}
-
+	/**
+	 * Changes the function that chooses the swapchain composite alpha. The default function will prefer opaque
+	 * swapchains.
+	 */
 	public WindowBuilder compositeAlphaPicker(CompositeAlphaPicker compositeAlphaPicker) {
 		this.compositeAlphaPicker = compositeAlphaPicker;
 		return this;
 	}
 
-	public WindowBuilder callback(Consumer<VkbWindow> callback) {
-		this.callback = callback;
+	/**
+	 * Changes the function that chooses the surface format. The default function will prefer 8-bit SRGB formats.
+	 */
+	public WindowBuilder surfaceFormatPicker(SurfaceFormatPicker surfaceFormatPicker) {
+		this.surfaceFormatPicker = surfaceFormatPicker;
 		return this;
 	}
 
+	/**
+	 * Adds present modes with which the swapchain manager should try to make its swapchains compatible.
+	 * They will be ignored when the <i>VK_EXT_swapchain_maintenance1</i> extension is not enabled.
+	 */
 	public WindowBuilder presentModes(Integer... presentModes) {
 		Collections.addAll(this.presentModes, presentModes);
+		return this;
+	}
+
+	/**
+	 * Lets this window builder use the existing glfwWindow, instead of creating a new window. The title of this
+	 * window builder will be ignored, as well as the initial width and height passed to the constructor.
+	 */
+	public WindowBuilder glfwWindow(long glfwWindow) {
+		this.glfwWindow = glfwWindow;
+		return this;
+	}
+
+	/**
+	 * Adds a callback that will be called after the window and the <i>BoilerInstance</i> have been created. This
+	 * is needed to obtain the <i>VkbWindow</i> instances when you add multiple windows.
+	 */
+	public WindowBuilder callback(Consumer<VkbWindow> callback) {
+		this.callback = callback;
 		return this;
 	}
 
@@ -152,6 +179,9 @@ public class WindowBuilder {
 		}
 	}
 
+	/**
+	 * Note: this method is for internal use only. Use `boilerInstance.addWindow` to add new windows.
+	 */
 	public VkbWindow buildLate(BoilerInstance instance) {
 		createGlfwWindow();
 

@@ -3,7 +3,7 @@ package com.github.knokko.boiler.xr;
 import org.lwjgl.openxr.*;
 import org.lwjgl.system.MemoryStack;
 
-import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
+import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.openxr.XR10.xrCreateAction;
 

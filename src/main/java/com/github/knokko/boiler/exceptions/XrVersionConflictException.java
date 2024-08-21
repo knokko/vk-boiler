@@ -1,4 +1,4 @@
-package com.github.knokko.boiler.builders.xr;
+package com.github.knokko.boiler.exceptions;
 
 public class XrVersionConflictException extends RuntimeException {
 

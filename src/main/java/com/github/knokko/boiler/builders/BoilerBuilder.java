@@ -10,11 +10,11 @@ import com.github.knokko.boiler.builders.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.exceptions.*;
 import com.github.knokko.boiler.BoilerInstance;
-import com.github.knokko.boiler.utilities.CollectionHelper;
 import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -74,7 +74,7 @@ public class BoilerBuilder {
 	BoilerXrBuilder xrBuilder;
 
 	String engineName = "VkBoiler";
-	int engineVersion = VK_MAKE_VERSION(0, 1, 0);
+	int engineVersion = 4;
 
 	final Set<String> desiredVulkanLayers = new HashSet<>();
 	final Set<String> requiredVulkanLayers = new HashSet<>();
@@ -104,10 +104,10 @@ public class BoilerBuilder {
 	Collection<FeaturePicker12> vkDeviceFeaturePicker12 = new ArrayList<>();
 	Collection<FeaturePicker13> vkDeviceFeaturePicker13 = new ArrayList<>();
 
-	Collection<RequiredFeatures10> vkRequiredFeatures10 = new ArrayList<>();
-	Collection<RequiredFeatures11> vkRequiredFeatures11 = new ArrayList<>();
-	Collection<RequiredFeatures12> vkRequiredFeatures12 = new ArrayList<>();
-	Collection<RequiredFeatures13> vkRequiredFeatures13 = new ArrayList<>();
+	Collection<Predicate<VkPhysicalDeviceFeatures>> vkRequiredFeatures10 = new ArrayList<>();
+	Collection<Predicate<VkPhysicalDeviceVulkan11Features>> vkRequiredFeatures11 = new ArrayList<>();
+	Collection<Predicate<VkPhysicalDeviceVulkan12Features>> vkRequiredFeatures12 = new ArrayList<>();
+	Collection<Predicate<VkPhysicalDeviceVulkan13Features>> vkRequiredFeatures13 = new ArrayList<>();
 
 	Collection<ExtraDeviceRequirements> extraDeviceRequirements = new ArrayList<>();
 
@@ -117,6 +117,15 @@ public class BoilerBuilder {
 
 	private boolean didBuild = false;
 
+	/**
+	 * @param apiVersion The Vulkan api version that you want to use, for instance <i>VK_API_VERSION_1_0</i>.<br>
+	 *                   All physical devices that don't support this api version will be ignored during device
+	 *                   selection.<br>
+	 *                   If not a single physical device on the target machine supports this api version,
+	 *                   the boiler instance creation will fail with a <i>NoVkPhysicalDeviceException</i>.
+	 * @param applicationName The 'name' of your application, which will be propagated to the VkApplicationInfo
+	 * @param applicationVersion The version of your application, which will be propagated to the VkApplicationInfo
+	 */
 	public BoilerBuilder(int apiVersion, String applicationName, int applicationVersion) {
 		if (VK_API_VERSION_PATCH(apiVersion) != 0) throw new IllegalArgumentException("Patch of API version must be 0");
 		if (VK_API_VERSION_VARIANT(apiVersion) != 0)
@@ -129,23 +138,302 @@ public class BoilerBuilder {
 		this.desiredVulkanInstanceExtensions.add(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
 	}
 
-	public BoilerBuilder defaultTimeout(long defaultTimeout) {
-		this.defaultTimeout = defaultTimeout;
+	// -----------------------------------------------------------------------------------------------------------------
+	// Instance creation properties
+	// -----------------------------------------------------------------------------------------------------------------
+
+	/**
+	 * Enables the validation layer the given features.
+	 * A <i>MissingVulkanLayerException</i> will be thrown if the validation layer is not supported.
+	 */
+	public BoilerBuilder validation(ValidationFeatures validationFeatures) {
+		this.validationFeatures = validationFeatures;
 		return this;
 	}
 
-	public BoilerBuilder addWindow(WindowBuilder windowBuilder) {
-		this.windows.add(windowBuilder);
+	/**
+	 * Enables the validation layer with basic validation, synchronization validation, and best practices. If the
+	 * API version is at least 1.1, GPU-assisted validation will also be enabled.<br>
+	 * A <i>MissingVulkanLayerException</i> will be thrown if the validation layer is not supported.
+	 */
+	public BoilerBuilder validation() {
+		if (this.apiVersion == VK_API_VERSION_1_0) {
+			return this.validation(new ValidationFeatures(
+					false, false, false, true, true
+			));
+		} else {
+			return this.validation(new ValidationFeatures(
+					true, true, false, true, true
+			));
+		}
+	}
+
+	/**
+	 * Ensures that a <i>ValidationException</i> will be thrown whenever a validation error is encountered, which is
+	 * nice for tracing the function call that caused it, as well as unit testing.<br>
+	 * This requires you to chain `.validation()`.
+	 */
+	public BoilerBuilder forbidValidationErrors() {
+		this.forbidValidationErrors = true;
 		return this;
 	}
 
-	public BoilerBuilder xr(BoilerXrBuilder xrBuilder) {
-		this.xrBuilder = xrBuilder;
+	/**
+	 * Enables the given Vulkan (instance) layers if and only if they are supported by the target machine.
+	 * The unsupported layers will be ignored.
+	 */
+	public BoilerBuilder desiredVkLayers(String... desiredLayers) {
+		Collections.addAll(desiredVulkanLayers, desiredLayers);
 		return this;
 	}
 
+	/**
+	 * Enables the given Vulkan (instance) layers. If at least 1 of them is not supported by the target machine,
+	 * a <i>MissingVulkanLayerException</i> will be thrown during the <i>build</i> method.
+	 */
+	public BoilerBuilder requiredVkLayers(String... requiredLayers) {
+		Collections.addAll(requiredVulkanLayers, requiredLayers);
+		return this;
+	}
+
+	/**
+	 * Adds "VK_LAYER_LUNARG_api_dump" to the required layers.
+	 */
+	public BoilerBuilder apiDump() {
+		return requiredVkLayers("VK_LAYER_LUNARG_api_dump");
+	}
+
+	/**
+	 * Enables the given instance extensions, if and only if they are supported by the target machine. All
+	 * unsupported extensions are ignored.
+	 */
+	public BoilerBuilder desiredVkInstanceExtensions(String... instanceExtensions) {
+		Collections.addAll(desiredVulkanInstanceExtensions, instanceExtensions);
+		return this;
+	}
+
+	/**
+	 * Enables the given instance extensions. If at least 1 of them is not supported by the target machine, a
+	 * <i>MissingVulkanExtensionException</i> will be thrown.
+	 */
+	public BoilerBuilder requiredVkInstanceExtensions(String... instanceExtensions) {
+		Collections.addAll(requiredVulkanInstanceExtensions, instanceExtensions);
+		return this;
+	}
+
+	/**
+	 * Sets the engine name and engine version, which will be propagated to the <i>VkApplicationInfo</i>. By default,
+	 * this will be "VkBoiler" version 4.
+	 */
+	public BoilerBuilder engine(String engineName, int engineVersion) {
+		this.engineName = engineName;
+		this.engineVersion = engineVersion;
+		return this;
+	}
+
+	/**
+	 * Adds a callback that will be called before <i>vkCreateInstance</i>, which can be used to change the
+	 * <i>VkInstanceCreateInfo</i>.
+	 */
+	public BoilerBuilder beforeInstanceCreation(PreVkInstanceCreator preCreator) {
+		this.preInstanceCreators.add(preCreator);
+		return this;
+	}
+
+	/**
+	 * Sets a custom <i>VkInstanceCreator</i>, which is a callback that should create the <i>VkInstance</i>, given the
+	 * <i>VkInstanceCreateInfo</i> and a memory stack. The default instance creator <i>DEFAULT_VK_INSTANCE_CREATOR</i>
+	 * will simply call <i>vkCreateInstance</i>, but you can override this if you need to do something special.<br>
+	 * If you simply need to modify the <i>VkInstanceCreateInfo</i>, you should use <i>beforeInstanceCreation</i> instead.
+	 */
+	public BoilerBuilder vkInstanceCreator(VkInstanceCreator creator) {
+		if (this.vkInstanceCreator != DEFAULT_VK_INSTANCE_CREATOR) {
+			throw new IllegalStateException("Attempted to set multiple instance creators");
+		}
+		this.vkInstanceCreator = creator;
+		return this;
+	}
+
+	// -----------------------------------------------------------------------------------------------------------------
+	// Physical device selection
+	// -----------------------------------------------------------------------------------------------------------------
+
+	/**
+	 * During device selection, there are many reasons why physical device could be filtered out. If all physical
+	 * devices are filtered out (or the target computer doesn't have any device that supports Vulkan), a
+	 * <i>NoVkPhysicalDeviceException</i> will be thrown.<br>
+	 *
+	 * If you chain this method, the builder will tell you (via standard output) <b>why</b> it filtered out each device.
+	 */
+	public BoilerBuilder printDeviceRejectionInfo() {
+		this.printDeviceRejectionInfo = true;
+		return this;
+	}
+
+	/**
+	 * Enables the following device extensions. Any device that doesn't support them will be filtered out during
+	 * device selection.
+	 */
+	public BoilerBuilder requiredDeviceExtensions(String... deviceExtensions) {
+		Collections.addAll(requiredVulkanDeviceExtensions, deviceExtensions);
+		return this;
+	}
+
+	/**
+	 * Adds a required features callback to the device selection procedure. When the features of a device fail the
+	 * predicate, the corresponding device will be filtered out.
+	 */
+	public BoilerBuilder requiredFeatures10(Predicate<VkPhysicalDeviceFeatures> requiredFeatures) {
+		this.vkRequiredFeatures10.add(requiredFeatures);
+		return this;
+	}
+
+	/**
+	 * Adds a required VK 1.1 features callback to the device selection procedure. When the features of a device fail
+	 * the predicate, the corresponding device will be filtered out.
+	 */
+	public BoilerBuilder requiredFeatures11(Predicate<VkPhysicalDeviceVulkan11Features> requiredFeatures) {
+		checkApiVersion(VK_API_VERSION_1_1);
+		this.vkRequiredFeatures11.add(requiredFeatures);
+		return this;
+	}
+
+	/**
+	 * Adds a required VK 1.2 features callback to the device selection procedure. When the features of a device fail
+	 * the predicate, the corresponding device will be filtered out.
+	 */
+	public BoilerBuilder requiredFeatures12(Predicate<VkPhysicalDeviceVulkan12Features> requiredFeatures) {
+		checkApiVersion(VK_API_VERSION_1_2);
+		this.vkRequiredFeatures12.add(requiredFeatures);
+		return this;
+	}
+
+	/**
+	 * Adds a required VK 1.3 features callback to the device selection procedure. When the features of a device fail
+	 * the predicate, the corresponding device will be filtered out.
+	 */
+	public BoilerBuilder requiredFeatures13(Predicate<VkPhysicalDeviceVulkan13Features> requiredFeatures) {
+		checkApiVersion(VK_API_VERSION_1_3);
+		this.vkRequiredFeatures13.add(requiredFeatures);
+		return this;
+	}
+
+	/**
+	 * Adds custom device requirements to the device selection procedure. Given the physical device and window surfaces,
+	 * the callback should return true to allow the device, or false to filter it out.
+	 */
+	public BoilerBuilder extraDeviceRequirements(ExtraDeviceRequirements requirements) {
+		this.extraDeviceRequirements.add(requirements);
+		return this;
+	}
+
+	/**
+	 * When multiple physical devices satisfy all requirements, the physical device selector will choose 1 of them.
+	 * The default selector prefers discrete GPUs over integrated GPUs over anything else. Chain this method to
+	 * override this behavior.<br>
+	 * You can either supply a callback, or an instance of SimpleDeviceSelector.
+	 */
 	public BoilerBuilder physicalDeviceSelector(PhysicalDeviceSelector selector) {
 		this.deviceSelector = selector;
+		return this;
+	}
+
+	// -----------------------------------------------------------------------------------------------------------------
+	// Device creation
+	// -----------------------------------------------------------------------------------------------------------------
+
+	/**
+	 * Enables the given device extensions, if and only if they are supported by the selected physical device. Any
+	 * unsupported device extensions will be ignored.
+	 */
+	public BoilerBuilder desiredVkDeviceExtensions(Collection<String> deviceExtensions) {
+		desiredVulkanDeviceExtensions.addAll(deviceExtensions);
+		return this;
+	}
+
+	/**
+	 * Adds a callback that can enable device features. Given a memory stack and the <i>supportedFeatures</i>,
+	 * the callback can enable features in the <i>toEnable</i> features.
+	 */
+	public BoilerBuilder featurePicker10(FeaturePicker10 picker) {
+		this.vkDeviceFeaturePicker10.add(picker);
+		return this;
+	}
+
+	/**
+	 * Adds a callback that can enable Vulkan 1.1 features. Given a memory stack and the <i>supportedFeatures</i>,
+	 * the callback can enable features in the <i>toEnable</i> features.
+	 */
+	public BoilerBuilder featurePicker11(FeaturePicker11 picker) {
+		checkApiVersion(VK_API_VERSION_1_1);
+		this.vkDeviceFeaturePicker11.add(picker);
+		return this;
+	}
+
+	/**
+	 * Adds a callback that can enable Vulkan 1.2 features. Given a memory stack and the <i>supportedFeatures</i>,
+	 * the callback can enable features in the <i>toEnable</i> features.
+	 */
+	public BoilerBuilder featurePicker12(FeaturePicker12 picker) {
+		checkApiVersion(VK_API_VERSION_1_2);
+		this.vkDeviceFeaturePicker12.add(picker);
+		return this;
+	}
+
+	/**
+	 * Adds a callback that can enable Vulkan 1.3 features. Given a memory stack and the <i>supportedFeatures</i>,
+	 * the callback can enable features in the <i>toEnable</i> features.
+	 */
+	public BoilerBuilder featurePicker13(FeaturePicker13 picker) {
+		checkApiVersion(VK_API_VERSION_1_3);
+		this.vkDeviceFeaturePicker13.add(picker);
+		return this;
+	}
+
+	/**
+	 * Changes the <i>QueueFamilyMapper</i>: the function that determines which queue (families) are created, and which
+	 * one will serve as the graphics queue, compute queue, transfer queue, etc...<br>
+	 *
+	 * The default implementation will try to use the same queue family for everything, and creates 1 queue per queue
+	 * family. You can use this method to change this behavior.
+	 */
+	public BoilerBuilder queueFamilyMapper(QueueFamilyMapper mapper) {
+		this.queueFamilyMapper = mapper;
+		return this;
+	}
+
+	/**
+	 * Adds a callback that will be called before the builder calls <i>vkCreateDevice</i>. Given the enabled instance
+	 * extensions, the callback can choose to modify the <i>VkDeviceCreateInfo</i> before it's passed on to the device
+	 * creator.
+	 */
+	public BoilerBuilder beforeDeviceCreation(PreVkDeviceCreator preCreator) {
+		this.preDeviceCreators.add(preCreator);
+		return this;
+	}
+
+	/**
+	 * Changes the device creator. The default device creator will simply call `vkCreateDevice`, but you can do
+	 * something else instead. Note that <i>beforeDeviceCreation</i> is preferred if you simply wish to alter the
+	 * <i>VkDeviceCreateInfo</i>.
+	 */
+	public BoilerBuilder vkDeviceCreator(VkDeviceCreator creator) {
+		if (this.vkDeviceCreator != DEFAULT_VK_DEVICE_CREATOR) {
+			throw new IllegalStateException("Attempted to set multiple device creators");
+		}
+		this.vkDeviceCreator = creator;
+		return this;
+	}
+
+	// -----------------------------------------------------------------------------------------------------------------
+	// Window functionality
+	// -----------------------------------------------------------------------------------------------------------------
+
+	/**
+	 * Ensures that a window will be created for the given <i>WindowBuilder</i> during the <i>build</i> method.
+	 */
+	public BoilerBuilder addWindow(WindowBuilder windowBuilder) {
+		this.windows.add(windowBuilder);
 		return this;
 	}
 
@@ -166,101 +454,33 @@ public class BoilerBuilder {
 		return this;
 	}
 
-	public BoilerBuilder engine(String engineName, int engineVersion) {
-		this.engineName = engineName;
-		this.engineVersion = engineVersion;
+	// -----------------------------------------------------------------------------------------------------------------
+	// Miscellaneous
+	// -----------------------------------------------------------------------------------------------------------------
+
+	/**
+	 * Enables OpenXR (virtual/augmented reality) support
+	 */
+	public BoilerBuilder xr(BoilerXrBuilder xrBuilder) {
+		this.xrBuilder = xrBuilder;
 		return this;
 	}
 
+	/**
+	 * Sets the default timeout (in nanoseconds) that the <i>BoilerInstance</i> and its children will use
+	 * in e.g. <i>vkWaitForFences</i> and <i>vkAcquireNextImageKHR</i>. The default value is 1 second.
+	 */
+	public BoilerBuilder defaultTimeout(long defaultTimeout) {
+		this.defaultTimeout = defaultTimeout;
+		return this;
+	}
+
+	/**
+	 * Filters out all physical devices that don't support dynamic rendering, and enables dynamic rendering on the
+	 * <i>VkDevice</i> that will be created during the <i>build</i> method.
+	 */
 	public BoilerBuilder enableDynamicRendering() {
 		this.dynamicRendering = true;
-		return this;
-	}
-
-	public BoilerBuilder desiredVkLayers(Collection<String> desiredLayers) {
-		desiredVulkanLayers.addAll(desiredLayers);
-		return this;
-	}
-
-	public BoilerBuilder requiredVkLayers(Collection<String> requiredLayers) {
-		requiredVulkanLayers.addAll(requiredLayers);
-		return this;
-	}
-
-	public BoilerBuilder desiredVkInstanceExtensions(Collection<String> instanceExtensions) {
-		desiredVulkanInstanceExtensions.addAll(instanceExtensions);
-		return this;
-	}
-
-	public BoilerBuilder requiredVkInstanceExtensions(Collection<String> instanceExtensions) {
-		requiredVulkanInstanceExtensions.addAll(instanceExtensions);
-		return this;
-	}
-
-	public BoilerBuilder desiredVkDeviceExtensions(Collection<String> deviceExtensions) {
-		desiredVulkanDeviceExtensions.addAll(deviceExtensions);
-		return this;
-	}
-
-	public BoilerBuilder requiredDeviceExtensions(Collection<String> deviceExtensions) {
-		requiredVulkanDeviceExtensions.addAll(deviceExtensions);
-		return this;
-	}
-
-	public BoilerBuilder validation(ValidationFeatures validationFeatures) {
-		this.validationFeatures = validationFeatures;
-		return this;
-	}
-
-	public BoilerBuilder validation() {
-		if (this.apiVersion == VK_API_VERSION_1_0) {
-			return this.validation(new ValidationFeatures(
-					false, false, false, true, true
-			));
-		} else {
-			return this.validation(new ValidationFeatures(
-					true, true, false, true, true
-			));
-		}
-	}
-
-	public BoilerBuilder forbidValidationErrors() {
-		this.forbidValidationErrors = true;
-		return this;
-	}
-
-	public BoilerBuilder apiDump() {
-		return requiredVkLayers(CollectionHelper.createSet("VK_LAYER_LUNARG_api_dump"));
-	}
-
-	public BoilerBuilder vkInstanceCreator(VkInstanceCreator creator) {
-		if (this.vkInstanceCreator != DEFAULT_VK_INSTANCE_CREATOR) {
-			throw new IllegalStateException("Attempted to set multiple instance creators");
-		}
-		this.vkInstanceCreator = creator;
-		return this;
-	}
-
-	public BoilerBuilder beforeInstanceCreation(PreVkInstanceCreator preCreator) {
-		this.preInstanceCreators.add(preCreator);
-		return this;
-	}
-
-	public BoilerBuilder vkDeviceCreator(VkDeviceCreator creator) {
-		if (this.vkDeviceCreator != DEFAULT_VK_DEVICE_CREATOR) {
-			throw new IllegalStateException("Attempted to set multiple device creators");
-		}
-		this.vkDeviceCreator = creator;
-		return this;
-	}
-
-	public BoilerBuilder beforeDeviceCreation(PreVkDeviceCreator preCreator) {
-		this.preDeviceCreators.add(preCreator);
-		return this;
-	}
-
-	public BoilerBuilder queueFamilyMapper(QueueFamilyMapper mapper) {
-		this.queueFamilyMapper = mapper;
 		return this;
 	}
 
@@ -274,62 +494,17 @@ public class BoilerBuilder {
 		}
 	}
 
-	public BoilerBuilder featurePicker10(FeaturePicker10 picker) {
-		this.vkDeviceFeaturePicker10.add(picker);
-		return this;
-	}
-
-	public BoilerBuilder featurePicker11(FeaturePicker11 picker) {
-		checkApiVersion(VK_API_VERSION_1_1);
-		this.vkDeviceFeaturePicker11.add(picker);
-		return this;
-	}
-
-	public BoilerBuilder featurePicker12(FeaturePicker12 picker) {
-		checkApiVersion(VK_API_VERSION_1_2);
-		this.vkDeviceFeaturePicker12.add(picker);
-		return this;
-	}
-
-	public BoilerBuilder featurePicker13(FeaturePicker13 picker) {
-		checkApiVersion(VK_API_VERSION_1_3);
-		this.vkDeviceFeaturePicker13.add(picker);
-		return this;
-	}
-
-	public BoilerBuilder requiredFeatures10(RequiredFeatures10 requiredFeatures) {
-		this.vkRequiredFeatures10.add(requiredFeatures);
-		return this;
-	}
-
-	public BoilerBuilder requiredFeatures11(RequiredFeatures11 requiredFeatures) {
-		checkApiVersion(VK_API_VERSION_1_1);
-		this.vkRequiredFeatures11.add(requiredFeatures);
-		return this;
-	}
-
-	public BoilerBuilder requiredFeatures12(RequiredFeatures12 requiredFeatures) {
-		checkApiVersion(VK_API_VERSION_1_2);
-		this.vkRequiredFeatures12.add(requiredFeatures);
-		return this;
-	}
-
-	public BoilerBuilder requiredFeatures13(RequiredFeatures13 requiredFeatures) {
-		checkApiVersion(VK_API_VERSION_1_3);
-		this.vkRequiredFeatures13.add(requiredFeatures);
-		return this;
-	}
-
-	public BoilerBuilder extraDeviceRequirements(ExtraDeviceRequirements requirements) {
-		this.extraDeviceRequirements.add(requirements);
-		return this;
-	}
-
-	public BoilerBuilder printDeviceRejectionInfo() {
-		this.printDeviceRejectionInfo = true;
-		return this;
-	}
-
+	/**
+	 * Builds the <i>BoilerInstance</i>. You should destroy it when you're finished using
+	 * <i>boilerInstance.destroyInitialObjects()</i>.
+	 * @return The <i>BoilerInstance</i>
+	 * @throws GLFWFailureException If GLFW initialization failed, or GLFW-Vulkan interop is not available
+	 * @throws VulkanFailureException If a Vulkan function called during this method doesn't return <i>VK_SUCCESS</i>
+	 * @throws MissingVulkanLayerException If a <i>required</i> Vulkan (instance) layer is not supported
+	 * @throws MissingVulkanExtensionException If a <i>required</i> Vulkan instance extension is not supported
+	 * @throws NoVkPhysicalDeviceException If not a single <i>VkPhysicalDevice</i> satisfies all device requirements
+	 * (or the target machine doesn't support any <i>VkPhysicalDevice</i> at all)
+	 */
 	public BoilerInstance build() throws GLFWFailureException, VulkanFailureException, MissingVulkanLayerException,
 			MissingVulkanExtensionException, NoVkPhysicalDeviceException {
 		if (didBuild) throw new IllegalStateException("This builder has been used already");

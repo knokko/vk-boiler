@@ -5,7 +5,7 @@ import org.lwjgl.system.MemoryStack;
 
 import java.util.function.BiConsumer;
 
-import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
+import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 

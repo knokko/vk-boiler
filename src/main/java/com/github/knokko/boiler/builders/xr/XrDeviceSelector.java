@@ -8,7 +8,7 @@ import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 
-import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
+import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.KHRVulkanEnable2.xrGetVulkanGraphicsDevice2KHR;
 import static org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceProperties;
 

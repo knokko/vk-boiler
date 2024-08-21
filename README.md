@@ -1,9 +1,10 @@
 # vk-boiler
 ## Kill some boilerplate code in Vulkan Java projects
 This is a library to reduce the amount of boilerplate code in Java Vulkan projects,
-but without trying to abstract away from any Vulkan concepts (because it is pretty
-much impossible to create a good abstraction that covers everything that can be
-done with Vulkan). The functionality of `vk-boiler` can be subdivided in roughly 3
+as well as adding several **optional** abstractions. This library intentionally
+does **not** hide any of its handles (e.g. the `VkDevice`) from you, to ensure
+that it does not take any power away from you.
+The functionality of `vk-boiler` can be subdivided in roughly 3
 topics:
 
 ### 1. Providing many methods to perform common tasks
@@ -62,8 +63,8 @@ write all the code yourself. This should normally not be a problem since `vk-boi
 doesn't hide your Vulkan handles from you.
 
 ### 2. Simplify bootstrapping
-Bootstrapping Vulkan applications can be very verbose (often more than 100
-lines of code). You need to:
+Bootstrapping Vulkan applications can be very verbose (easily hundreds of lines
+of code). You need to:
 - Query supported instance extensions and layers
 - Create the instance
 - Query physical devices, their properties, limits, extensions...
@@ -80,25 +81,15 @@ do all of this with potentially very little code. It could be as simple as
 this:
 ```java
 var boiler = new BoilerBuilder(
-    VK_API_VERSION_1_1, "SimpleRingApproximation", VK_MAKE_VERSION(0, 2, 0)
+		VK_API_VERSION_1_1, "SimpleRingApproximation", VK_MAKE_VERSION(0, 2, 0)
 )
-    .validation()
-    .window(0L, 1000, 800, new BoilerSwapchainBuilder(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
-    .build();
+		.validation()
+		.enableDynamicRendering()
+		.addWindow(new WindowBuilder(1000, 8000, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+		.build();
 ```
-For more complex applications that want to use features and extensions, the
-`BoilerBuilder` class provides several methods to help with that, for instance:
-```java
-var boiler = new BoilerBuilder(
-    VK_API_VERSION_1_2, "TestComplexVulkan1.2", VK_MAKE_VERSION(1, 1, 1)
-).engine("TestEngine", VK_MAKE_VERSION(0, 8, 4))
-    .requiredVkInstanceExtensions(createSet(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))
-    .desiredVkInstanceExtensions(createSet(VK_KHR_SURFACE_EXTENSION_NAME))
-    .builder();
-```
-I tried to design the `BoilerBuilder` class to handle nearly all use cases, but I
-probably missed some. If the `BoilerBuilder` lacks the flexibility you need, you can
-still create the `BoilerInstance` using its public constructor.
+See the [complete initialization documentation](docs/initialization.md) for
+more information.
 
 ### 3. Swapchain management
 Almost every Vulkan application needs to do swapchain management, but the code to
@@ -224,19 +215,7 @@ acceptable return code).
 
 ### BoilerBuilder.build() exceptions
 The `build()` method of `BoilerBuilder` is a special method that can throw
-several other exception types as well:
-- `GLFWFailureException`: when it failed to initialize GLFW or create a window
-- `MissingVulkanExtensionException`: when a required Vulkan extension is not
-supported by the Vulkan implementation. Note: `vk-boiler` doesn't require any
-extensions by default, but you can add required extensions to the `BoilerBuilder`,
-plus GLFW will add some if you want to create a window.
-- `MissingVulkanLayerException`: when a required Vulkan layer is not supported
-by the Vulkan implementation. Note: `vk-boiler` doesn't require any
-layers by default, but you can add required layers to the `BoilerBuilder`:
-either explicitly or implicitly by enabling validation.
-- `NoVkPhysicalDeviceException`: when not a single `VkPhysicalDevice` satisfies
-all requirements of the `BoilerBuilder` (or the target machine doesn't have a
-single Vulkan-capable graphics driver).
+several other exception types as well. See its doc comments for more information.
 
 ### Error handling
 All exceptions provided by `vk-boiler` extend `RuntimeException`, so handling them

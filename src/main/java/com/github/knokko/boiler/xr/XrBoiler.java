@@ -8,7 +8,7 @@ import org.lwjgl.system.MemoryStack;
 import java.nio.IntBuffer;
 import java.util.function.Consumer;
 
-import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
+import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
 import static org.joml.Math.tan;
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;

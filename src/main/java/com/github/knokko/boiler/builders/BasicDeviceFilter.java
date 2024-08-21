@@ -46,16 +46,16 @@ class BasicDeviceFilter {
 					!builder.vkRequiredFeatures10.isEmpty(), !builder.vkRequiredFeatures11.isEmpty(),
 					!builder.vkRequiredFeatures12.isEmpty(), !builder.vkRequiredFeatures13.isEmpty()
 			);
-			if (!builder.vkRequiredFeatures10.stream().allMatch(required -> required.supportsRequiredFeatures(supportedFeatures.features10()))) {
+			if (!builder.vkRequiredFeatures10.stream().allMatch(required -> required.test(supportedFeatures.features10()))) {
 				return false;
 			}
-			if (!builder.vkRequiredFeatures11.stream().allMatch(required -> required.supportsRequiredFeatures(supportedFeatures.features11()))) {
+			if (!builder.vkRequiredFeatures11.stream().allMatch(required -> required.test(supportedFeatures.features11()))) {
 				return false;
 			}
-			if (!builder.vkRequiredFeatures12.stream().allMatch(required -> required.supportsRequiredFeatures(supportedFeatures.features12()))) {
+			if (!builder.vkRequiredFeatures12.stream().allMatch(required -> required.test(supportedFeatures.features12()))) {
 				return false;
 			}
-			return builder.vkRequiredFeatures13.stream().allMatch(required -> required.supportsRequiredFeatures(supportedFeatures.features13()));
+			return builder.vkRequiredFeatures13.stream().allMatch(required -> required.test(supportedFeatures.features13()));
 		}
 	}
 
