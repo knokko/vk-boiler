@@ -1,8 +1,8 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.BoilerInstance;
-import com.github.knokko.boiler.queue.VkbQueueFamily;
-import com.github.knokko.boiler.sync.AwaitableSubmission;
+import com.github.knokko.boiler.queues.VkbQueueFamily;
+import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 import org.lwjgl.vulkan.VkSwapchainPresentModeInfoEXT;
 

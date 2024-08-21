@@ -1,19 +1,19 @@
 package com.github.knokko.boiler.samples;
 
-import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.WindowBuilder;
-import com.github.knokko.boiler.builder.device.SimpleDeviceSelector;
-import com.github.knokko.boiler.builder.instance.ValidationFeatures;
-import com.github.knokko.boiler.builder.window.SimpleCompositeAlphaPicker;
+import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.builders.WindowBuilder;
+import com.github.knokko.boiler.builders.device.SimpleDeviceSelector;
+import com.github.knokko.boiler.builders.instance.ValidationFeatures;
+import com.github.knokko.boiler.builders.window.SimpleCompositeAlphaPicker;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.BoilerInstance;
-import com.github.knokko.boiler.sync.ResourceUsage;
+import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.window.*;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSurface;
 
-import static com.github.knokko.boiler.util.ReflectionHelper.getIntConstantName;
+import static com.github.knokko.boiler.utilities.ReflectionHelper.getIntConstantName;
 import static java.lang.Math.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryUtil.memUTF8;

@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.images;
 
-import com.github.knokko.boiler.builder.BoilerBuilder;
+import com.github.knokko.boiler.builders.BoilerBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

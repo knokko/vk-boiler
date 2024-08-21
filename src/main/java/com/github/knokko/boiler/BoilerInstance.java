@@ -1,14 +1,14 @@
 package com.github.knokko.boiler;
 
-import com.github.knokko.boiler.buffer.BoilerBuffers;
-import com.github.knokko.boiler.builder.WindowBuilder;
+import com.github.knokko.boiler.buffers.BoilerBuffers;
+import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.BoilerCommands;
 import com.github.knokko.boiler.debug.BoilerDebug;
 import com.github.knokko.boiler.descriptors.BoilerDescriptors;
 import com.github.knokko.boiler.images.BoilerImages;
 import com.github.knokko.boiler.pipelines.BoilerPipelines;
-import com.github.knokko.boiler.queue.QueueFamilies;
-import com.github.knokko.boiler.sync.BoilerSync;
+import com.github.knokko.boiler.queues.QueueFamilies;
+import com.github.knokko.boiler.synchronization.BoilerSync;
 import com.github.knokko.boiler.window.VkbWindow;
 import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.VkDevice;

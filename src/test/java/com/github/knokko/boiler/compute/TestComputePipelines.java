@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.compute;
 
-import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.sync.WaitSemaphore;
+import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.synchronization.WaitSemaphore;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
 

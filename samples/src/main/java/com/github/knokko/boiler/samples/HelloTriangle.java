@@ -1,13 +1,13 @@
 package com.github.knokko.boiler.samples;
 
-import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.WindowBuilder;
+import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
-import com.github.knokko.boiler.sync.VkbFence;
-import com.github.knokko.boiler.sync.WaitSemaphore;
+import com.github.knokko.boiler.synchronization.VkbFence;
+import com.github.knokko.boiler.synchronization.WaitSemaphore;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;

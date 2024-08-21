@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.descriptors;
 
-import com.github.knokko.boiler.buffer.VkbBuffer;
+import com.github.knokko.boiler.buffers.VkbBuffer;
 import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;

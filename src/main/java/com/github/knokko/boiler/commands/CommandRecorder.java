@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.commands;
 
 import com.github.knokko.boiler.BoilerInstance;
-import com.github.knokko.boiler.sync.ResourceUsage;
+import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 

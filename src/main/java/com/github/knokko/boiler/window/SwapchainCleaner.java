@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.BoilerInstance;
-import com.github.knokko.boiler.sync.VkbFence;
+import com.github.knokko.boiler.synchronization.VkbFence;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 

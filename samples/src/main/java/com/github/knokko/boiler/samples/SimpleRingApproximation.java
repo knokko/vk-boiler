@@ -1,16 +1,16 @@
 package com.github.knokko.boiler.samples;
 
-import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.WindowBuilder;
+import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
-import com.github.knokko.boiler.sync.AwaitableSubmission;
-import com.github.knokko.boiler.sync.VkbFence;
+import com.github.knokko.boiler.synchronization.AwaitableSubmission;
+import com.github.knokko.boiler.synchronization.VkbFence;
 import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
-import com.github.knokko.boiler.sync.ResourceUsage;
-import com.github.knokko.boiler.sync.WaitSemaphore;
+import com.github.knokko.boiler.synchronization.ResourceUsage;
+import com.github.knokko.boiler.synchronization.WaitSemaphore;
 import com.github.knokko.boiler.window.VkbWindow;
 import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.system.MemoryStack;

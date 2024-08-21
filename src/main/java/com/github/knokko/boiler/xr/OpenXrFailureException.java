@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.xr;
 
-import com.github.knokko.boiler.util.ReflectionHelper;
+import com.github.knokko.boiler.utilities.ReflectionHelper;
 import org.lwjgl.openxr.XR10;
 
 import static org.lwjgl.openxr.XR10.*;

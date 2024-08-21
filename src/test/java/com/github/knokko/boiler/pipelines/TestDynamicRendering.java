@@ -1,9 +1,9 @@
 package com.github.knokko.boiler.pipelines;
 
-import com.github.knokko.boiler.buffer.MappedVkbBuffer;
-import com.github.knokko.boiler.builder.BoilerBuilder;
+import com.github.knokko.boiler.buffers.MappedVkbBuffer;
+import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
-import com.github.knokko.boiler.sync.ResourceUsage;
+import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
 import org.lwjgl.vulkan.VkRenderingAttachmentInfo;

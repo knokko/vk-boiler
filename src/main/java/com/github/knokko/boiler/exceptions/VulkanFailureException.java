@@ -1,6 +1,6 @@
 package com.github.knokko.boiler.exceptions;
 
-import com.github.knokko.boiler.util.ReflectionHelper;
+import com.github.knokko.boiler.utilities.ReflectionHelper;
 import org.lwjgl.vulkan.VK12;
 
 import static org.lwjgl.vulkan.VK10.*;

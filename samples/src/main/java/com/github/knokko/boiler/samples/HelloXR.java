@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.samples;
 
-import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.builder.xr.BoilerXrBuilder;
+import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.builders.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
 import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
@@ -17,7 +17,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
-import static com.github.knokko.boiler.util.CollectionHelper.createSet;
+import static com.github.knokko.boiler.utilities.CollectionHelper.createSet;
 import static com.github.knokko.boiler.xr.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
