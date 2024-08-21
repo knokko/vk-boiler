@@ -5,10 +5,8 @@ import com.github.knokko.boiler.builder.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
 import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
-import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
-import com.github.knokko.boiler.sync.WaitSemaphore;
 import com.github.knokko.boiler.xr.VkbSession;
 import com.github.knokko.boiler.xr.SessionLoop;
 import org.joml.Matrix4f;
@@ -130,19 +128,16 @@ public class HelloXR {
 
 		long[] swapchainImages = boiler.xr().getSwapchainImages(swapchain);
 		long[] swapchainImageViews = new long[swapchainImages.length];
-		VkbImage depthImage;
-		try (var stack = stackPush()) {
-			for (int index = 0; index < swapchainImages.length; index++) {
-				swapchainImageViews[index] = boiler.images.createView(
-						stack, swapchainImages[index], (int) swapchainFormat,
-						VK_IMAGE_ASPECT_COLOR_BIT, 1, 2, "SwapchainView"
-				);
-			}
-			depthImage = boiler.images.create(
-					stack, width, height, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-					VK_IMAGE_ASPECT_DEPTH_BIT, VK_SAMPLE_COUNT_1_BIT, 1, 2, true, "DepthImage"
+		for (int index = 0; index < swapchainImages.length; index++) {
+			swapchainImageViews[index] = boiler.images.createView(
+					swapchainImages[index], (int) swapchainFormat,
+					VK_IMAGE_ASPECT_COLOR_BIT, 1, 2, "SwapchainView"
 			);
 		}
+		var depthImage = boiler.images.create(
+				width, height, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+				VK_IMAGE_ASPECT_DEPTH_BIT, VK_SAMPLE_COUNT_1_BIT, 1, 2, true, "DepthImage"
+		);
 
 		var commandPool = boiler.commands.createPool(
 				VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, boiler.queueFamilies().graphics().index(), "Drawing"

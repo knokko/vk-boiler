@@ -129,14 +129,10 @@ public class MultipleWindows {
 				pipeline = builder.build("SpinPipeline");
 			}
 
-			associatedResources = new SwapchainResourceManager<>(swapchainImage -> {
-				try (var stack = stackPush()) {
-					return boiler.images.createSimpleView(
-							stack, swapchainImage.vkImage(), window.surfaceFormat,
-							VK_IMAGE_ASPECT_COLOR_BIT, "SpinSwapchainImageView"
-					);
-				}
-			}, imageView -> vkDestroyImageView(boiler.vkDevice(), imageView, null));
+			associatedResources = new SwapchainResourceManager<>(swapchainImage -> boiler.images.createSimpleView(
+					swapchainImage.vkImage(), window.surfaceFormat,
+					VK_IMAGE_ASPECT_COLOR_BIT, "SpinSwapchainImageView"
+			), imageView -> vkDestroyImageView(boiler.vkDevice(), imageView, null));
 		}
 
 		@Override

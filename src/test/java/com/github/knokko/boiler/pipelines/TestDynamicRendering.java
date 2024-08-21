@@ -3,7 +3,6 @@ package com.github.knokko.boiler.pipelines;
 import com.github.knokko.boiler.buffer.MappedVkbBuffer;
 import com.github.knokko.boiler.builder.BoilerBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
-import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
@@ -30,19 +29,17 @@ public class TestDynamicRendering {
 		int height = 50;
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 
-		VkbImage image;
+		var image = instance.images.createSimple(
+				width, height, format,
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+				VK_IMAGE_ASPECT_COLOR_BIT, "TestColorAttachment"
+		);
 		MappedVkbBuffer destBuffer = instance.buffers.createMapped(
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 		long pipelineLayout;
 		long graphicsPipeline;
 		try (var stack = stackPush()) {
-			image = instance.images.createSimple(
-					stack, width, height, format,
-					VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-					VK_IMAGE_ASPECT_COLOR_BIT, "TestColorAttachment"
-			);
-
 			pipelineLayout = instance.pipelines.createLayout(stack, null, "ColorLayout");
 
 			var ciPipeline = VkGraphicsPipelineCreateInfo.calloc(stack);
@@ -149,15 +146,11 @@ public class TestDynamicRendering {
 		int width = 20;
 		int height = 30;
 
-		VkbImage image;
-		try (var stack = stackPush()) {
-			image = instance.images.createSimple(
-					stack, width, height, VK_FORMAT_D32_SFLOAT,
-					VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-					VK_IMAGE_ASPECT_DEPTH_BIT, "DepthImage"
-			);
-		}
-
+		var image = instance.images.createSimple(
+				width, height, VK_FORMAT_D32_SFLOAT,
+				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+				VK_IMAGE_ASPECT_DEPTH_BIT, "DepthImage"
+		);
 		var destBuffer = instance.buffers.createMapped(
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);

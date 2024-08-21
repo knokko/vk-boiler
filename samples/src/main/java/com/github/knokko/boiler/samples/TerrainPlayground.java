@@ -226,12 +226,12 @@ public class TerrainPlayground {
 			ShortBuffer deltaHeightBuffer = ShortBuffer.allocate(hostHeightBuffer.capacity());
 
 			var image = boiler.images.createSimple(
-					stack, gridSize, gridSize, VK_FORMAT_R16_SINT,
+					gridSize, gridSize, VK_FORMAT_R16_SINT,
 					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT, "HeightImage"
 			);
 
 			var normalImage = boiler.images.createSimple(
-					stack, gridSize, gridSize, VK_FORMAT_R8G8B8A8_SNORM,
+					gridSize, gridSize, VK_FORMAT_R8G8B8A8_SNORM,
 					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT, "DeltaHeightImage"
 			);
 
@@ -384,11 +384,11 @@ public class TerrainPlayground {
 			descriptorSet = descriptorPool.allocate(stack, 1)[0];
 
 			heightSampler = boiler.images.createSampler(
-					stack, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
+					VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
 					VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0f, 0f, false, "HeightSampler"
 			);
 			normalSampler = boiler.images.simpleSampler(
-					stack, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, "NormalSampler"
+					VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, "NormalSampler"
 			);
 
 			var heightMapInfo = VkDescriptorImageInfo.calloc(1, stack);
@@ -426,24 +426,22 @@ public class TerrainPlayground {
 
 		long frameCounter = 0;
 		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			try (var stack = stackPush()) {
-				long imageView = boiler.images.createSimpleView(
-						stack, swapchainImage.vkImage(), boiler.window().surfaceFormat,
-						VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
-				);
+			long imageView = boiler.images.createSimpleView(
+					swapchainImage.vkImage(), boiler.window().surfaceFormat,
+					VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
+			);
 
-				var depthImage = boiler.images.createSimple(
-						stack, swapchainImage.width(), swapchainImage.height(), depthFormat,
-						VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT, "Depth"
-				);
+			var depthImage = boiler.images.createSimple(
+					swapchainImage.width(), swapchainImage.height(), depthFormat,
+					VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT, "Depth"
+			);
 
-				long framebuffer = boiler.images.createFramebuffer(
-						stack, renderPass, swapchainImage.width(), swapchainImage.height(),
-						"TerrainFramebuffer", imageView, depthImage.vkImageView()
-				);
+			long framebuffer = boiler.images.createFramebuffer(
+					renderPass, swapchainImage.width(), swapchainImage.height(),
+					"TerrainFramebuffer", imageView, depthImage.vkImageView()
+			);
 
-				return new AssociatedSwapchainResources(framebuffer, imageView, depthImage);
-			}
+			return new AssociatedSwapchainResources(framebuffer, imageView, depthImage);
 		}, resources -> {
 			vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
 			vkDestroyImageView(boiler.vkDevice(), resources.imageView, null);

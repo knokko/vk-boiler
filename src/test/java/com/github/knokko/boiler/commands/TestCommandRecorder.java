@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.commands;
 
 import com.github.knokko.boiler.builder.BoilerBuilder;
-import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.sync.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
@@ -31,18 +30,14 @@ public class TestCommandRecorder {
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 
-		VkbImage sourceImage;
-		VkbImage destImage;
-		try (var stack = stackPush()) {
-			sourceImage = instance.images.create(
-					stack, width, height, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
-					VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "SourceImage"
-			);
-			destImage = instance.images.create(
-					stack, width, height, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
-					VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
-			);
-		}
+		var sourceImage = instance.images.create(
+				width, height, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "SourceImage"
+		);
+		var destImage = instance.images.create(
+				width, height, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
+		);
 
 		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "CopyPool");
 		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "CopyCommandBuffer")[0];
@@ -107,18 +102,14 @@ public class TestCommandRecorder {
 				VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 
-		VkbImage sourceImage;
-		VkbImage destImage;
-		try (var stack = stackPush()) {
-			sourceImage = instance.images.create(
-					stack, width1, height1, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
-					VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "SourceImage"
-			);
-			destImage = instance.images.create(
-					stack, width2, height2, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
-					VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
-			);
-		}
+		var sourceImage = instance.images.create(
+				width1, height1, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "SourceImage"
+		);
+		var destImage = instance.images.create(
+				width2, height2, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
+		);
 
 		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "CopyPool");
 		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "CopyCommandBuffer")[0];

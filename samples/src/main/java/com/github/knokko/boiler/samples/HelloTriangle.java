@@ -168,19 +168,17 @@ public class HelloTriangle {
 
 		long frameCounter = 0;
 		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			try (var stack = stackPush()) {
-				long imageView = boiler.images.createSimpleView(
-						stack, swapchainImage.vkImage(), boiler.window().surfaceFormat,
-						VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView " + swapchainImage.index()
-				);
+			long imageView = boiler.images.createSimpleView(
+					swapchainImage.vkImage(), boiler.window().surfaceFormat,
+					VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView " + swapchainImage.index()
+			);
 
-				long framebuffer = boiler.images.createFramebuffer(
-						stack, renderPass, swapchainImage.width(), swapchainImage.height(),
-						"TriangleFramebuffer", imageView
-				);
+			long framebuffer = boiler.images.createFramebuffer(
+					renderPass, swapchainImage.width(), swapchainImage.height(),
+					"TriangleFramebuffer", imageView
+			);
 
-				return new AssociatedSwapchainResources(framebuffer, imageView);
-			}
+			return new AssociatedSwapchainResources(framebuffer, imageView);
 		}, resources -> {
 			vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
 			vkDestroyImageView(boiler.vkDevice(), resources.imageView, null);

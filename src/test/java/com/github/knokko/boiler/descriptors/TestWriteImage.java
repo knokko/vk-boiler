@@ -29,7 +29,7 @@ public class TestWriteImage {
 			memPutInt(sourceBuffer.hostAddress(), 100);
 
 			var image = instance.images.createSimple(
-					stack, 1, 1, VK_FORMAT_R32_SINT,
+					1, 1, VK_FORMAT_R32_SINT,
 					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					VK_IMAGE_ASPECT_COLOR_BIT, "Image"
 			);
@@ -58,7 +58,7 @@ public class TestWriteImage {
 			long descriptorSet = descriptorPool.allocate(stack, 1)[0];
 
 			var sampler = instance.images.createSampler(
-					stack, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+					VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
 					0f, 0f, false, "Sampler"
 			);
 

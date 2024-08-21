@@ -81,14 +81,10 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 			graphicsPipeline = pipelineBuilder.build("RingApproximation");
 		}
 
-		swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			try (var stack = stackPush()) {
-				return boiler.images.createSimpleView(
-						stack, swapchainImage.vkImage(), boiler.window().surfaceFormat,
-						VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
-				);
-			}
-		}, imageView -> vkDestroyImageView(boiler.vkDevice(), imageView, null));
+		swapchainResources = new SwapchainResourceManager<>(swapchainImage -> boiler.images.createSimpleView(
+				swapchainImage.vkImage(), boiler.window().surfaceFormat,
+				VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
+		), imageView -> vkDestroyImageView(boiler.vkDevice(), imageView, null));
 	}
 
 	@Override
