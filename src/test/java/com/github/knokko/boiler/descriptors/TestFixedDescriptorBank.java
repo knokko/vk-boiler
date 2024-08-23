@@ -20,10 +20,8 @@ public class TestFixedDescriptorBank {
 		VkbDescriptorSetLayout descriptorSetLayout;
 		try (var stack = stackPush()) {
 			var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-			bindings.binding(0);
-			bindings.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			instance.descriptors.binding(bindings, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
 			bindings.descriptorCount(5);
-			bindings.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
 			descriptorSetLayout = instance.descriptors.createLayout(stack, bindings, "Test");
 		}

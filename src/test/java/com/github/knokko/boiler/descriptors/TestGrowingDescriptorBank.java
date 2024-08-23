@@ -23,10 +23,8 @@ public class TestGrowingDescriptorBank {
 		VkbDescriptorSetLayout layout;
 		try (var stack = stackPush()) {
 			var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-			bindings.binding(0);
-			bindings.descriptorType(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+			instance.descriptors.binding(bindings, 0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_VERTEX_BIT);
 			bindings.descriptorCount(3);
-			bindings.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
 			layout = instance.descriptors.createLayout(stack, bindings, "Test");
 		}

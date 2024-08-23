@@ -13,6 +13,7 @@ import static org.lwjgl.vulkan.VK13.VK_API_VERSION_1_3;
 
 public class TestDescriptorSetLayout {
 
+	@SuppressWarnings("resource")
 	@Test
 	public void testDescriptorTypeCounts() {
 		var instance = new BoilerBuilder(
@@ -21,24 +22,11 @@ public class TestDescriptorSetLayout {
 
 		try (var stack = stackPush()) {
 			var bindings = VkDescriptorSetLayoutBinding.calloc(3, stack);
-			var uniform1 = bindings.get(0);
-			uniform1.binding(0);
-			uniform1.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			uniform1.descriptorCount(1);
-			uniform1.stageFlags(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-			uniform1.pImmutableSamplers(null);
-			var sampler = bindings.get(1);
-			sampler.binding(1);
-			sampler.descriptorType(VK_DESCRIPTOR_TYPE_SAMPLER);
-			sampler.descriptorCount(5);
-			sampler.stageFlags(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-			sampler.pImmutableSamplers(null);
-			var uniform2 = bindings.get(2);
-			uniform2.binding(2);
-			uniform2.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			uniform2.descriptorCount(2);
-			uniform2.stageFlags(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-			uniform2.pImmutableSamplers(null);
+			instance.descriptors.binding(bindings, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+			instance.descriptors.binding(bindings, 1, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+			bindings.get(1).descriptorCount(5);
+			instance.descriptors.binding(bindings, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+			bindings.get(2).descriptorCount(2);
 
 			var layout = instance.descriptors.createLayout(stack, bindings, "DSLayout");
 

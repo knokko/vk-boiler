@@ -180,12 +180,7 @@ public class HelloXR {
 		try (var stack = stackPush()) {
 
 			var layoutBindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-			var matricesBinding = layoutBindings.get(0);
-			matricesBinding.binding(0);
-			matricesBinding.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			matricesBinding.descriptorCount(1);
-			matricesBinding.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
-			matricesBinding.pImmutableSamplers(null);
+			boiler.descriptors.binding(layoutBindings, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
 
 			descriptorSetLayout = boiler.descriptors.createLayout(stack, layoutBindings, "MatricesLayout");
 			descriptorPool = descriptorSetLayout.createPool(1, 0, "MatricesPool");

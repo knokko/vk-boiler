@@ -141,25 +141,9 @@ public class TerrainPlayground {
 
 	private static VkbDescriptorSetLayout createDescriptorSetLayout(MemoryStack stack, BoilerInstance boiler) {
 		var bindings = VkDescriptorSetLayoutBinding.calloc(3, stack);
-		var camera = bindings.get(0);
-		camera.binding(0);
-		camera.descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		camera.descriptorCount(1);
-		camera.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
-		camera.pImmutableSamplers(null);
-		var heightMap = bindings.get(1);
-		heightMap.binding(1);
-		heightMap.descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		heightMap.descriptorCount(1);
-		heightMap.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
-		heightMap.pImmutableSamplers(null);
-		var normalMap = bindings.get(2);
-		normalMap.binding(2);
-		normalMap.descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		normalMap.descriptorCount(1);
-		normalMap.stageFlags(VK_SHADER_STAGE_FRAGMENT_BIT);
-		normalMap.pImmutableSamplers(null);
-
+		boiler.descriptors.binding(bindings, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+		boiler.descriptors.binding(bindings, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT);
+		boiler.descriptors.binding(bindings, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 		return boiler.descriptors.createLayout(stack, bindings, "TerrainDescriptorSetLayout");
 	}
 
@@ -487,6 +471,7 @@ public class TerrainPlayground {
 			camera.z += dz * scale;
 		}));
 
+		//noinspection resource
 		glfwSetCursorPosCallback(boiler.window().glfwWindow, (window, x, y) -> {
 			if (!Double.isNaN(cameraController.oldX) && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 				double dx = x - cameraController.oldX;

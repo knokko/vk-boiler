@@ -22,29 +22,20 @@ public class TestWriteImage {
 				VK_API_VERSION_1_2, "TestWriteImage", 1
 		).validation().forbidValidationErrors().build();
 
+		var destBuffer = instance.buffers.createMapped(4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
+		var sourceBuffer = instance.buffers.createMapped(4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "SourceBuffer");
+		memPutInt(sourceBuffer.hostAddress(), 100);
+
+		var image = instance.images.createSimple(
+				1, 1, VK_FORMAT_R32_SINT,
+				VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				VK_IMAGE_ASPECT_COLOR_BIT, "Image"
+		);
+
 		try (var stack = stackPush()) {
-
-			var destBuffer = instance.buffers.createMapped(4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
-			var sourceBuffer = instance.buffers.createMapped(4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "SourceBuffer");
-			memPutInt(sourceBuffer.hostAddress(), 100);
-
-			var image = instance.images.createSimple(
-					1, 1, VK_FORMAT_R32_SINT,
-					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					VK_IMAGE_ASPECT_COLOR_BIT, "Image"
-			);
-
 			var layoutBindings = VkDescriptorSetLayoutBinding.calloc(2, stack);
-			var bufferLayoutBinding = layoutBindings.get(0);
-			bufferLayoutBinding.binding(0);
-			bufferLayoutBinding.descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-			bufferLayoutBinding.descriptorCount(1);
-			bufferLayoutBinding.stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
-			var imageLayoutBinding = layoutBindings.get(1);
-			imageLayoutBinding.binding(1);
-			imageLayoutBinding.descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-			imageLayoutBinding.descriptorCount(1);
-			imageLayoutBinding.stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
+			instance.descriptors.binding(layoutBindings, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+			instance.descriptors.binding(layoutBindings, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT);
 
 			var descriptorSetLayout = instance.descriptors.createLayout(stack, layoutBindings, "DSLayout");
 			long pipelineLayout = instance.pipelines.createLayout(

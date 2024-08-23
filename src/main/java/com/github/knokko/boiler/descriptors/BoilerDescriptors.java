@@ -40,6 +40,15 @@ public class BoilerDescriptors {
 		return results;
 	}
 
+	public void binding(VkDescriptorSetLayoutBinding.Buffer bindings, int index, int descriptorType, int stageFlags) {
+		var binding = bindings.get(index);
+		binding.binding(index);
+		binding.descriptorType(descriptorType);
+		binding.descriptorCount(1);
+		binding.stageFlags(stageFlags);
+		binding.pImmutableSamplers(null);
+	}
+
 	@SuppressWarnings("resource")
 	public VkDescriptorBufferInfo.Buffer bufferInfo(MemoryStack stack, VkbBuffer... buffers) {
 		var descriptorBufferInfo = VkDescriptorBufferInfo.calloc(buffers.length, stack);

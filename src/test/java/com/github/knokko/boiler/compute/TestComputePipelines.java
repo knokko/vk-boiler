@@ -33,11 +33,7 @@ public class TestComputePipelines {
 			var hostBuffer = memIntBuffer(buffer.hostAddress(), valuesPerInvocation * invocationsPerGroup * groupCount);
 
 			var fillLayoutBindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-			var fillBufferLayoutBinding = fillLayoutBindings.get(0);
-			fillBufferLayoutBinding.binding(0);
-			fillBufferLayoutBinding.descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-			fillBufferLayoutBinding.descriptorCount(1);
-			fillBufferLayoutBinding.stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
+			instance.descriptors.binding(fillLayoutBindings, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 
 			var descriptorSetLayout = instance.descriptors.createLayout(
 					stack, fillLayoutBindings, "FillBuffer-DescriptorSetLayout"
