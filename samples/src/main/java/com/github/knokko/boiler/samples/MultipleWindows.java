@@ -39,16 +39,16 @@ public class MultipleWindows {
 				).callback(window -> windows[1] = window))
 				.build();
 
-		var windowLoop = new WindowEventLoop();
-		windowLoop.addWindow(new SpinWindowLoop(windows[1]));
-		windowLoop.addWindow(new FillWindowLoop(windows[0], 1f, 0f, 1f));
+		var eventLoop = new WindowEventLoop();
+		eventLoop.addWindow(new SpinWindowLoop(windows[1]));
+		eventLoop.addWindow(new FillWindowLoop(windows[0], 1f, 0f, 1f));
 
 		//noinspection resource
 		glfwSetMouseButtonCallback(windows[1].glfwWindow, (clickedWindow, button, action, modifiers) -> {
-			if (action == GLFW_PRESS) startNewWindowThread(boiler, windowLoop);
+			if (action == GLFW_PRESS) startNewWindowThread(boiler, eventLoop);
 		});
 
-		windowLoop.runMain();
+		eventLoop.runMain();
 
 		boiler.destroyInitialObjects();
 	}

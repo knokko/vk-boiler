@@ -18,19 +18,42 @@ import static org.lwjgl.vulkan.KHRSwapchain.VK_OBJECT_TYPE_SWAPCHAIN_KHR;
 import static org.lwjgl.vulkan.KHRSwapchain.vkCreateSwapchainKHR;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * A thick wrapper around a <i>GlfwWindow</i>, and a potential manager for the swapchains of the window. See
+ * docs/swapchain.md for instructions on how to use this.
+ */
 public class VkbWindow {
 
 	BoilerInstance instance;
 	private final SwapchainCleaner cleaner;
 	public final long glfwWindow;
 	public final long vkSurface;
+	/**
+	 * An immutable set of all supported <i>VkPresentModeKHR</i>s of the <i>VkSurfaceKHR</i> of this window.
+	 */
 	public final Set<Integer> supportedPresentModes;
 	private final Set<Integer> usedPresentModes;
+	/**
+	 * The <i>VkFormat</i> of the swapchain images of the <i>VkSurfaceKHR</i> of this window
+	 */
 	public final int surfaceFormat;
+	/**
+	 * The <i>VkColorSpaceKHR</i> of the swapchain images of the <i>VkSurfaceKHR</i> of this window
+	 */
 	public final int surfaceColorSpace;
 	private final VkSurfaceCapabilitiesKHR surfaceCapabilities;
+	/**
+	 * The image usage flags for the swapchain images that will be created for this window
+	 */
 	public final int swapchainImageUsage;
+	/**
+	 * The composite alpha for the swapchain images that will be created for this window
+	 */
 	public final int swapchainCompositeAlpha;
+	/**
+	 * The queue family that will be used to present images of the swapchains for this window, typically the
+	 * 'main' graphics queue family
+	 */
 	public final VkbQueueFamily presentFamily;
 
 	private int width, height;
@@ -42,6 +65,10 @@ public class VkbWindow {
 
 	WindowEventLoop windowLoop;
 
+	/**
+	 * This constructor is meant for internal use only. You should use <i>BoilerBuilder.addWindow</i> or
+	 * <i>BoilerInstance.addWindow</i> instead
+	 */
 	public VkbWindow(
 			boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface,
 			Collection<Integer> supportedPresentModes, Set<Integer> preparedPresentModes,
@@ -70,10 +97,23 @@ public class VkbWindow {
 		this.updateSize();
 	}
 
+	/**
+	 * Acquires a swapchain image that will be available after waiting on its <i>acquireFence</i>
+	 * @param presentMode The present mode that will be used to present the swapchain image
+	 * @return The acquired swapchain image, or null if no image can be acquired now
+	 * (e.g. because the window is minimized)
+	 */
 	public AcquiredImage acquireSwapchainImageWithFence(int presentMode) {
 		return acquireSwapchainImage(presentMode, true);
 	}
 
+	/**
+	 * Acquires a swapchain image that will be available after its <i>acquireSemaphore</i> has
+	 * been signaled.
+	 * @param presentMode The present mode that will be used to present the swapchain image
+	 * @return The acquired swapchain image, or null if no image can be acquired now
+	 * (e.g. because the window is minimized)
+	 */
 	public AcquiredImage acquireSwapchainImageWithSemaphore(int presentMode) {
 		return acquireSwapchainImage(presentMode, false);
 	}
@@ -104,10 +144,16 @@ public class VkbWindow {
 		}
 	}
 
+	/**
+	 * @return The current (or very recent) width of the window, in pixels
+	 */
 	public int getWidth() {
 		return width;
 	}
 
+	/**
+	 * @return The current (or very recent) height of the window, in pixels
+	 */
 	public int getHeight() {
 		return height;
 	}
@@ -269,10 +315,28 @@ public class VkbWindow {
 		return acquiredImage;
 	}
 
+	/**
+	 * Presents a previously acquired swapchain image
+	 * @param image The swapchain image
+	 * @param renderSubmission An <i>AwaitableSubmission</i> corresponding to the last queue submission that renders
+	 *                         onto the swapchain image. Hint: <i>VkbQueue.submit</i> returns an
+	 *                         <i>AwaitableSubmission</i> if the fence is not <i>VK_NULL_HANDLE</i>
+	 */
 	public void presentSwapchainImage(AcquiredImage image, AwaitableSubmission renderSubmission) {
 		image.swapchain.presentImage(image, Objects.requireNonNull(renderSubmission));
 	}
 
+	/**
+	 * Destroys this window, its surface, and its swapchains (unless it has already been destroyed). It is safe to call
+	 * this method more than once, and even from multiple threads at the same time, but no other method calls must be
+	 * pending.<br>
+	 *
+	 * Note: if this window was created using `BoilerBuilder.addWindow`, this window will automatically be destroyed
+	 * during `BoilerInstance.destroyInitialObjects`.<br>
+	 *
+	 * Note: if you are using a `(Simple)WindowRenderLoop` to manage this window, it will automatically be destroyed
+	 * after <i>glfwWindowShouldClose</i> returns <i>true</i>.
+	 */
 	public synchronized void destroy() {
 		if (hasBeenDestroyed) return;
 

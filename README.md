@@ -96,54 +96,14 @@ Almost every Vulkan application needs to do swapchain management, but the code t
 accomplish this is usually the same. Furthermore, swapchain management can be quite
 complicated (for instance, 
 [when can you safely destroy your swapchain?](https://github.com/KhronosGroup/Vulkan-Samples/tree/main/samples/api/swapchain_recreation)
-and did you know that Wayland swapchain images never become out of date?). 
-To solve this problem, you can use`boiler.swapchains` and `SwapchainResourceManager`:
-```java
-var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-        try (var stack = stackPush()) {
-            long imageView = boiler.images.createSimpleView(
-                stack, swapchainImage.vkImage(), boiler.swapchainSettings.surfaceFormat().format(),
-                VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.imageIndex()
-            );
+and did you know that Wayland swapchain images never become out of date?).
 
-            long framebuffer = boiler.images.createFramebuffer(
-                stack, renderPass, swapchainImage.width(), swapchainImage.height(),
-                "RingFramebuffer", imageView
-            );
+`vk-boiler` provides a [swapchain management system](docs/swapchain.md)
+that you can use to avoid rewriting swapchain management for every single
+application, and to avoid some of the aforementioned complexity.
 
-            return new AssociatedSwapchainResources(framebuffer, imageView);
-        }}, resources -> {
-                vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
-                vkDestroyImageView(boiler.vkDevice(), resources.imageView, null);
-        }
-);
-while (renderLoop) {
-        glfwPollEvents();
-        var swapchainImage=boiler.swapchains.acquireNextImage(VK_PRESENT_MODE_MAILBOX_KHR);
-        if(swapchainImage==null){
-            sleep(100);
-            continue;
-        }
-
-        var imageResources=swapchainResources.get(swapchainImage);
-        WaitSemaphore[]waitSemaphores={new WaitSemaphore(
-            swapchainImage.acquireSemaphore(),VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-        )};
-
-        // Do something (probably wait on some fence and start rendering)
-
-        boiler.queueFamilies().graphics().first().submit(
-            commandBuffer, "RingApproximation", waitSemaphores,
-            fence, swapchainImage.presentSemaphore()
-        );
-
-        boiler.swapchains.presentImage(swapchainImage, fence);
-}
-```
-While this is still rather verbose, it's a lot better than handling all the
-swapchain recreation yourself. Just like everything else in this library, the
-swapchain manager is also optional: you can freely ignore `boiler.swapchains`
-if you want.
+Note that the whole swapchain manager is *lazy*, so it won't allocate/create
+anything if you don't use it.
 
 ## Usage
 This repository has a `samples` folder containing example applications that

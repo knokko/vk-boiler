@@ -6,6 +6,10 @@ import java.util.concurrent.*;
 
 import static org.lwjgl.glfw.GLFW.*;
 
+/**
+ * A class to handle swapchain recreations and GLFW events on the main thread while rendering is happening on other
+ * threads. See docs/swapchain.md for more information.
+ */
 public class WindowEventLoop {
 
 	private final BlockingQueue<Task> queue = new LinkedBlockingQueue<>();
@@ -59,18 +63,23 @@ public class WindowEventLoop {
 		});
 	}
 
-	public void addWindow(VkbWindow window) {
+	private void addWindow(VkbWindow window) {
 		stateMap.put(window, new State());
 		window.windowLoop = this;
 	}
 
+	/**
+	 * Adds the given window (render loop) to the event loop. After this method returns, this event loop will
+	 * handle swapchain recreations for the given window. This method can be called from any thread.
+	 */
 	public void addWindow(WindowRenderLoop renderLoop) {
 		addWindow(renderLoop.window);
 		renderLoop.start();
 	}
 
 	/**
-	 * This must be called on the <b>main</b> thread, and it will block until all windows are destroyed.
+	 * Runs the event loop. This method must be called on the <b>main</b> thread, and it will block until all
+	 * windows are destroyed.
 	 */
 	public void runMain() {
 		while (!stateMap.isEmpty()) {

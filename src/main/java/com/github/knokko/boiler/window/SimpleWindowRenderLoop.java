@@ -11,6 +11,10 @@ import org.lwjgl.vulkan.VkCommandBuffer;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * A simple abstract subclass of <i>WindowRenderLoop</i> for simple single-threaded renderers. This class automatically
+ * manages 1 command pool, command buffer, and fence per frame-in-flight (which most simple renderers need).
+ */
 public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 
 	private long[] commandPools;
@@ -63,6 +67,15 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 		);
 	}
 
+	/**
+	 * Record all commands to render onto the acquired swapchain image. Do <b>not</b> call <i>recorder.end()</i>
+	 * because that will automatically happen after this method returns.
+	 * @param stack A <i>MemoryStack</i> onto which you can allocate structures that you need for rendering.
+	 * @param recorder The <i>CommandRecorder</i> onto which you should record commands to render on the
+	 *                 swapchain image.
+	 * @param acquiredImage The acquired swapchain image
+	 * @param instance The VkBoiler instance
+	 */
 	protected abstract void recordFrame(MemoryStack stack, CommandRecorder recorder, AcquiredImage acquiredImage, BoilerInstance instance);
 
 	@Override

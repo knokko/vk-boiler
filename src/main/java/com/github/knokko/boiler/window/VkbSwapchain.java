@@ -13,7 +13,7 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSwapchain.*;
 import static org.lwjgl.vulkan.VK10.*;
 
-class VkbSwapchain { // TODO Update README
+class VkbSwapchain {
 
 	private final BoilerInstance instance;
 	final long vkSwapchain;

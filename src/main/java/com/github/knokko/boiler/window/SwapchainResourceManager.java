@@ -5,6 +5,11 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * <i>SwapchainResourceManager</i>s can be used to <i>associate</i> (Vulkan) objects with swapchain images, such that
+ * they will be created when the swapchain image is first acquired, and destroyed when the swapchain is destroyed.
+ * @param <T> The type of resource to associate with swapchain images
+ */
 public class SwapchainResourceManager<T> {
 
 	private final Function<AcquiredImage, T> createResources;

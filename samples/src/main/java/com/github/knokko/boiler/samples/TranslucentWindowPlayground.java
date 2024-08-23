@@ -69,9 +69,9 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 						"VK_COMPOSITE_ALPHA", "BIT_KHR", "unknown")
 		);
 
-		var windowLoop = new WindowEventLoop();
-		windowLoop.addWindow(new TranslucentWindowPlayground(boiler.window()));
-		windowLoop.runMain();
+		var eventLoop = new WindowEventLoop();
+		eventLoop.addWindow(new TranslucentWindowPlayground(boiler.window()));
+		eventLoop.runMain();
 
 		boiler.destroyInitialObjects();
 	}
