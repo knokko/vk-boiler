@@ -71,7 +71,10 @@ public class MultipleWindows {
 		private final float red, green, blue;
 
 		public FillWindowLoop(VkbWindow window, float red, float green, float blue) {
-			super(window, 2, false, VK_PRESENT_MODE_FIFO_KHR);
+			super(
+					window, 2, false, VK_PRESENT_MODE_FIFO_KHR,
+					ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_DEST
+			);
 			this.red = red;
 			this.green = green;
 			this.blue = blue;
@@ -79,13 +82,7 @@ public class MultipleWindows {
 
 		@Override
 		protected void recordFrame(MemoryStack stack, CommandRecorder recorder, AcquiredImage swapchainImage, BoilerInstance boiler) {
-			recorder.transitionColorLayout(
-					swapchainImage.vkImage(),
-					ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
-					ResourceUsage.TRANSFER_DEST
-			);
 			recorder.clearColorImage(swapchainImage.vkImage(), red, green, blue, 1f);
-			recorder.transitionColorLayout(swapchainImage.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
 		}
 	}
 
@@ -95,7 +92,10 @@ public class MultipleWindows {
 		private SwapchainResourceManager<Long> associatedResources;
 
 		public SpinWindowLoop(VkbWindow window) {
-			super(window, 1, true, VK_PRESENT_MODE_MAILBOX_KHR);
+			super(
+					window, 1, true, VK_PRESENT_MODE_MAILBOX_KHR,
+					ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.COLOR_ATTACHMENT_WRITE
+			);
 		}
 
 		@Override
@@ -139,12 +139,6 @@ public class MultipleWindows {
 		protected void recordFrame(
 				MemoryStack stack, CommandRecorder recorder, AcquiredImage swapchainImage, BoilerInstance boiler
 		) {
-			recorder.transitionColorLayout(
-					swapchainImage.vkImage(),
-					ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
-					ResourceUsage.COLOR_ATTACHMENT_WRITE
-			);
-
 			var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
 			recorder.simpleColorRenderingAttachment(
 					colorAttachments.get(0), associatedResources.get(swapchainImage), VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -171,9 +165,6 @@ public class MultipleWindows {
 			vkCmdDraw(recorder.commandBuffer, 3, 1, 0, 0);
 
 			recorder.endDynamicRendering();
-			recorder.transitionColorLayout(
-					swapchainImage.vkImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT
-			);
 		}
 
 		@Override

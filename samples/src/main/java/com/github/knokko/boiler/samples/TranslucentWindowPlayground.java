@@ -77,21 +77,18 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 	}
 
 	public TranslucentWindowPlayground(VkbWindow window) {
-		super(window, 5, false, VK_PRESENT_MODE_MAILBOX_KHR);
+		super(
+				window, 5, false, VK_PRESENT_MODE_MAILBOX_KHR,
+				ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_DEST
+		);
 	}
 
 	@Override
 	protected void recordFrame(
 			MemoryStack stack, CommandRecorder recorder, AcquiredImage acquired, BoilerInstance boiler
 	) {
-		recorder.transitionColorLayout(
-				acquired.vkImage(),
-				ResourceUsage.fromPresent(VK_PIPELINE_STAGE_TRANSFER_BIT),
-				ResourceUsage.TRANSFER_DEST
-		);
 		float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
 		float colorScale = boiler.window().swapchainCompositeAlpha == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
 		recorder.clearColorImage(acquired.vkImage(), 0f, 0.6f * colorScale, colorScale, alpha);
-		recorder.transitionColorLayout(acquired.vkImage(), ResourceUsage.TRANSFER_DEST, ResourceUsage.PRESENT);
 	}
 }

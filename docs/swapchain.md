@@ -135,7 +135,8 @@ can be used as an example.
 When all your applications use the `WindowRenderLoop` class, a lot of
 boilerplate code will be gone, but there is still some left: the
 creation and destruction of all the rendering command pools/buffers
-and the associated fences.
+and the associated fences. There is also some boilerplate code to
+transition the swapchain image to/from the presentation layout.
 
 When your application has a simple single-threaded rendering set-up,
 you can use the `SimpleWindowRenderLoop` to get rid of this boilerplate
@@ -143,13 +144,17 @@ code as well. This is a simple subclass of `WindowRenderLoop` that:
 - creates command pools, command buffers, and fences during the
 `setup` method
 - destroys these command pools and fences during the `cleanUp` method
-- begins command buffer recording during `renderFrame`, calls the
-abstract `recordCommands` method, and then submits the command buffer
+- begins command buffer recording during `renderFrame`, transitions
+the swapchain image layout to the right layout, calls the
+abstract `recordCommands` method, transitions the swapchain image
+to `VK_IMAGE_LAYOUT_PRESENT_SRC_KHR`, and then submits the command buffer.
 
 When your application uses this, you need to:
 - Call its `start()` method on the *main thread* (typically during the
 `main` method)
 - Implement the `recordCommands` method
+- Pass the right parameters to the constructor of
+`SimpleWindowRenderLoop`
 
 ### The `WindowEventLoop` class
 To tackle problems (2) and (3), some multithreading is required:
