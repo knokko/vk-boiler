@@ -15,7 +15,6 @@ import java.util.Random;
 
 import static org.joml.Math.*;
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -99,35 +98,34 @@ public class MultipleWindows {
 		}
 
 		@Override
-		protected void setup(BoilerInstance boiler) {
-			super.setup(boiler);
-			try (var stack = stackPush()) {
-				var pushConstants = VkPushConstantRange.calloc(1, stack);
-				pushConstants.offset(0);
-				pushConstants.size(8);
-				pushConstants.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
+		protected void setup(BoilerInstance boiler, MemoryStack stack) {
+			super.setup(boiler, stack);
 
-				pipelineLayout = boiler.pipelines.createLayout(stack, pushConstants, "SpinLayout");
+			var pushConstants = VkPushConstantRange.calloc(1, stack);
+			pushConstants.offset(0);
+			pushConstants.size(8);
+			pushConstants.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
-				var builder = new GraphicsPipelineBuilder(boiler, stack);
+			pipelineLayout = boiler.pipelines.createLayout(stack, pushConstants, "SpinLayout");
 
-				builder.simpleShaderStages(
-						"SpinShader", "com/github/knokko/boiler/samples/graphics/spin.vert.spv",
-						"com/github/knokko/boiler/samples/graphics/spin.frag.spv"
-				);
-				builder.noVertexInput();
-				builder.simpleInputAssembly();
-				builder.dynamicViewports(1);
-				builder.simpleRasterization(VK_CULL_MODE_NONE);
-				builder.noMultisampling();
-				builder.noDepthStencil();
-				builder.noColorBlending(1);
-				builder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-				builder.ciPipeline.layout(pipelineLayout);
-				builder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
+			var builder = new GraphicsPipelineBuilder(boiler, stack);
 
-				pipeline = builder.build("SpinPipeline");
-			}
+			builder.simpleShaderStages(
+					"SpinShader", "com/github/knokko/boiler/samples/graphics/spin.vert.spv",
+					"com/github/knokko/boiler/samples/graphics/spin.frag.spv"
+			);
+			builder.noVertexInput();
+			builder.simpleInputAssembly();
+			builder.dynamicViewports(1);
+			builder.simpleRasterization(VK_CULL_MODE_NONE);
+			builder.noMultisampling();
+			builder.noDepthStencil();
+			builder.noColorBlending(1);
+			builder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
+			builder.ciPipeline.layout(pipelineLayout);
+			builder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
+
+			pipeline = builder.build("SpinPipeline");
 
 			associatedResources = new SwapchainResourceManager<>(swapchainImage -> boiler.images.createSimpleView(
 					swapchainImage.vkImage(), window.surfaceFormat,

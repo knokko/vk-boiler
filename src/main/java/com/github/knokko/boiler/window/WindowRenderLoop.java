@@ -41,7 +41,9 @@ public abstract class WindowRenderLoop {
 	}
 
 	private void run() {
-		setup(window.instance);
+		try (var stack = stackPush()) {
+			setup(window.instance, stack);
+		}
 
 		long currentFrame = 0;
 		while (!glfwWindowShouldClose(window.glfwWindow)) {
@@ -96,7 +98,7 @@ public abstract class WindowRenderLoop {
 	 * This method will be called once before the actual rendering starts, and should be used to create the resources
 	 * that are needed for rendering.
 	 */
-	protected abstract void setup(BoilerInstance instance);
+	protected abstract void setup(BoilerInstance instance, MemoryStack stack);
 
 	/**
 	 * This method should render onto the acquired swapchain image.

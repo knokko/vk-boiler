@@ -16,7 +16,6 @@ import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
-import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
@@ -45,7 +44,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 	}
 
 	@Override
-	protected void setup(BoilerInstance boiler) {
+	protected void setup(BoilerInstance boiler, MemoryStack stack) {
 		commandPool = boiler.commands.createPool(
 				VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 				boiler.queueFamilies().graphics().index(),
@@ -54,32 +53,30 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, numFramesInFlight, "Drawing");
 		commandFences = boiler.sync.fenceBank.borrowFences(numFramesInFlight, true, "Fence");
 
-		try (var stack = stackPush()) {
-			var pushConstants = VkPushConstantRange.calloc(1, stack);
-			pushConstants.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
-			pushConstants.offset(0);
-			pushConstants.size(20);
+		var pushConstants = VkPushConstantRange.calloc(1, stack);
+		pushConstants.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
+		pushConstants.offset(0);
+		pushConstants.size(20);
 
-			pipelineLayout = boiler.pipelines.createLayout(stack, pushConstants, "DrawingLayout");
+		pipelineLayout = boiler.pipelines.createLayout(stack, pushConstants, "DrawingLayout");
 
-			var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
-			pipelineBuilder.simpleShaderStages(
-					"Ring", "com/github/knokko/boiler/samples/graphics/ring.vert.spv",
-					"com/github/knokko/boiler/samples/graphics/ring.frag.spv"
-			);
-			pipelineBuilder.noVertexInput();
-			pipelineBuilder.simpleInputAssembly();
-			pipelineBuilder.dynamicViewports(1);
-			pipelineBuilder.simpleRasterization(VK_CULL_MODE_NONE);
-			pipelineBuilder.noMultisampling();
-			pipelineBuilder.noDepthStencil();
-			pipelineBuilder.noColorBlending(1);
-			pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-			pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, boiler.window().surfaceFormat);
-			pipelineBuilder.ciPipeline.layout(pipelineLayout);
+		var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
+		pipelineBuilder.simpleShaderStages(
+				"Ring", "com/github/knokko/boiler/samples/graphics/ring.vert.spv",
+				"com/github/knokko/boiler/samples/graphics/ring.frag.spv"
+		);
+		pipelineBuilder.noVertexInput();
+		pipelineBuilder.simpleInputAssembly();
+		pipelineBuilder.dynamicViewports(1);
+		pipelineBuilder.simpleRasterization(VK_CULL_MODE_NONE);
+		pipelineBuilder.noMultisampling();
+		pipelineBuilder.noDepthStencil();
+		pipelineBuilder.noColorBlending(1);
+		pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
+		pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, boiler.window().surfaceFormat);
+		pipelineBuilder.ciPipeline.layout(pipelineLayout);
 
-			graphicsPipeline = pipelineBuilder.build("RingApproximation");
-		}
+		graphicsPipeline = pipelineBuilder.build("RingApproximation");
 
 		swapchainResources = new SwapchainResourceManager<>(swapchainImage -> boiler.images.createSimpleView(
 				swapchainImage.vkImage(), boiler.window().surfaceFormat,

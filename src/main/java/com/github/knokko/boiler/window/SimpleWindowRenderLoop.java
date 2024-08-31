@@ -44,7 +44,7 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 	}
 
 	@Override
-	protected void setup(BoilerInstance instance) {
+	protected void setup(BoilerInstance instance, MemoryStack stack) {
 		commandPools = instance.commands.createPools(
 				VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
 				instance.queueFamilies().graphics().index(),

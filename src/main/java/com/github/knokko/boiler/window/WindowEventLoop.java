@@ -116,6 +116,7 @@ public class WindowEventLoop {
 	void queueResize(Runnable resize, VkbWindow window) {
 		var state = getState(window);
 		queue.add(new Task(resize, state, window));
+		glfwPostEmptyEvent();
 		state.resizeCompleted.acquireUninterruptibly();
 	}
 
