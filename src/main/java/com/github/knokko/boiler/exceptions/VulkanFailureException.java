@@ -5,6 +5,10 @@ import org.lwjgl.vulkan.VK12;
 
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * This exception will be thrown when a Vulkan function returned an unexpected result code. In most cases, anything
+ * other than <i>VK_SUCCESS</i> is unexpected.
+ */
 public class VulkanFailureException extends RuntimeException {
 
 	public static void assertVkSuccess(int result, String functionName, String context, int... allowedResults) {

@@ -566,8 +566,8 @@ public class BoilerBuilder {
 
 		if (xrBuilder != null) {
 			xr = xrBuilder.build(
-					this, validationFeatures != null, apiVersion,
-					applicationName, applicationVersion, engineName, engineVersion
+					this, validationFeatures != null, requiredVulkanLayers.contains("VK_LAYER_LUNARG_api_dump"),
+					apiVersion, applicationName, applicationVersion, engineName, engineVersion
 			);
 		}
 

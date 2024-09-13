@@ -1,5 +1,8 @@
 package com.github.knokko.boiler.exceptions;
 
+/**
+ * This exception will be thrown when a required Vulkan extension is not supported
+ */
 public class MissingVulkanExtensionException extends RuntimeException {
 
 	/**

@@ -40,7 +40,7 @@ public class TestDynamicRendering {
 		long pipelineLayout;
 		long graphicsPipeline;
 		try (var stack = stackPush()) {
-			pipelineLayout = instance.pipelines.createLayout(stack, null, "ColorLayout");
+			pipelineLayout = instance.pipelines.createLayout(null, "ColorLayout");
 
 			var ciPipeline = VkGraphicsPipelineCreateInfo.calloc(stack);
 			ciPipeline.sType$Default();
@@ -70,7 +70,7 @@ public class TestDynamicRendering {
 		try (var stack = stackPush()) {
 			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Empty RenderPass");
 
-			recorder.transitionColorLayout(image.vkImage(), null, ResourceUsage.COLOR_ATTACHMENT_WRITE);
+			recorder.transitionLayout(image, null, ResourceUsage.COLOR_ATTACHMENT_WRITE);
 
 			var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
 			recorder.simpleColorRenderingAttachment(
@@ -79,19 +79,14 @@ public class TestDynamicRendering {
 					1f, 0f, 1f, 1f
 			);
 			recorder.beginSimpleDynamicRendering(width, height, colorAttachments, null, null);
-
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 			vkCmdDraw(commandBuffer, 6, 1, 0, 0);
-
 			recorder.endDynamicRendering();
 
-			recorder.transitionColorLayout(
-					image.vkImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.TRANSFER_SOURCE
-			);
-
-			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(), width, height, destBuffer.vkBuffer());
-
+			recorder.transitionLayout(image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.TRANSFER_SOURCE);
+			recorder.copyImageToBuffer(image, destBuffer.vkBuffer());
 			recorder.end();
+
 			instance.queueFamilies().graphics().first().submit(commandBuffer, "Test", null, fence);
 			fence.waitAndReset();
 
@@ -162,26 +157,23 @@ public class TestDynamicRendering {
 		try (var stack = stackPush()) {
 			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "DepthCommands");
 
-			recorder.transitionDepthLayout(
-					image.vkImage(), null,
+			recorder.transitionLayout(
+					image, null,
 					ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
 			);
 
 			var depthAttachment = recorder.simpleDepthRenderingAttachment(
-					stack, image.vkImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+					image.vkImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 					VK_ATTACHMENT_STORE_OP_STORE, 0.75f, 0
 			);
-
 			recorder.beginSimpleDynamicRendering(width, height, null, depthAttachment, null);
-
 			recorder.endDynamicRendering();
 
-			recorder.transitionDepthLayout(
-					image.vkImage(), ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL),
+			recorder.transitionLayout(
+					image, ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL),
 					ResourceUsage.TRANSFER_SOURCE
 			);
-
-			recorder.copyImageToBuffer(VK_IMAGE_ASPECT_DEPTH_BIT, image.vkImage(), width, height, destBuffer.vkBuffer());
+			recorder.copyImageToBuffer(image, destBuffer.vkBuffer());
 
 			recorder.end();
 			instance.queueFamilies().graphics().first().submit(

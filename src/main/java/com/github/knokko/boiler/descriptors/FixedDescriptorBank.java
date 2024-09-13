@@ -28,19 +28,26 @@ public class FixedDescriptorBank {
 	private final ConcurrentSkipListSet<Long> borrowedDescriptorSets;
 	private final ConcurrentSkipListSet<Long> unusedDescriptorSets;
 
+	/**
+	 * @param layout All descriptor sets borrowed from this bank will get this layout
+	 * @param capacity The maximum number of descriptor sets that can be borrowed from this bank at the same time
+	 * @param flags The <i>VkDescriptorPoolCreateFlags</i>
+	 * @param name The debug name of the descriptor pool (when <i>VK_EXT_debug_utils</i> is enabled)
+	 */
 	public FixedDescriptorBank(VkbDescriptorSetLayout layout, int capacity, int flags, String name) {
-		try (var stack = stackPush()) {
-			this.pool = layout.createPool(capacity, flags, name);
-			long[] descriptorSets = this.pool.allocate(stack, capacity);
+		this.pool = layout.createPool(capacity, flags, name);
+		long[] descriptorSets = this.pool.allocate(capacity);
 
-			this.unusedDescriptorSets = new ConcurrentSkipListSet<>();
-			for (long descriptorSet : descriptorSets) this.unusedDescriptorSets.add(descriptorSet);
-			this.borrowedDescriptorSets = new ConcurrentSkipListSet<>();
-		}
+		this.unusedDescriptorSets = new ConcurrentSkipListSet<>();
+		for (long descriptorSet : descriptorSets) this.unusedDescriptorSets.add(descriptorSet);
+		this.borrowedDescriptorSets = new ConcurrentSkipListSet<>();
 	}
 
 	/**
-	 * Note: this method returns null when all descriptor sets are currently borrowed.
+	 * Borrows a descriptor set from this bank
+	 * @param name The debug name of the descriptor set (when <i>VK_EXT_debug_utils</i> is enabled)
+	 * @return The borrowed <i>VkDescriptorSet</i>, or <i>null</i> when the maximum number of descriptor sets is
+	 * currently borrowed from this bank
 	 */
 	public Long borrowDescriptorSet(String name) {
 		Long result = unusedDescriptorSets.pollFirst();
@@ -53,6 +60,9 @@ public class FixedDescriptorBank {
 		return result;
 	}
 
+	/**
+	 * Returns the given <i>VkDescriptorSet</i> to this bank
+	 */
 	public void returnDescriptorSet(long descriptorSet) {
 		if (!borrowedDescriptorSets.remove(descriptorSet)) {
 			throw new IllegalArgumentException(descriptorSet + " wasn't borrowed");
@@ -60,6 +70,11 @@ public class FixedDescriptorBank {
 		unusedDescriptorSets.add(descriptorSet);
 	}
 
+	/**
+	 * Destroys this bank, including its descriptor pool
+	 * @param checkEmpty When true, an exception will be thrown if not all descriptor sets have been returned
+	 *                   (potentially useful for detecting leaks)
+	 */
 	public void destroy(boolean checkEmpty) {
 		if (checkEmpty && !borrowedDescriptorSets.isEmpty()) {
 			throw new IllegalStateException("Not all descriptor sets have been returned");

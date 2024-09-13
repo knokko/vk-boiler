@@ -28,6 +28,8 @@ to use virtual reality (OpenXR), where the OpenXR runtime can set
 `XrGraphicsRequirementsVulkanKHR.maxApiVersionSupported` to
 `VK_API_VERSION_1_0` during `xrGetVulkanGraphicsRequirementsKHR`,
 which will pin you on Vulkan 1.0, even if the device supports 1.3.
+The OpenXR runtime for PCVR for Oculus Quest 2 did this last time
+I checked (21-09-2024).
 - As far as I know, targeting Vulkan 1.1 is useless on desktop.
 
 ## Instance creation properties

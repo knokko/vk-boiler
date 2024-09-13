@@ -7,6 +7,10 @@ import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertX
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.openxr.XR10.xrCreateAction;
 
+/**
+ * This class contains convenience methods to work with OpenXR actions, action sets, and paths. You can access the
+ * instance of this class from <i>boilerInstance.xr().actions</i>
+ */
 public class BoilerActions {
 
 	private final XrBoiler xr;
@@ -15,6 +19,12 @@ public class BoilerActions {
 		this.xr = xr;
 	}
 
+	/**
+	 * Calls <i>xrCreateActionSet</i> with the given parameters to create an <i>XrActionSet</i>. All parameters
+	 * (except <i>stack</i>) will simply be propagated to the <i>XrActionSetCreateInfo</i>.
+	 * @param stack The memory stack onto which the <i>XrActionSetCreateInfo</i> will be allocated
+	 * @return The created <i>XrActionSet</i>
+	 */
 	public XrActionSet createSet(MemoryStack stack, int priority, String name, String localizedName) {
 		var ciActionSet = XrActionSetCreateInfo.calloc(stack);
 		ciActionSet.type$Default();
@@ -29,6 +39,12 @@ public class BoilerActions {
 		return new XrActionSet(pActionSet.get(0), xr.xrInstance);
 	}
 
+	/**
+	 * Calls <i>xrStringToPath</i> to convert the given path string to a raw <i>XrPath</i> (which is a <i>long</i>).
+	 * @param stack The memory stack onto which the result will be allocated
+	 * @param path The path string
+	 * @return The <i>XrPath</i> handle as <i>long</i>
+	 */
 	public long getPath(MemoryStack stack, String path) {
 		var pPath = stack.callocLong(1);
 		assertXrSuccess(xrStringToPath(
@@ -37,6 +53,20 @@ public class BoilerActions {
 		return pPath.get(0);
 	}
 
+	/**
+	 * Calls <i>xrCreateAction</i> to create (and return) an <i>XrAction</i> without subactions. All parameters
+	 * (except <i>stack</i>) will simply be propagated to the <i>XrActionCreateInfo</i>.
+	 * @param stack The memory stack onto which the <i>XrActionCreateInfo</i> will be allocated
+	 */
+	public XrAction create(MemoryStack stack, XrActionSet actionSet, String name, String localizedName, int actionType) {
+		return createWithSubactions(stack, actionSet, name, localizedName, actionType);
+	}
+
+	/**
+	 * Calls <i>xrCreateAction</i> to create (and return) an <i>XrAction</i> with subactions. All parameters
+	 * (except <i>stack</i>) will simply be propagated to the <i>XrActionCreateInfo</i>.
+	 * @param stack The memory stack onto which the <i>XrActionCreateInfo</i> will be allocated
+	 */
 	public XrAction createWithSubactions(
 			MemoryStack stack, XrActionSet actionSet,
 			String name, String localizedName,
@@ -47,7 +77,7 @@ public class BoilerActions {
 		ciAction.actionName(stack.UTF8(name));
 		ciAction.actionType(actionType);
 		ciAction.countSubactionPaths(subactionPaths.length);
-		ciAction.subactionPaths(stack.longs(subactionPaths));
+		if (subactionPaths.length > 0) ciAction.subactionPaths(stack.longs(subactionPaths));
 		ciAction.localizedActionName(stack.UTF8(localizedName));
 
 		var pAction = stack.callocPointer(1);

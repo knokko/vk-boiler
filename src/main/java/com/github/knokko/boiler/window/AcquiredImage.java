@@ -1,11 +1,13 @@
 package com.github.knokko.boiler.window;
 
+import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 
 import java.util.function.Consumer;
 
+import static org.lwjgl.vulkan.VK10.VK_IMAGE_ASPECT_COLOR_BIT;
 import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 
 public class AcquiredImage {
@@ -49,10 +51,13 @@ public class AcquiredImage {
 	}
 
 	/**
-	 * @return The swapchain image handle
+	 * @return The wrapped swapchain image handle
 	 */
-	public long vkImage() {
-		return swapchain.images[index];
+	public VkbImage image() {
+		return new VkbImage(
+				swapchain.images[index], swapchain.imageViews[index], VK_NULL_HANDLE,
+				swapchain.width, swapchain.height, VK_IMAGE_ASPECT_COLOR_BIT
+		);
 	}
 
 	/**

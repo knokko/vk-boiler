@@ -25,6 +25,9 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class BoilerInstance {
 
+	/**
+	 * The default timeout for fence waits and swapchain waits, in nanoseconds
+	 */
 	public final long defaultTimeout;
 
 	private final Collection<VkbWindow> windows;
@@ -32,6 +35,9 @@ public class BoilerInstance {
 
 	private final XrBoiler xr;
 
+	/**
+	 * The Vulkan API version that is being used
+	 */
 	public final int apiVersion;
 	private final VkInstance vkInstance;
 	private final VkPhysicalDevice vkPhysicalDevice;
@@ -92,6 +98,10 @@ public class BoilerInstance {
 		if (destroyed) throw new IllegalStateException("This instance has already been destroyed");
 	}
 
+	/**
+	 * Gets the window that was created by the BoilerBuilder. This method only works if exactly 1 window was created.
+	 * If you create multiple windows, you need to chain <i>.callback(...)</i> to the <i>WindowBuilder</i>
+	 */
 	public VkbWindow window() {
 		checkDestroyed();
 		if (windows.isEmpty()) throw new UnsupportedOperationException("This boiler doesn't have a window");
@@ -104,10 +114,19 @@ public class BoilerInstance {
 		return windows.iterator().next();
 	}
 
+	/**
+	 * @return True if and only if the swapchain maintenance extension can be used
+	 */
 	public boolean hasSwapchainMaintenance() {
 		return hasSwapchainMaintenance;
 	}
 
+	/**
+	 * Creates and returns an additional window. Note that it's better to add windows to the <i>BoilerBuilder</i>, but
+	 * that only works if you know upfront how many windows you need.
+	 * @param builder The <i>WindowBuilder</i> containing all window creation parameters
+	 * @return The created window
+	 */
 	public VkbWindow addWindow(WindowBuilder builder) {
 		checkDestroyed();
 		return builder.buildLate(this);
@@ -171,7 +190,6 @@ public class BoilerInstance {
 			vkDestroyDebugUtilsMessengerEXT(vkInstance, validationErrorThrower, null);
 		}
 		vkDestroyInstance(vkInstance, null);
-		//if (glfwWindow != 0L) glfwDestroyWindow(glfwWindow);
 		if (xr != null) xr.destroyInitialObjects();
 
 		destroyed = true;

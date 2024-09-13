@@ -73,9 +73,9 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 				VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 				"SimpleWindowRenderLoop"
 		);
-		recorder.transitionColorLayout(acquiredImage.vkImage(), ResourceUsage.fromPresent(lastUsage.stageMask()), firstUsage);
+		recorder.transitionLayout(acquiredImage.image(), ResourceUsage.fromPresent(lastUsage.stageMask()), firstUsage);
 		recordFrame(stack, recorder, acquiredImage, instance);
-		recorder.transitionColorLayout(acquiredImage.vkImage(), lastUsage, ResourceUsage.PRESENT);
+		recorder.transitionLayout(acquiredImage.image(), lastUsage, ResourceUsage.PRESENT);
 		recorder.end();
 
 		var waitSemaphores = acquireSwapchainImageWithFence ? null : new WaitSemaphore[]{new WaitSemaphore(

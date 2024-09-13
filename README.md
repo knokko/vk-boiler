@@ -46,7 +46,7 @@ var commandBuffer = boiler.commands.createPrimaryBuffers(
         commandPool, 1, "Copy"
 )[0];
 ```
-This library provides plenty of such convenience methods. By using them all whenever
+This library provides [plenty](docs/methods.md) of such convenience methods. By using them all whenever
 possible, you can dramatically reduce the amount of code you need (at least,
 I did when I started using this in my own projects).
 

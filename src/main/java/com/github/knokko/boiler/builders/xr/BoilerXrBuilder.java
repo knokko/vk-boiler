@@ -81,11 +81,12 @@ public class BoilerXrBuilder {
 	 * yourself.
 	 */
 	public XrBoiler build(
-			BoilerBuilder builder, boolean enableValidation, int vkApiVersion,
+			BoilerBuilder builder, boolean enableValidation, boolean enableApiDump, int vkApiVersion,
 			String appName, int appVersion,
 			String engineName, int engineVersion
 	) {
 		if (enableValidation) this.requiredLayers.add("XR_APILAYER_LUNARG_core_validation");
+		if (enableApiDump) this.requiredLayers.add("XR_APILAYER_LUNARG_api_dump");
 
 		Set<String> supportedLayers;
 		try (var stack = stackPush()) {

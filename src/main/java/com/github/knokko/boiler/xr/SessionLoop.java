@@ -13,6 +13,19 @@ import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * <p>
+ *   This class can be used to manage an OpenXR 'session loop' for an application. This class can be used by creating
+ *   a subclass, implementing the abstract methods, and calling its <i>run</i> method.
+ * </p>
+ *
+ * <p>
+ *   The <i>run</i> method of this class will try to <i>begin</i> the session, and keeps track of the current session
+ *   state. It also makes sure that it will <i>end</i> the session when the application or runtime wants to. The
+ *   <i>run</i> method is made to deal with the logic that is usually not interesting for the application. It will
+ *   however call the abstract methods of this class, which strongly depend on the application.
+ * </p>
+ */
 public abstract class SessionLoop {
 
 	protected final VkbSession session;
@@ -37,14 +50,26 @@ public abstract class SessionLoop {
 		this.height = height;
 	}
 
+	/**
+	 * Requests the runtime to stop the session. The <i>xrRequestExitSession</i> function will be called within 1
+	 * iteration, unless it has already been called. Calling this method more than once has no effect.
+	 */
 	public void requestExit() {
 		this.wantsToStop = true;
 	}
 
+	/**
+	 * Gets the current <i>XrSessionState</i>. Note that many applications won't need this information, but it could
+	 * be useful to some.
+	 */
 	public int getState() {
 		return state;
 	}
 
+	/**
+	 * Tries to <i>begin</i> the session, after which it will manage the session until the application or OpenXR runtime
+	 * wants to end it. During the session, it will call the abstract methods of this class.
+	 */
 	public void run() {
 		int numViews = getNumViews();
 		state = XR_SESSION_STATE_IDLE;
@@ -74,7 +99,7 @@ public abstract class SessionLoop {
 				}
 
 				if (this.state == XR_SESSION_STATE_STOPPING) {
-					assertXrSuccess(xrEndSession(session.session), "EndSession", null);
+					assertXrSuccess(xrEndSession(session.xrSession), "EndSession", null);
 					isRunning = false;
 					continue;
 				}
@@ -90,19 +115,13 @@ public abstract class SessionLoop {
 				}
 
 				if (isRunning && !didRequestExit && wantsToStop) {
-					assertXrSuccess(xrRequestExitSession(session.session), "RequestExitSession", null);
+					assertXrSuccess(xrRequestExitSession(session.xrSession), "RequestExitSession", null);
 					didRequestExit = true;
 					continue;
 				}
 
 				if (this.state == XR_SESSION_STATE_READY && !isRunning) {
-					var biSession = XrSessionBeginInfo.calloc(stack);
-					biSession.type$Default();
-					biSession.primaryViewConfigurationType(getViewConfigurationType());
-
-					assertXrSuccess(xrBeginSession(
-							session.session, biSession
-					), "BeginSession", null);
+					session.begin(getViewConfigurationType(), "SessionLoop");
 					isRunning = true;
 					continue;
 				}
@@ -110,14 +129,16 @@ public abstract class SessionLoop {
 				if (this.state == XR_SESSION_STATE_SYNCHRONIZED || this.state == XR_SESSION_STATE_VISIBLE ||
 						this.state == XR_SESSION_STATE_FOCUSED || this.state == XR_SESSION_STATE_READY
 				) {
+					waitForRenderResources(stack);
+
 					var frameState = XrFrameState.calloc(stack);
 					frameState.type$Default();
 
 					assertXrSuccess(xrWaitFrame(
-							session.session, null, frameState
+							session.xrSession, null, frameState
 					), "WaitFrame", null);
 					assertXrSuccess(xrBeginFrame(
-							session.session, null
+							session.xrSession, null
 					), "BeginFrame", null);
 
 					PointerBuffer layers = null;
@@ -150,17 +171,14 @@ public abstract class SessionLoop {
 
 						lastCameraMatrix = cameraMatrices;
 
-						syncActions(stack);
-
-						prepareRender(stack, frameState);
-
 						IntBuffer pImageIndex = stack.callocInt(1);
 						assertXrSuccess(xrAcquireSwapchainImage(
 								swapchain, null, pImageIndex
 						), "AcquireSwapchainImage", null);
 						int swapchainImageIndex = pImageIndex.get(0);
 
-						recordRenderCommands(stack, swapchainImageIndex, cameraMatrices);
+						syncActions(stack);
+						recordRenderCommands(stack, frameState, swapchainImageIndex, cameraMatrices);
 
 						var wiSwapchain = XrSwapchainImageWaitInfo.calloc(stack);
 						wiSwapchain.type$Default();
@@ -170,7 +188,7 @@ public abstract class SessionLoop {
 								swapchain, wiSwapchain
 						), "WaitSwapchainImage", null);
 
-						submitAndWaitRender();
+						submitRenderCommands();
 
 						assertXrSuccess(xrReleaseSwapchainImage(
 								swapchain, null
@@ -184,14 +202,25 @@ public abstract class SessionLoop {
 					frameEnd.layerCount(layers != null ? layers.remaining() : 0);
 					frameEnd.layers(layers);
 
-					assertXrSuccess(xrEndFrame(session.session, frameEnd), "EndFrame", null);
+					assertXrSuccess(xrEndFrame(session.xrSession, frameEnd), "EndFrame", null);
 				}
 			}
 		}
 	}
 
+	/**
+	 * Creates the projection matrix. This method will only be called from <i>initializeCameraMatrices</i>, so if you
+	 * override that method, you could just return <b>null</b> in this method.
+	 * @param fov The fov, queried from <i>xrLocateViews</i>
+	 */
 	protected abstract Matrix4f createProjectionMatrix(XrFovf fov);
 
+	/**
+	 * Initializes the camera matrices, and puts them in the <i>cameraMatrix</i> array
+	 * @param projectionViews The projection views that will be passed to <i>xrEndFrame</i>
+	 * @param cameraMatrix The array in which the camera matrices will be put. It will initially be filled with
+	 *                     <b>nulls</b>.
+	 */
 	protected void initializeCameraMatrices(
 			XrCompositionLayerProjectionView.Buffer projectionViews,
 			Matrix4f[] cameraMatrix
@@ -217,8 +246,16 @@ public abstract class SessionLoop {
 		}
 	}
 
+	/**
+	 * Chooses the active action sets that should be synchronized. You need to <i>attach</i> them to the session, if
+	 * you haven't done so already. This method will only be called during <i>syncActions</i>, so you can return
+	 * <b>null</b> if you decide to override <i>syncActions</i>.
+	 */
 	protected abstract XrActionSet[] chooseActiveActionSets();
 
+	/**
+	 * Calls <i>xrSyncActions</i>, using the action sets that were returned by <i>chooseActiveActionSets</i>
+	 */
 	protected void syncActions(MemoryStack stack) {
 		XrActionSet[] desiredActionSets = chooseActiveActionSets();
 		var activeActionSets = XrActiveActionSet.calloc(desiredActionSets.length, stack);
@@ -235,18 +272,29 @@ public abstract class SessionLoop {
 		syncInfo.activeActionSets(activeActionSets);
 
 		assertXrSuccess(xrSyncActions(
-				session.session, syncInfo
+				session.xrSession, syncInfo
 		), "SyncActions", null);
 	}
 
+	/**
+	 * Determines the <i>XrEnvironmentBlendMode</i> that will be used,
+	 * by default <i>XR_ENVIRONMENT_BLEND_MODE_OPAQUE</i>
+	 */
 	protected int getBlendMode() {
 		return XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
 	}
 
+	/**
+	 * Determines the <i>XrViewConfigurationType</i> that will be used,
+	 * by default <i>XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO</i>
+	 */
 	protected int getViewConfigurationType() {
 		return XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
 	}
 
+	/**
+	 * Determines the number of views, by default 2 (one per eye)
+	 */
 	protected int getNumViews() {
 		return 2;
 	}
@@ -265,17 +313,58 @@ public abstract class SessionLoop {
 		return 0;
 	}
 
+	/**
+	 * Determines the timeout passed to <i>XrSwapchainImageWaitInfo</i>
+	 */
 	protected long getSwapchainWaitTimeout() {
 		return xr.boilerInstance.defaultTimeout;
 	}
 
+	/**
+	 * This method will be called during each iteration of the session loop, after polling and handling events.
+	 * You can do anything you want during this method, and you don't necessarily need to do anything at all.
+	 */
 	protected abstract void update();
 
+	/**
+	 * This method will be called whenever an OpenXR event is received. You can do anything you want during this method,
+	 * and you don't necessarily need to do anything at all. When the event type is
+	 * <i>XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED</i>, the session loop will respond to the event <i>before</i> calling
+	 * this method.
+	 */
 	protected abstract void handleEvent(XrEventDataBuffer event);
 
-	protected abstract void prepareRender(MemoryStack stack, XrFrameState frameState);
+	/**
+	 * <p>
+	 *   Waits until the render resources (like command buffers and fences) that will be needed next frame, will become
+	 * 	 available.
+	 * </p>
+	 *
+	 * This method will only be called during session loop iterations where the session state is either
+	 * <i>SYNCHRONIZED</i>, <i>VISIBLE</i>, <i>FOCUSSED</i>, or <i>READY</i>. Note that this does <b>not</b> necessarily
+	 * mean that a frame will be rendered during this iteration.
+	 * @param stack You can use this memory stack if you want. It will be valid at least until this method returns.
+	 */
+	protected abstract void waitForRenderResources(MemoryStack stack);
 
-	protected abstract void recordRenderCommands(MemoryStack stack, int swapchainImageIndex, Matrix4f[] cameraMatrices);
+	/**
+	 * <p>
+	 *     Records the command buffers that will render to the swapchain image with the given index. These command
+	 *     buffers must <b>not</b> be submitted yet because this method is called after <i>xrAcquireSwapchainImage</i>,
+	 *     but <b>before</b> <i>xrWaitSwapchainImage</i>.
+	 * </p>
+	 * @param stack You can use this memory stack if you want. It will be valid at least until this method returns.
+	 * @param frameState The frame state that was passed to <i>xrWaitFrame</i>
+	 * @param swapchainImageIndex The image of the swapchain image that was acquired
+	 * @param cameraMatrices The camera matrices from <i>initializeCameraMatrices</i>, or the ones from last frame if
+	 *                       the head tracking is currently having trouble
+	 */
+	protected abstract void recordRenderCommands(
+			MemoryStack stack, XrFrameState frameState, int swapchainImageIndex, Matrix4f[] cameraMatrices
+	);
 
-	protected abstract void submitAndWaitRender();
+	/**
+	 * Submits the command buffers that were recorded during <i>recordRenderCommands</i>
+	 */
+	protected abstract void submitRenderCommands();
 }

@@ -9,8 +9,26 @@ import static org.lwjgl.vulkan.KHRSwapchain.vkQueuePresentKHR;
 import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
 
+/**
+ * Wraps a <i>VkQueue</i>, and has some convenience methods. All methods are <b>synchronized</b> because Vulkan requires
+ * access to <i>VkQueue</i>s to be externally synchronized.
+ * @param vkQueue
+ */
 public record VkbQueue(VkQueue vkQueue) {
 
+	/**
+	 * This is a variant of the <i>submit</i> method, but without the timeline semaphore parameters.
+	 * @param commandBuffer The command buffer to be submitted
+	 * @param context When <i>vkQueueSubmit</i> doesn't return <i>VK_SUCCESS</i>, an exception will be thrown, which
+	 *                will contain <i>context</i> in its error message
+	 * @param waitSemaphores The <i>pWaitSemaphores</i>, possibly an empty array. Passing <b>null</b> has the same
+	 *                       effect as passing an empty array.
+	 * @param fence The <i>VkbFence</i> that should be signalled when the command completes, may be <b>null</b>
+	 * @param vkSignalSemaphores The <i>pSignalSemaphores</i>, possibly an empty array. Passing <b>null</b> has the same
+	 * 	                     effect as passing an empty array.
+	 * @return When <i>fence</i> is not <b>null</b>, this will be a <i>FenceSubmission</i> that will be signalled when
+	 * the command completes. When <i>fence</i> is <b>null</b>, this method will return <b>null</b>.
+	 */
 	public FenceSubmission submit(
 			VkCommandBuffer commandBuffer, String context,
 			WaitSemaphore[] waitSemaphores, VkbFence fence, long... vkSignalSemaphores
@@ -18,6 +36,23 @@ public record VkbQueue(VkQueue vkQueue) {
 		return submit(commandBuffer, context, waitSemaphores, fence, vkSignalSemaphores, null);
 	}
 
+	/**
+	 * Submits a single command buffer via <i>vkQueueSubmit</i> using the given parameters
+	 * @param commandBuffer The command buffer to be submitted
+	 * @param context When <i>vkQueueSubmit</i> doesn't return <i>VK_SUCCESS</i>, an exception will be thrown, which
+	 *                will contain <i>context</i> in its error message
+	 * @param waitSemaphores The <i>pWaitSemaphores</i>, possibly an empty array. Passing <b>null</b> has the same
+	 *                       effect as passing an empty array.
+	 * @param fence The <i>VkbFence</i> that should be signalled when the command completes, may be <b>null</b>
+	 * @param vkSignalSemaphores The <i>pSignalSemaphores</i>, possibly an empty array. Passing <b>null</b> has the same
+	 * 	                     effect as passing an empty array.
+	 * @param timelineWaits The timeline semaphores that must be signalled before the command can start, possibly empty
+	 *                      or null.
+	 * @param timelineSignals The timeline semaphores that will be signalled after the command completes, possibly
+	 *                      empty or null.
+	 * @return When <i>fence</i> is not <b>null</b>, this will be a <i>FenceSubmission</i> that will be signalled when
+	 * the command completes. When <i>fence</i> is <b>null</b>, this method will return <b>null</b>.
+	 */
 	public synchronized FenceSubmission submit(
 			VkCommandBuffer commandBuffer, String context,
 			WaitSemaphore[] waitSemaphores, VkbFence fence, long[] vkSignalSemaphores,
@@ -94,6 +129,9 @@ public record VkbQueue(VkQueue vkQueue) {
 		}
 	}
 
+	/**
+	 * Calls <i>vkQueuePresentKHR</i>, and returns the result
+	 */
 	public synchronized int present(VkPresentInfoKHR presentInfo) {
 		return vkQueuePresentKHR(vkQueue, presentInfo);
 	}

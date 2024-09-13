@@ -18,13 +18,14 @@ public class TestRawImage {
 
 		var image = instance.images.createRaw(
 				12, 34, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-				VK_SAMPLE_COUNT_1_BIT, 1, 1, "RawImage"
+				VK_SAMPLE_COUNT_1_BIT, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT, "RawImage"
 		);
 		assertNotEquals(VK_NULL_HANDLE, image.vkImage());
 		assertEquals(VK_NULL_HANDLE, image.vkImageView());
 		assertEquals(VK_NULL_HANDLE, image.vmaAllocation());
 		assertEquals(12, image.width());
 		assertEquals(34, image.height());
+		assertEquals(VK_IMAGE_ASPECT_COLOR_BIT, image.aspectMask());
 
 		image.destroy(instance);
 

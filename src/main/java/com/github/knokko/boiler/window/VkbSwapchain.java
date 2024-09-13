@@ -10,7 +10,15 @@ import java.util.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
+import static org.lwjgl.vulkan.EXTFragmentDensityMap.VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT;
+import static org.lwjgl.vulkan.KHRFragmentShadingRate.VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
 import static org.lwjgl.vulkan.KHRSwapchain.*;
+import static org.lwjgl.vulkan.KHRVideoDecodeQueue.VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
+import static org.lwjgl.vulkan.KHRVideoDecodeQueue.VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR;
+import static org.lwjgl.vulkan.KHRVideoEncodeQueue.VK_IMAGE_USAGE_VIDEO_ENCODE_DPB_BIT_KHR;
+import static org.lwjgl.vulkan.KHRVideoEncodeQueue.VK_IMAGE_USAGE_VIDEO_ENCODE_SRC_BIT_KHR;
+import static org.lwjgl.vulkan.QCOMImageProcessing.VK_IMAGE_USAGE_SAMPLE_BLOCK_MATCH_BIT_QCOM;
+import static org.lwjgl.vulkan.QCOMImageProcessing.VK_IMAGE_USAGE_SAMPLE_WEIGHT_BIT_QCOM;
 import static org.lwjgl.vulkan.VK10.*;
 
 class VkbSwapchain {
@@ -23,6 +31,7 @@ class VkbSwapchain {
 	final int width, height;
 	VkbQueueFamily presentFamily;
 	final long[] images;
+	final long[] imageViews;
 
 	final Collection<Runnable> destructionCallbacks = new ArrayList<>();
 
@@ -30,7 +39,7 @@ class VkbSwapchain {
 	private boolean outdated;
 
 	VkbSwapchain(
-			BoilerInstance instance, long vkSwapchain, String title, SwapchainCleaner cleaner,
+			BoilerInstance instance, long vkSwapchain, String title, SwapchainCleaner cleaner, int imageFormat, int imageUsage,
 			int presentMode, int width, int height, VkbQueueFamily presentFamily, Set<Integer> supportedPresentModes
 	) {
 		this.instance = instance;
@@ -56,11 +65,30 @@ class VkbSwapchain {
 			), "GetSwapchainImagesKHR", "images");
 
 			this.images = new long[numImages];
+			this.imageViews = new long[numImages];
 			for (int index = 0; index < numImages; index++) {
 				this.images[index] = pImages.get(index);
 				this.instance.debug.name(stack, this.images[index], VK_OBJECT_TYPE_IMAGE, "SwapchainImage-" + title + index);
+
+				if (shouldCreateImageView(imageUsage)) {
+					this.imageViews[index] = instance.images.createSimpleView(
+							this.images[index], imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView-" + title + index
+					);
+				}
 			}
 		}
+	}
+
+	private static boolean shouldCreateImageView(int swapchainImageUsage) {
+		// See https://vulkan.lunarg.com/doc/view/1.3.290.0/windows/1.3-extensions/vkspec.html#valid-imageview-imageusage
+		int imageViewUsages = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+				VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
+				VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR | VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT |
+				VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR | VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR |
+				VK_IMAGE_USAGE_VIDEO_ENCODE_SRC_BIT_KHR | VK_IMAGE_USAGE_VIDEO_ENCODE_DPB_BIT_KHR |
+				VK_IMAGE_USAGE_SAMPLE_WEIGHT_BIT_QCOM | VK_IMAGE_USAGE_SAMPLE_BLOCK_MATCH_BIT_QCOM;
+		return (imageViewUsages & swapchainImageUsage) != 0;
 	}
 
 	public boolean isOutdated() {
@@ -153,6 +181,7 @@ class VkbSwapchain {
 
 	void destroyNow() {
 		for (var callback : destructionCallbacks) callback.run();
+		for (long imageView : imageViews) vkDestroyImageView(instance.vkDevice(), imageView, null);
 		vkDestroySwapchainKHR(instance.vkDevice(), vkSwapchain, null);
 	}
 }

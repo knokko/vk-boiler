@@ -8,7 +8,6 @@ import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import com.github.knokko.boiler.window.AcquiredImage;
-import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
 import com.github.knokko.boiler.window.VkbWindow;
@@ -37,7 +36,6 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 	private long commandPool, graphicsPipeline, pipelineLayout;
 	private VkCommandBuffer[] commandBuffers;
 	private VkbFence[] commandFences;
-	private SwapchainResourceManager<Long> swapchainResources;
 
 	public SimpleRingApproximation(VkbWindow window) {
 		super(window, 3, false, VK_PRESENT_MODE_MAILBOX_KHR);
@@ -58,7 +56,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		pushConstants.offset(0);
 		pushConstants.size(20);
 
-		pipelineLayout = boiler.pipelines.createLayout(stack, pushConstants, "DrawingLayout");
+		pipelineLayout = boiler.pipelines.createLayout(pushConstants, "DrawingLayout");
 
 		var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
 		pipelineBuilder.simpleShaderStages(
@@ -77,18 +75,12 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
 
 		graphicsPipeline = pipelineBuilder.build("RingApproximation");
-
-		swapchainResources = new SwapchainResourceManager<>(swapchainImage -> boiler.images.createSimpleView(
-				swapchainImage.vkImage(), boiler.window().surfaceFormat,
-				VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
-		), imageView -> vkDestroyImageView(boiler.vkDevice(), imageView, null));
 	}
 
 	@Override
 	protected AwaitableSubmission renderFrame(
 			MemoryStack stack, int frameIndex, AcquiredImage swapchainImage, BoilerInstance boiler
 	) {
-		var swapchainImageView = swapchainResources.get(swapchainImage);
 		WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
 				swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 		)};
@@ -99,15 +91,15 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 
 		var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 
-		recorder.transitionColorLayout(
-				swapchainImage.vkImage(),
+		recorder.transitionLayout(
+				swapchainImage.image(),
 				ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
 				ResourceUsage.COLOR_ATTACHMENT_WRITE
 		);
 
 		var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
 		recorder.simpleColorRenderingAttachment(
-				colorAttachments.get(0), swapchainImageView,
+				colorAttachments.get(0), swapchainImage.image().vkImageView(),
 				VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
 				0.07f, 0.4f, 0.6f, 1f
 		);
@@ -133,9 +125,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		vkCmdDraw(commandBuffer, 6 * numTriangles, 1, 0, 0);
 		recorder.endDynamicRendering();
 
-		recorder.transitionColorLayout(
-				swapchainImage.vkImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT
-		);
+		recorder.transitionLayout(swapchainImage.image(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
 
 		recorder.end();
 

@@ -3,6 +3,13 @@ package com.github.knokko.boiler.synchronization;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * A tuple consisting of an imageLayout, access mask, and stage mask, used to describe pipeline barriers in vk-boiler.
+ * This class has some constants that you can use to avoid the need to type all 3 properties out for each barrier.
+ * @param imageLayout The image layout (only relevant for image memory barriers)
+ * @param accessMask The <i>VkAccessFlagBits</i>
+ * @param stageMask The <i>VkPipelineStageFlagBits</i>
+ */
 public record ResourceUsage(int imageLayout, int accessMask, int stageMask) {
 
 	public static final ResourceUsage COLOR_ATTACHMENT_WRITE = new ResourceUsage(

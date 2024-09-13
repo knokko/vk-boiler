@@ -11,15 +11,32 @@ import static org.lwjgl.vulkan.VK12.*;
 public class BoilerSync {
 
 	private final BoilerInstance instance;
+
+	/**
+	 * You can borrow and return fences from this bank
+	 */
 	public final FenceBank fenceBank;
+
+	/**
+	 * You can borrow and return binary semaphores from this bank
+	 */
 	public final SemaphoreBank semaphoreBank;
 
+	/**
+	 * This constructor is meant for internal use only. You should use <i>boilerInstance.sync</i> instead.
+	 */
 	public BoilerSync(BoilerInstance instance) {
 		this.instance = instance;
 		this.fenceBank = new FenceBank(instance);
 		this.semaphoreBank = new SemaphoreBank(instance);
 	}
 
+	/**
+	 * Creates and returns a timeline semaphore with the given initial value
+	 * @param initialValue The initial value of the timeline semaphore
+	 * @param name The debug name of the timeline semaphore (when <i>VK_EXT_debug_utils</i> is enabled)
+	 * @return The wrapped timeline semaphore
+	 */
 	public VkbTimelineSemaphore createTimelineSemaphore(long initialValue, String name) {
 		try (var stack = stackPush()) {
 			var ciTimeline = VkSemaphoreTypeCreateInfo.calloc(stack);

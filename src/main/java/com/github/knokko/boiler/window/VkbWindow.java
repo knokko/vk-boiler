@@ -259,7 +259,7 @@ public class VkbWindow {
 			instance.debug.name(stack, vkSwapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, "Swapchain-" + title + currentSwapchainID);
 
 			currentSwapchain = new VkbSwapchain(
-					instance, vkSwapchain, title, cleaner, presentMode,
+					instance, vkSwapchain, title, cleaner, surfaceFormat, swapchainImageUsage, presentMode,
 					width, height, presentFamily, compatibleUsedPresentModes
 			);
 		}

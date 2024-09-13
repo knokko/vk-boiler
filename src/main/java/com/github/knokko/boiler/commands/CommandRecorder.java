@@ -1,6 +1,8 @@
 package com.github.knokko.boiler.commands;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.buffers.VkbBufferRange;
+import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -13,14 +15,33 @@ import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.VK_RESOLVE_MODE_NONE;
 import static org.lwjgl.vulkan.VK13.*;
 
+/**
+ * This is a wrapper class for <i>VkCommandBuffer</i> that provides convenient methods to get rid of boilerplate code
+ * for command buffer recording.
+ */
 public class CommandRecorder {
 
+	/**
+	 * Wraps the given command buffer, and calls <i>VkBeginCommandBuffer</i> on it.
+	 * @param stack The <i>MemoryStack</i> that the recorder may use. It must be valid until you finish recording.
+	 * @param context When <i>vkBeginCommandBuffer</i> or <i>vkEndCommandBuffer</i> fails, an exception will be thrown,
+	 *                which will include <i>context</i> in its message.
+	 * @return The wrapped command buffer
+	 */
 	public static CommandRecorder begin(
 			VkCommandBuffer commandBuffer, BoilerInstance instance, MemoryStack stack, String context
 	) {
 		return begin(commandBuffer, instance, stack, 0, context);
 	}
 
+	/**
+	 * Wraps the given command buffer, and calls <i>VkBeginCommandBuffer</i> on it.
+	 * @param stack The <i>MemoryStack</i> that the recorder may use. It must be valid until you finish recording.
+	 * @param flags The <i>VkCommandBufferUsageFlags</i> that will be passed to the <i>VkCommandBufferBeginInfo</i>
+	 * @param context When <i>vkBeginCommandBuffer</i> or <i>vkEndCommandBuffer</i> fails, an exception will be thrown,
+	 *                which will include <i>context</i> in its message.
+	 * @return The wrapped command buffer
+	 */
 	public static CommandRecorder begin(
 			VkCommandBuffer commandBuffer, BoilerInstance instance, MemoryStack stack, int flags, String context
 	) {
@@ -28,12 +49,20 @@ public class CommandRecorder {
 		return new CommandRecorder(commandBuffer, instance, stack, context);
 	}
 
+	/**
+	 * Wraps a command buffer that is already in the recording state
+	 * @param stack The <i>MemoryStack</i> that the recorder may use. It must be valid until you finish recording.
+	 * @return The wrapped command buffer
+	 */
 	public static CommandRecorder alreadyRecording(
 			VkCommandBuffer commandBuffer, BoilerInstance instance, MemoryStack stack
 	) {
 		return new CommandRecorder(commandBuffer, instance, stack, null);
 	}
 
+	/**
+	 * The <i>VkCommandBuffer</i> that was wrapped
+	 */
 	public final VkCommandBuffer commandBuffer;
 	private final BoilerInstance instance;
 	private final MemoryStack stack;
@@ -46,101 +75,120 @@ public class CommandRecorder {
 		this.context = context;
 	}
 
-	public void copyBuffer(
-			long size, long vkSourceBuffer, long sourceOffset,
-			long vkDestBuffer, long destOffset
-	) {
+	/**
+	 * Calls <i>vkCmdCopyBuffer</i>
+	 * @param source The source buffer
+	 * @param vkDestBuffer The destination <i>VkBuffer</i>
+	 * @param destOffset The byte offset into the destination buffer
+	 */
+	public void copyBuffer(VkbBufferRange source, long vkDestBuffer, long destOffset) {
 		var copyRegion = VkBufferCopy.calloc(1, stack);
-		copyRegion.srcOffset(sourceOffset);
+		copyRegion.srcOffset(source.offset());
 		copyRegion.dstOffset(destOffset);
-		copyRegion.size(size);
+		copyRegion.size(source.size());
 
-		vkCmdCopyBuffer(commandBuffer, vkSourceBuffer, vkDestBuffer, copyRegion);
+		vkCmdCopyBuffer(commandBuffer, source.buffer().vkBuffer(), vkDestBuffer, copyRegion);
 	}
 
-	public void copyImage(
-			int width, int height, int aspectMask, long vkSourceImage, long vkDestImage
-	) {
+	/**
+	 * Calls <i>vkCmdCopyImage</i>
+	 * @param source The source image
+	 * @param dest The destination image, must be at least as large as <i>source</i>
+	 */
+	public void copyImage(VkbImage source, VkbImage dest) {
 		var imageCopyRegions = VkImageCopy.calloc(1, stack);
 		var copyRegion = imageCopyRegions.get(0);
-		instance.images.subresourceLayers(copyRegion.srcSubresource(), aspectMask);
+		instance.images.subresourceLayers(copyRegion.srcSubresource(), source.aspectMask());
 		copyRegion.srcOffset().set(0, 0, 0);
-		instance.images.subresourceLayers(copyRegion.dstSubresource(), aspectMask);
+		instance.images.subresourceLayers(copyRegion.dstSubresource(), dest.aspectMask());
 		copyRegion.dstOffset().set(0, 0, 0);
-		copyRegion.extent().set(width, height, 1);
+		copyRegion.extent().set(source.width(), source.height(), 1);
 
 		vkCmdCopyImage(
-				commandBuffer, vkSourceImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				vkDestImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageCopyRegions
+				commandBuffer, source.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				dest.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageCopyRegions
 		);
 	}
 
+	/**
+	 * Calls <i>vkCmdBlitImage</i>
+	 * @param filter The <i>VkFilter</i> that should be passed to <i>vkCmdBlitImage</i>
+	 * @param source The source image
+	 * @param dest The destination image
+	 */
 	@SuppressWarnings("resource")
-	public void blitImage(
-			int aspectMask, int filter, long vkSourceImage, int sourceWidth, int sourceHeight,
-			long vkDestImage, int destWidth, int destHeight
-	) {
+	public void blitImage(int filter, VkbImage source, VkbImage dest) {
 		var imageBlitRegions = VkImageBlit.calloc(1, stack);
 		var blitRegion = imageBlitRegions.get(0);
-		instance.images.subresourceLayers(blitRegion.srcSubresource(), aspectMask);
+		instance.images.subresourceLayers(blitRegion.srcSubresource(), source.aspectMask());
 		blitRegion.srcOffsets().get(0).set(0, 0, 0);
-		blitRegion.srcOffsets().get(1).set(sourceWidth, sourceHeight, 1);
-		instance.images.subresourceLayers(blitRegion.dstSubresource(), aspectMask);
+		blitRegion.srcOffsets().get(1).set(source.width(), source.height(), 1);
+		instance.images.subresourceLayers(blitRegion.dstSubresource(), dest.aspectMask());
 		blitRegion.dstOffsets().get(0).set(0, 0, 0);
-		blitRegion.dstOffsets().get(1).set(destWidth, destHeight, 1);
+		blitRegion.dstOffsets().get(1).set(dest.width(), dest.height(), 1);
 
 		vkCmdBlitImage(
-				commandBuffer, vkSourceImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				vkDestImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageBlitRegions, filter
+				commandBuffer, source.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				dest.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageBlitRegions, filter
 		);
 	}
 
-	public void copyImageToBuffer(
-			int aspectMask, long vkImage, int width, int height, long vkBuffer
-	) {
+	/**
+	 * Calls <i>vkCmdCopyImageToBuffer</i>
+	 * @param image The source image
+	 * @param vkBuffer The destination buffer
+	 */
+	public void copyImageToBuffer(VkbImage image, long vkBuffer) {
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
 		var copyRegion = bufferCopyRegions.get(0);
 		copyRegion.bufferOffset(0);
-		copyRegion.bufferRowLength(width);
-		copyRegion.bufferImageHeight(height);
-		instance.images.subresourceLayers(copyRegion.imageSubresource(), aspectMask);
+		copyRegion.bufferRowLength(image.width());
+		copyRegion.bufferImageHeight(image.height());
+		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask());
 		copyRegion.imageOffset().set(0, 0, 0);
-		copyRegion.imageExtent().set(width, height, 1);
+		copyRegion.imageExtent().set(image.width(), image.height(), 1);
 
 		vkCmdCopyImageToBuffer(
-				commandBuffer, vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkBuffer, bufferCopyRegions
+				commandBuffer, image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkBuffer, bufferCopyRegions
 		);
 	}
 
-	public void copyBufferToImage(
-			int aspectMask, long vkImage, int width, int height, long vkBuffer
-	) {
+	/**
+	 * Calls <i>vkCmdCopyBufferToImage</i>
+	 * @param image The destination image
+	 * @param vkBuffer The source buffer
+	 */
+	public void copyBufferToImage(VkbImage image, long vkBuffer) {
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
 		var copyRegion = bufferCopyRegions.get(0);
 		copyRegion.bufferOffset(0);
-		copyRegion.bufferRowLength(width);
-		copyRegion.bufferImageHeight(height);
-		instance.images.subresourceLayers(copyRegion.imageSubresource(), aspectMask);
+		copyRegion.bufferRowLength(image.width());
+		copyRegion.bufferImageHeight(image.height());
+		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask());
 		copyRegion.imageOffset().set(0, 0, 0);
-		copyRegion.imageExtent().set(width, height, 1);
+		copyRegion.imageExtent().set(image.width(), image.height(), 1);
 
 		vkCmdCopyBufferToImage(
-				commandBuffer, vkBuffer, vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferCopyRegions
+				commandBuffer, vkBuffer, image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferCopyRegions
 		);
 	}
 
-	public void bufferBarrier(
-			long vkBuffer, long offset, long size, ResourceUsage srcUsage, ResourceUsage dstUsage
-	) {
+	/**
+	 * Uses <i>vkCmdPipelineBarrier</i> to record a buffer barrier.
+	 * @param bufferRange The buffer range that should be covered by the barrier
+	 * @param srcUsage The <i>srcAccessMask</i> and <i>srcStageMask</i>
+	 * @param dstUsage The <i>dstAccessMask</i> and <i>dstStageMask</i>
+	 */
+	public void bufferBarrier(VkbBufferRange bufferRange, ResourceUsage srcUsage, ResourceUsage dstUsage) {
 		var bufferBarrier = VkBufferMemoryBarrier.calloc(1, stack);
 		bufferBarrier.sType$Default();
 		bufferBarrier.srcAccessMask(srcUsage.accessMask());
 		bufferBarrier.dstAccessMask(dstUsage.accessMask());
 		bufferBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
 		bufferBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-		bufferBarrier.buffer(vkBuffer);
-		bufferBarrier.offset(offset);
-		bufferBarrier.size(size);
+		bufferBarrier.buffer(bufferRange.buffer().vkBuffer());
+		bufferBarrier.offset(bufferRange.offset());
+		bufferBarrier.size(bufferRange.size());
 
 		vkCmdPipelineBarrier(
 				commandBuffer, srcUsage.stageMask(), dstUsage.stageMask(),
@@ -148,6 +196,14 @@ public class CommandRecorder {
 		);
 	}
 
+	/**
+	 * Calls <i>vkCmdClearColorImage</i>
+	 * @param vkImage The <i>VkImage</i> to be cleared
+	 * @param red The red component of the clear color, in range [0, 1]
+	 * @param green The green component of the clear color, in range [0, 1]
+	 * @param blue The blue component of the clear color, in range [0, 1]
+	 * @param alpha The alpha component of the clear color, in range [0, 1]
+	 */
 	public void clearColorImage(long vkImage, float red, float green, float blue, float alpha) {
 		var pColor = VkClearColorValue.calloc(stack);
 		pColor.float32(stack.floats(red, green, blue, alpha));
@@ -156,20 +212,15 @@ public class CommandRecorder {
 		vkCmdClearColorImage(commandBuffer, vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pColor, pRange);
 	}
 
-	public void transitionColorLayout(
-			long vkImage, ResourceUsage oldUsage, ResourceUsage newUsage
-	) {
-		transitionLayout(vkImage, oldUsage, newUsage, VK_IMAGE_ASPECT_COLOR_BIT);
-	}
-
-	public void transitionDepthLayout(
-			long vkImage, ResourceUsage oldUsage, ResourceUsage newUsage
-	) {
-		transitionLayout(vkImage, oldUsage, newUsage, VK_IMAGE_ASPECT_DEPTH_BIT);
-	}
-
+	/**
+	 * Calls <i>vkCmdPipelineBarrier</i> to transition the layout of an image
+	 * @param image The image whose layout should be transitioned
+	 * @param oldUsage Contains the oldLayout, srcAccessMask, and srcStageMask. May be <i>null</i> to transition
+	 *                 from <i>VK_IMAGE_LAYOUT_UNDEFINED</i>
+	 * @param newUsage Contains the newLayout, dstAccessMask, and dstStageMask
+	 */
 	public void transitionLayout(
-			long vkImage, ResourceUsage oldUsage, ResourceUsage newUsage, int aspectMask
+			VkbImage image, ResourceUsage oldUsage, ResourceUsage newUsage
 	) {
 		var pImageBarrier = VkImageMemoryBarrier.calloc(1, stack);
 		pImageBarrier.sType$Default();
@@ -179,8 +230,8 @@ public class CommandRecorder {
 		pImageBarrier.newLayout(newUsage.imageLayout());
 		pImageBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
 		pImageBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-		pImageBarrier.image(vkImage);
-		instance.images.subresourceRange(stack, pImageBarrier.subresourceRange(), aspectMask);
+		pImageBarrier.image(image.vkImage());
+		instance.images.subresourceRange(stack, pImageBarrier.subresourceRange(), image.aspectMask());
 
 		vkCmdPipelineBarrier(
 				commandBuffer, oldUsage != null ? oldUsage.stageMask() : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -188,6 +239,10 @@ public class CommandRecorder {
 		);
 	}
 
+	/**
+	 * Populates the given <i>VkRenderingAttachmentInfo</i> for a color image. This is typically used right before
+	 * <i>beginSimpleDynamicRendering</i>
+	 */
 	public void simpleColorRenderingAttachment(
 			VkRenderingAttachmentInfo attachment, long imageView, int loadOp, int storeOp,
 			float clearRed, float clearGreen, float clearBlue, float clearAlpha
@@ -209,8 +264,12 @@ public class CommandRecorder {
 		color.float32(3, clearAlpha);
 	}
 
+	/**
+	 * Populates the given <i>VkRenderingAttachmentInfo</i> for a depth/stencil image. This is typically used right
+	 * before <i>beginSimpleDynamicRendering</i>
+	 */
 	public VkRenderingAttachmentInfo simpleDepthRenderingAttachment(
-			MemoryStack stack, long imageView, int imageLayout, int storeOp, Float depthClear, Integer stencilClear
+			long imageView, int imageLayout, int storeOp, Float depthClear, Integer stencilClear
 	) {
 		if ((depthClear == null) != (stencilClear == null)) {
 			throw new IllegalArgumentException("depthClear must be null if and only if stencilClear is null");
@@ -230,6 +289,15 @@ public class CommandRecorder {
 		return attachment;
 	}
 
+	/**
+	 * Calls <i>vkCmdBeginRendering(KHR)</i>. Note that you can use <i>simpleColorRenderingAttachment</i> and
+	 * <i>simpleDepthRenderingAttachment</i> to populate the parameters.
+	 * @param width The width of the attached images, in pixels
+	 * @param height The height of the attached images, in pixels
+	 * @param colorAttachments The color attachments, may be null
+	 * @param depthAttachment The depth attachment, may be null
+	 * @param stencilAttachment The stencil attachment, may be null
+	 */
 	public void beginSimpleDynamicRendering(
 			int width, int height,
 			VkRenderingAttachmentInfo.Buffer colorAttachments,
@@ -251,11 +319,19 @@ public class CommandRecorder {
 		else vkCmdBeginRenderingKHR(commandBuffer, renderingInfo);
 	}
 
+	/**
+	 * Calls <i>vkCmdEndRendering(KHR)</i>
+	 */
 	public void endDynamicRendering() {
 		if (instance.apiVersion >= VK_API_VERSION_1_3) vkCmdEndRendering(commandBuffer);
 		else vkCmdEndRenderingKHR(commandBuffer);
 	}
 
+	/**
+	 * Calls <i>vkCmdSetViewport</i> and <i>vkCmdSetScissor</i>
+	 * @param width The width of the viewport and scissor, in pixels
+	 * @param height The height of the viewport and scissor, in pixels
+	 */
 	public void dynamicViewportAndScissor(int width, int height) {
 		var pViewport = VkViewport.calloc(1, stack);
 		pViewport.x(0f);
@@ -273,10 +349,20 @@ public class CommandRecorder {
 		vkCmdSetScissor(commandBuffer, 0, pScissor);
 	}
 
+	/**
+	 * Calls <i>vkEndCommandBuffer</i>. Note that you can call the <i>end()</i> method without parameters when you
+	 * created this recorder using <i>CommandRecorder.begin</i>.
+	 * @param context When <i>vkEndCommandBuffer</i> fails, an exception will be thrown, which will include
+	 *                   <i>context</i> in its message.
+	 */
 	public void end(String context) {
 		assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", context);
 	}
 
+	/**
+	 * Calls <i>vkEndCommandBuffer</i>. Note that you must use <i>end(String context)</i> if you created this recorder
+	 * using <i>CommandRecorder.alreadyRecording</i>
+	 */
 	public void end() {
 		if (this.context == null) throw new IllegalStateException("Use end(context) instead");
 		end(this.context);

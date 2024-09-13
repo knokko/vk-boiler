@@ -9,6 +9,11 @@ import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertV
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * A 'bank' from which you can borrow binary semaphores, and return them when you no longer need them.
+ * You should <b>not</b> create an instance of this class: you should get the instance via
+ * <i>boilerInstance.sync.semaphoreBank</i> instead.
+ */
 public class SemaphoreBank {
 
 	private final BoilerInstance instance;
@@ -19,6 +24,12 @@ public class SemaphoreBank {
 		this.instance = instance;
 	}
 
+	/**
+	 * Borrows a (binary) semaphore from the bank. If the bank doesn't have any semaphores left, a new one will be
+	 * created. You should return it using <i>returnSemaphores</i> when you no longer need it.
+	 * @param name The debug name of the semaphore (when <i>VK_EXT_debug_utils</i> is enabled)
+	 * @return The borrowed semaphore
+	 */
 	public long borrowSemaphore(String name) {
 		Long semaphore = unusedSemaphores.pollFirst();
 		try (var stack = stackPush()) {
@@ -39,12 +50,21 @@ public class SemaphoreBank {
 		return semaphore;
 	}
 
+	/**
+	 * Borrows <i>amount</i> (binary) semaphores from the bank. If the bank doesn't have enough semaphores left, some new
+	 * semaphores will be created. You should return them using <i>returnSemaphores</i> when you no longer need them.
+	 * @param name The debug name of the semaphores (when <i>VK_EXT_debug_utils</i> is enabled)
+	 * @return The borrowed semaphores
+	 */
 	public long[] borrowSemaphores(int amount, String name) {
 		long[] semaphores = new long[amount];
 		for (int index = 0; index < amount; index++) semaphores[index] = this.borrowSemaphore(name + "-" + index);
 		return semaphores;
 	}
 
+	/**
+	 * Returns semaphores that were previously borrowed from this bank. The semaphores must <b>not</b> be pending.
+	 */
 	public void returnSemaphores(long... semaphores) {
 		for (long semaphore : semaphores) {
 			if (!borrowedSemaphores.remove(semaphore)) {
@@ -55,6 +75,10 @@ public class SemaphoreBank {
 		for (long semaphore : semaphores) unusedSemaphores.add(semaphore);
 	}
 
+	/**
+	 * This method will be called during <i>BoilerInstance.destroy</i>, so you should <b>not</b> call this method
+	 * yourself!
+	 */
 	public void destroy() {
 		if (!borrowedSemaphores.isEmpty()) {
 			throw new IllegalStateException("Not all borrowed semaphores have been returned");

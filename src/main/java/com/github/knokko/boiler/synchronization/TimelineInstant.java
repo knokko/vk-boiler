@@ -1,5 +1,10 @@
 package com.github.knokko.boiler.synchronization;
 
+/**
+ * A simple tuple of a timeline semaphore with a corresponding value
+ * @param semaphore The timeline semaphore
+ * @param value The value that should be awaited or signalled
+ */
 public record TimelineInstant(VkbTimelineSemaphore semaphore, long value) implements AwaitableSubmission {
 
 	@Override

@@ -81,14 +81,13 @@ public class MultipleWindows {
 
 		@Override
 		protected void recordFrame(MemoryStack stack, CommandRecorder recorder, AcquiredImage swapchainImage, BoilerInstance boiler) {
-			recorder.clearColorImage(swapchainImage.vkImage(), red, green, blue, 1f);
+			recorder.clearColorImage(swapchainImage.image().vkImage(), red, green, blue, 1f);
 		}
 	}
 
 	private static class SpinWindowLoop extends SimpleWindowRenderLoop {
 
 		private long pipelineLayout, pipeline;
-		private SwapchainResourceManager<Long> associatedResources;
 
 		public SpinWindowLoop(VkbWindow window) {
 			super(
@@ -106,7 +105,7 @@ public class MultipleWindows {
 			pushConstants.size(8);
 			pushConstants.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
-			pipelineLayout = boiler.pipelines.createLayout(stack, pushConstants, "SpinLayout");
+			pipelineLayout = boiler.pipelines.createLayout(pushConstants, "SpinLayout");
 
 			var builder = new GraphicsPipelineBuilder(boiler, stack);
 
@@ -126,11 +125,6 @@ public class MultipleWindows {
 			builder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
 
 			pipeline = builder.build("SpinPipeline");
-
-			associatedResources = new SwapchainResourceManager<>(swapchainImage -> boiler.images.createSimpleView(
-					swapchainImage.vkImage(), window.surfaceFormat,
-					VK_IMAGE_ASPECT_COLOR_BIT, "SpinSwapchainImageView"
-			), imageView -> vkDestroyImageView(boiler.vkDevice(), imageView, null));
 		}
 
 		@Override
@@ -139,7 +133,7 @@ public class MultipleWindows {
 		) {
 			var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
 			recorder.simpleColorRenderingAttachment(
-					colorAttachments.get(0), associatedResources.get(swapchainImage), VK_ATTACHMENT_LOAD_OP_CLEAR,
+					colorAttachments.get(0), swapchainImage.image().vkImageView(), VK_ATTACHMENT_LOAD_OP_CLEAR,
 					VK_ATTACHMENT_STORE_OP_STORE, 0f, 0f, 0.7f, 1f
 			);
 

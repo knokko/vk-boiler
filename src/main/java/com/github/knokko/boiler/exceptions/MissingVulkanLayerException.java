@@ -1,5 +1,8 @@
 package com.github.knokko.boiler.exceptions;
 
+/**
+ * This exception will be thrown when a required Vulkan layer is not supported
+ */
 public class MissingVulkanLayerException extends RuntimeException {
 
 	public final String layerName;

@@ -36,7 +36,7 @@ while (!shouldCloseWindow) {
 		Thread.sleep(100);
 		continue;
 	}
-	// Use swapchainImage.vkImage to record commands...
+	// Use swapchainImage.image() to record commands...
 	WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
 		swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 	)};
@@ -59,7 +59,7 @@ such cases is to simply sleep a while and retry.
 ### Associating resources with swapchain images
 The swapchain management system will automatically create and destroy swapchains
 and their images, but there is sometimes a need to create objects that are
-'tied' to swapchain images (like swapchain image views). You can use a
+'tied' to swapchain images (like swapchain framebuffers). You can use a
 `SwapchainResourceManager<T>` to achieve this result, where the `T` is the type
 of your associated resource class.
 
@@ -79,21 +79,13 @@ To get the resources associated with a swapchain image, use
 HelloTriangle is shown below:
 ```java
 var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-	long imageView = boiler.images.createSimpleView(
-			swapchainImage.vkImage(), boiler.window().surfaceFormat,
-			VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView " + swapchainImage.index()
-	);
-
 	long framebuffer = boiler.images.createFramebuffer(
 			renderPass, swapchainImage.width(), swapchainImage.height(),
-			"TriangleFramebuffer", imageView
+			"TriangleFramebuffer", swapchainImage.image().vkImageView()
 	);
 
-	return new AssociatedSwapchainResources(framebuffer, imageView);
-}, resources -> {
-	vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
-	vkDestroyImageView(boiler.vkDevice(), resources.imageView, null);
-});
+	return new AssociatedSwapchainResources(framebuffer);
+}, resources -> vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null));
 // Some unrelated stuff...
 while (windowShouldNotClose) {
 	// Acquire swapchainImage...
@@ -102,8 +94,7 @@ while (windowShouldNotClose) {
 }
 // Some unrelated stuff...
 private record AssociatedSwapchainResources(
-		long framebuffer,
-		long imageView
+		long framebuffer
 ) {}
 ```
 

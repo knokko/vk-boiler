@@ -44,13 +44,9 @@ public class TestBufferCopies {
 			)[0];
 
 			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Copying");
-
-			recorder.copyBuffer(100, sourceBuffer.vkBuffer(), 0, middleBuffer.vkBuffer(), 0);
-			recorder.bufferBarrier(
-					middleBuffer.vkBuffer(), 0, 100, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE
-			);
-			recorder.copyBuffer(100, middleBuffer.vkBuffer(), 0, destinationBuffer.vkBuffer(), 0);
-
+			recorder.copyBuffer(sourceBuffer.fullRange(), middleBuffer.vkBuffer(), 0);
+			recorder.bufferBarrier(middleBuffer.fullRange(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+			recorder.copyBuffer(middleBuffer.fullRange(), destinationBuffer.vkBuffer(), 0);
 			recorder.end();
 
 			instance.queueFamilies().graphics().first().submit(

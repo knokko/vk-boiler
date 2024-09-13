@@ -39,14 +39,14 @@ public class TestWriteImage {
 
 			var descriptorSetLayout = instance.descriptors.createLayout(stack, layoutBindings, "DSLayout");
 			long pipelineLayout = instance.pipelines.createLayout(
-					stack, null, "PipelineLayout", descriptorSetLayout.vkDescriptorSetLayout
+					null, "PipelineLayout", descriptorSetLayout.vkDescriptorSetLayout
 			);
 			long computePipeline = instance.pipelines.createComputePipeline(
-					stack, pipelineLayout, "shaders/sample.comp.spv", "SamplePipeline"
+					pipelineLayout, "shaders/sample.comp.spv", "SamplePipeline"
 			);
 
 			var descriptorPool = descriptorSetLayout.createPool(1, 0, "DescriptorPool");
-			long descriptorSet = descriptorPool.allocate(stack, 1)[0];
+			long descriptorSet = descriptorPool.allocate(1)[0];
 
 			var sampler = instance.images.createSampler(
 					VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
@@ -59,7 +59,10 @@ public class TestWriteImage {
 			imageInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 			var descriptorWrites = VkWriteDescriptorSet.calloc(2, stack);
-			instance.descriptors.writeBuffer(stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, destBuffer);
+			instance.descriptors.writeBuffer(
+					stack, descriptorWrites, descriptorSet,
+					0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, destBuffer.fullRange()
+			);
 			instance.descriptors.writeImage(descriptorWrites, descriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfo);
 
 			vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
@@ -74,11 +77,10 @@ public class TestWriteImage {
 			)[0];
 			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Sampling");
 
-			recorder.transitionColorLayout(image.vkImage(), null, ResourceUsage.TRANSFER_DEST);
-			recorder.copyBufferToImage(VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(), 1, 1, sourceBuffer.vkBuffer());
-			recorder.transitionColorLayout(
-					image.vkImage(), ResourceUsage.TRANSFER_DEST,
-					ResourceUsage.shaderRead(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
+			recorder.transitionLayout(image, null, ResourceUsage.TRANSFER_DEST);
+			recorder.copyBufferToImage(image, sourceBuffer.vkBuffer());
+			recorder.transitionLayout(
+					image, ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
 			);
 
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);

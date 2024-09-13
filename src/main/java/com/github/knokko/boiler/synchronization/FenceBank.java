@@ -9,6 +9,10 @@ import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertV
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * Represents a 'bank' from which you can borrow <i>VkbFence</i>s, and return them when you no longer need them.
+ * You should <b>not</b> create an instance of this class, but instead access it via <i>boilerInstance.sync.fenceBank</i>
+ */
 public class FenceBank {
 
 	private final BoilerInstance instance;
@@ -31,6 +35,13 @@ public class FenceBank {
 		return null;
 	}
 
+	/**
+	 * Borrows a fence from this bank. If this bank doesn't have any available fences, a new one will be created.
+	 * You should return the fence using <i>returnFence</i> when you no longer need it.
+	 * @param startSignaled True if you want the fence to be initially signalled, false if not
+	 * @param name The debug name of the fence (when <i>VK_EXT_debug_utils</i> is enabled)
+	 * @return The borrowed fence
+	 */
 	public VkbFence borrowFence(boolean startSignaled, String name) {
 		var fence = recycleFence();
 
@@ -57,6 +68,13 @@ public class FenceBank {
 		return fence;
 	}
 
+	/**
+	 * Borrows multiple fences from this bank. If this bank doesn't have enough available fences, some new fences will
+	 * be created. You should return the fences using <i>returnFence</i> when you no longer need it.
+	 * @param startSignaled True if you want the fences to be initially signalled, false if not
+	 * @param name The debug name of the fences (when <i>VK_EXT_debug_utils</i> is enabled)
+	 * @return The borrowed fences
+	 */
 	public VkbFence[] borrowFences(int amount, boolean startSignaled, String name) {
 		var fences = new VkbFence[amount];
 		for (int index = 0; index < amount; index++) {
@@ -65,6 +83,9 @@ public class FenceBank {
 		return fences;
 	}
 
+	/**
+	 * Returns a fence to this bank that was previously borrowed using <i>borrowFence</i> or <i>borrowFences</i>
+	 */
 	public void returnFence(VkbFence fence) {
 		if (!borrowedFences.remove(fence)) {
 			throw new IllegalArgumentException("This fence wasn't borrowed");
@@ -72,6 +93,9 @@ public class FenceBank {
 		returnedFences.add(fence);
 	}
 
+	/**
+	 * Returns some fence to this bank that were previously borrowed using <i>borrowFence</i> or <i>borrowFences</i>
+	 */
 	public void returnFences(VkbFence... fences) {
 		for (VkbFence fence : fences) returnFence(fence);
 	}
@@ -86,8 +110,8 @@ public class FenceBank {
 	}
 
 	/**
-	 * Note: this method is <b>not</b> thread-safe!
-	 * Do not call it while borrowing or returning fences!
+	 * This method will be called during <i>BoilerInstance.destroy</i>, so you should normally <b>not</b> call this
+	 * method yourself!
 	 */
 	public void destroy() {
 		if (!borrowedFences.isEmpty()) {

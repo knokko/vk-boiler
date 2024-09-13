@@ -46,17 +46,20 @@ public class TestComputePipelines {
 			sizePushConstant.size(8);
 
 			long pipelineLayout = instance.pipelines.createLayout(
-					stack, pushConstants, "FillBuffer-PipelineLayout", descriptorSetLayout.vkDescriptorSetLayout
+					pushConstants, "FillBuffer-PipelineLayout", descriptorSetLayout.vkDescriptorSetLayout
 			);
 			long computePipeline = instance.pipelines.createComputePipeline(
-					stack, pipelineLayout, "shaders/fill.comp.spv", "FillBuffer"
+					pipelineLayout, "shaders/fill.comp.spv", "FillBuffer"
 			);
 
 			var descriptorPool = descriptorSetLayout.createPool(1, 0, "FillPool");
-			long descriptorSet = descriptorPool.allocate(stack, 1)[0];
+			long descriptorSet = descriptorPool.allocate(1)[0];
 
 			var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
-			instance.descriptors.writeBuffer(stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer);
+			instance.descriptors.writeBuffer(
+					stack, descriptorWrites, descriptorSet,
+					0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer.fullRange()
+			);
 
 			vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
 

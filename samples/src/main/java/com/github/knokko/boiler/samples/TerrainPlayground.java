@@ -10,7 +10,6 @@ import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
 import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
-import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.TimelineInstant;
@@ -153,26 +152,19 @@ public class TerrainPlayground {
 		pushConstants.size(28);
 		pushConstants.stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
-		return boiler.pipelines.createLayout(stack, pushConstants, "GroundPipelineLayout", descriptorSetLayout);
+		return boiler.pipelines.createLayout(pushConstants, "GroundPipelineLayout", descriptorSetLayout);
 	}
 
 	private static long createGroundPipeline(MemoryStack stack, BoilerInstance boiler, long pipelineLayout, long renderPass) {
-		var vertexShader = boiler.pipelines.createShaderModule(
-				stack, "com/github/knokko/boiler/samples/graphics/ground.vert.spv", "GroundVertexShader"
-		);
-		var fragmentShader = boiler.pipelines.createShaderModule(
-				stack, "com/github/knokko/boiler/samples/graphics/ground.frag.spv", "GroundFragmentShader"
-		);
-
 		var vertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack);
 		vertexInput.sType$Default();
 		vertexInput.pVertexBindingDescriptions(null);
 		vertexInput.pVertexAttributeDescriptions(null);
 
 		var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
-		pipelineBuilder.shaderStages(
-				new ShaderInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexShader, null),
-				new ShaderInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, null)
+		pipelineBuilder.simpleShaderStages(
+				"Ground", "com/github/knokko/boiler/samples/graphics/ground.vert.spv",
+				"com/github/knokko/boiler/samples/graphics/ground.frag.spv"
 		);
 
 		pipelineBuilder.ciPipeline.pVertexInputState(vertexInput);
@@ -180,18 +172,14 @@ public class TerrainPlayground {
 		pipelineBuilder.dynamicViewports(1);
 		pipelineBuilder.simpleRasterization(VK_CULL_MODE_BACK_BIT);
 		pipelineBuilder.noMultisampling();
-		pipelineBuilder.simpleDepthStencil(VK_COMPARE_OP_LESS_OR_EQUAL);
+		pipelineBuilder.simpleDepth(VK_COMPARE_OP_LESS_OR_EQUAL);
 		pipelineBuilder.noColorBlending(1);
 		pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
 		pipelineBuilder.ciPipeline.renderPass(renderPass);
 		pipelineBuilder.ciPipeline.subpass(0);
 
-		long groundPipeline = pipelineBuilder.build("GroundPipeline");
-
-		vkDestroyShaderModule(boiler.vkDevice(), vertexShader, null);
-		vkDestroyShaderModule(boiler.vkDevice(), fragmentShader, null);
-		return groundPipeline;
+		return pipelineBuilder.build("GroundPipeline");
 	}
 
 	private static VkbImage[] createHeightImages(BoilerInstance boiler) {
@@ -282,22 +270,16 @@ public class TerrainPlayground {
 					VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 					"CopyHeightImage"
 			);
-			recorder.transitionColorLayout(image.vkImage(), null, ResourceUsage.TRANSFER_DEST);
-			recorder.transitionColorLayout(normalImage.vkImage(), null, ResourceUsage.TRANSFER_DEST);
-			recorder.copyBufferToImage(
-					VK_IMAGE_ASPECT_COLOR_BIT, image.vkImage(),
-					gridSize, gridSize, stagingBuffer.vkBuffer()
-			);
-			recorder.copyBufferToImage(
-					VK_IMAGE_ASPECT_COLOR_BIT, normalImage.vkImage(),
-					normalImage.width(), normalImage.height(), normalStagingBuffer.vkBuffer()
-			);
-			recorder.transitionColorLayout(
-					image.vkImage(), ResourceUsage.TRANSFER_DEST,
+			recorder.transitionLayout(image, null, ResourceUsage.TRANSFER_DEST);
+			recorder.transitionLayout(normalImage, null, ResourceUsage.TRANSFER_DEST);
+			recorder.copyBufferToImage(image, stagingBuffer.vkBuffer());
+			recorder.copyBufferToImage(normalImage, normalStagingBuffer.vkBuffer());
+			recorder.transitionLayout(
+					image, ResourceUsage.TRANSFER_DEST,
 					ResourceUsage.shaderRead(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
 			);
-			recorder.transitionColorLayout(
-					normalImage.vkImage(), ResourceUsage.TRANSFER_DEST,
+			recorder.transitionLayout(
+					normalImage, ResourceUsage.TRANSFER_DEST,
 					ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
 			);
 			recorder.end();
@@ -349,14 +331,13 @@ public class TerrainPlayground {
 		long groundPipeline;
 		HomogeneousDescriptorPool descriptorPool;
 		long descriptorSet;
-		int depthFormat;
+		int depthFormat = boiler.images.chooseDepthStencilFormat(
+				VK_FORMAT_X8_D24_UNORM_PACK32, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT
+		);
 		long heightSampler;
 		long normalSampler;
 		try (var stack = stackPush()) {
 
-			depthFormat = boiler.images.chooseDepthStencilFormat(
-					stack, VK_FORMAT_X8_D24_UNORM_PACK32, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT
-			);
 			renderPass = createRenderPass(stack, boiler, depthFormat);
 
 			descriptorSetLayout = createDescriptorSetLayout(stack, boiler);
@@ -365,13 +346,13 @@ public class TerrainPlayground {
 
 			descriptorPool = descriptorSetLayout.createPool(1, 0, "TerrainDescriptorPool");
 
-			descriptorSet = descriptorPool.allocate(stack, 1)[0];
+			descriptorSet = descriptorPool.allocate(1)[0];
 
 			heightSampler = boiler.images.createSampler(
 					VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
 					VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0f, 0f, false, "HeightSampler"
 			);
-			normalSampler = boiler.images.simpleSampler(
+			normalSampler = boiler.images.createSimpleSampler(
 					VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, "NormalSampler"
 			);
 
@@ -386,7 +367,8 @@ public class TerrainPlayground {
 
 			var descriptorWrites = VkWriteDescriptorSet.calloc(3, stack);
 			boiler.descriptors.writeBuffer(
-					stack, descriptorWrites, descriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer
+					stack, descriptorWrites, descriptorSet,
+					0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer.fullRange()
 			);
 			boiler.descriptors.writeImage(
 					descriptorWrites, descriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, heightMapInfo
@@ -410,11 +392,6 @@ public class TerrainPlayground {
 
 		long frameCounter = 0;
 		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			long imageView = boiler.images.createSimpleView(
-					swapchainImage.vkImage(), boiler.window().surfaceFormat,
-					VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView" + swapchainImage.index()
-			);
-
 			var depthImage = boiler.images.createSimple(
 					swapchainImage.width(), swapchainImage.height(), depthFormat,
 					VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT, "Depth"
@@ -422,15 +399,13 @@ public class TerrainPlayground {
 
 			long framebuffer = boiler.images.createFramebuffer(
 					renderPass, swapchainImage.width(), swapchainImage.height(),
-					"TerrainFramebuffer", imageView, depthImage.vkImageView()
+					"TerrainFramebuffer", swapchainImage.image().vkImageView(), depthImage.vkImageView()
 			);
 
-			return new AssociatedSwapchainResources(framebuffer, imageView, depthImage);
+			return new AssociatedSwapchainResources(framebuffer, depthImage);
 		}, resources -> {
 			vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
-			vkDestroyImageView(boiler.vkDevice(), resources.imageView, null);
-			vkDestroyImageView(boiler.vkDevice(), resources.depthImage.vkImageView(), null);
-			vmaDestroyImage(boiler.vmaAllocator(), resources.depthImage.vkImage(), resources.depthImage.vmaAllocation());
+			resources.depthImage().destroy(boiler);
 		});
 
 		long referenceTime = System.currentTimeMillis();
@@ -646,10 +621,8 @@ public class TerrainPlayground {
 
 	private record AssociatedSwapchainResources(
 			long framebuffer,
-			long imageView,
 			VkbImage depthImage
-	) {
-	}
+	) { }
 
 	private record TerrainFragment(
 			float minU,

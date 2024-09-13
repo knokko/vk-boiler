@@ -14,6 +14,20 @@ import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertV
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * <p>
+ *  Wraps a <i>VkDescriptorSetLayout</i>, along with some information about its descriptor types. This information can
+ *  be used to reduce the boilerplate code needed when you create and use descriptor pools that use <b>only 1</b>
+ *  descriptor set layout.
+ * </p>
+ *
+ * <p>
+ *  You can use the <i>createPool</i> method of this class to create such pools. You can also pass
+ *  instances of this class to the constructors of <i>FixedDescriptorBank</i> or <i>GrowingDescriptorBank</i>.
+ * </p>
+ *
+ * Use <i>boiler.descriptors.createLayout</i> to create instances of this class.
+ */
 public class VkbDescriptorSetLayout {
 
 	final BoilerInstance instance;
@@ -46,6 +60,13 @@ public class VkbDescriptorSetLayout {
 		}
 	}
 
+	/**
+	 * Creates a <i>HomogeneousDescriptorPool</i> that can allocate descriptor sets using this descriptor set layout.
+	 * @param maxSets The maximum number of descriptor sets that can be allocated from the pool
+	 * @param flags The <i>VkDescriptorPoolCreateFlagBits</i>
+	 * @param name The debug name of the descriptor pool (when <i>VK_EXT_debug_utils</i> is enabled)
+	 * @return The wrapped descriptor pool
+	 */
 	public HomogeneousDescriptorPool createPool(int maxSets, int flags, String name) {
 		try (var stack = stackPush()) {
 
@@ -75,6 +96,9 @@ public class VkbDescriptorSetLayout {
 		}
 	}
 
+	/**
+	 * Calls <i>vkDestroyDescriptorSetLayout</i>
+	 */
 	public void destroy() {
 		vkDestroyDescriptorSetLayout(instance.vkDevice(), vkDescriptorSetLayout, null);
 	}

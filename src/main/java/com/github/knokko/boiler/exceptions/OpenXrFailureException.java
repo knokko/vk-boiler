@@ -5,6 +5,10 @@ import org.lwjgl.openxr.XR10;
 
 import static org.lwjgl.openxr.XR10.*;
 
+/**
+ * This exception will be thrown when an OpenXR function returned an unexpected result code. Usually, anything other
+ * than <i>XR_SUCCESS</i> is unexpected.
+ */
 public class OpenXrFailureException extends RuntimeException {
 
 	public static void assertXrSuccess(int result, String functionName, String context, int... allowedResults) {

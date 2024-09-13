@@ -43,7 +43,7 @@ public class HelloTriangle {
 		long renderPass;
 
 		try (var stack = stackPush()) {
-			pipelineLayout = boiler.pipelines.createLayout(stack, null, "DrawingLayout");
+			pipelineLayout = boiler.pipelines.createLayout(null, "DrawingLayout");
 
 			var attachments = VkAttachmentDescription.calloc(1, stack);
 			var colorAttachment = attachments.get(0);
@@ -92,10 +92,10 @@ public class HelloTriangle {
 
 		try (var stack = stackPush()) {
 			var vertexModule = boiler.pipelines.createShaderModule(
-					stack, "com/github/knokko/boiler/samples/graphics/triangle.vert.spv", "TriangleVertices"
+					"com/github/knokko/boiler/samples/graphics/triangle.vert.spv", "TriangleVertices"
 			);
 			var fragmentModule = boiler.pipelines.createShaderModule(
-					stack, "com/github/knokko/boiler/samples/graphics/triangle.frag.spv", "TriangleFragments"
+					"com/github/knokko/boiler/samples/graphics/triangle.frag.spv", "TriangleFragments"
 			);
 
 			var vertexBindings = VkVertexInputBindingDescription.calloc(1, stack);
@@ -168,21 +168,13 @@ public class HelloTriangle {
 
 		long frameCounter = 0;
 		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			long imageView = boiler.images.createSimpleView(
-					swapchainImage.vkImage(), boiler.window().surfaceFormat,
-					VK_IMAGE_ASPECT_COLOR_BIT, "SwapchainView " + swapchainImage.index()
-			);
-
 			long framebuffer = boiler.images.createFramebuffer(
 					renderPass, swapchainImage.width(), swapchainImage.height(),
-					"TriangleFramebuffer", imageView
+					"TriangleFramebuffer", swapchainImage.image().vkImageView()
 			);
 
-			return new AssociatedSwapchainResources(framebuffer, imageView);
-		}, resources -> {
-			vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
-			vkDestroyImageView(boiler.vkDevice(), resources.imageView, null);
-		});
+			return new AssociatedSwapchainResources(framebuffer);
+		}, resources -> vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null));
 
 		long referenceTime = System.currentTimeMillis();
 		long referenceFrames = 0;
@@ -280,8 +272,7 @@ public class HelloTriangle {
 	}
 
 	private record AssociatedSwapchainResources(
-			long framebuffer,
-			long imageView
+			long framebuffer
 	) {
 	}
 }
