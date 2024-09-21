@@ -1,5 +1,6 @@
 package com.github.knokko.boiler.samples;
 
+import com.github.knokko.boiler.buffers.MappedVkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.builders.instance.ValidationFeatures;
@@ -319,18 +320,23 @@ public class TerrainPlayground {
 			);
 		}
 
+		int numFramesInFlight = 3;
+
 		var heightImages = createHeightImages(boiler);
 		var heightImage = heightImages[0];
 		var normalImage = heightImages[1];
-		var uniformBuffer = boiler.buffers.createMapped(
-				64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "UniformBuffer"
-		);
+		var uniformBuffers = new MappedVkbBuffer[numFramesInFlight];
+		for (int index = 0; index < numFramesInFlight; index++) {
+			uniformBuffers[index] = boiler.buffers.createMapped(
+					64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "UniformBuffer"
+			);
+		}
 		long renderPass;
 		VkbDescriptorSetLayout descriptorSetLayout;
 		long pipelineLayout;
 		long groundPipeline;
 		HomogeneousDescriptorPool descriptorPool;
-		long descriptorSet;
+		long[] descriptorSets;
 		int depthFormat = boiler.images.chooseDepthStencilFormat(
 				VK_FORMAT_X8_D24_UNORM_PACK32, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT
 		);
@@ -344,9 +350,9 @@ public class TerrainPlayground {
 			pipelineLayout = createGroundPipelineLayout(stack, boiler, descriptorSetLayout.vkDescriptorSetLayout);
 			groundPipeline = createGroundPipeline(stack, boiler, pipelineLayout, renderPass);
 
-			descriptorPool = descriptorSetLayout.createPool(1, 0, "TerrainDescriptorPool");
+			descriptorPool = descriptorSetLayout.createPool(numFramesInFlight, 0, "TerrainDescriptorPool");
 
-			descriptorSet = descriptorPool.allocate(1)[0];
+			descriptorSets = descriptorPool.allocate(numFramesInFlight);
 
 			heightSampler = boiler.images.createSampler(
 					VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
@@ -366,21 +372,22 @@ public class TerrainPlayground {
 			normalMapInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 			var descriptorWrites = VkWriteDescriptorSet.calloc(3, stack);
-			boiler.descriptors.writeBuffer(
-					stack, descriptorWrites, descriptorSet,
-					0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer.fullRange()
-			);
-			boiler.descriptors.writeImage(
-					descriptorWrites, descriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, heightMapInfo
-			);
-			boiler.descriptors.writeImage(
-					descriptorWrites, descriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, normalMapInfo
-			);
+			for (int index = 0; index < numFramesInFlight; index++) {
+				boiler.descriptors.writeBuffer(
+						stack, descriptorWrites, descriptorSets[index],
+						0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffers[index].fullRange()
+				);
+				boiler.descriptors.writeImage(
+						descriptorWrites, descriptorSets[index], 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, heightMapInfo
+				);
+				boiler.descriptors.writeImage(
+						descriptorWrites, descriptorSets[index], 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, normalMapInfo
+				);
 
-			vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
+				vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
+			}
 		}
 
-		int numFramesInFlight = 3;
 		var commandPool = boiler.commands.createPool(
 				VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 				boiler.queueFamilies().graphics().index(), "TerrainPool"
@@ -512,7 +519,7 @@ public class TerrainPlayground {
 				recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
 				vkCmdBindDescriptorSets(
 						commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
-						0, stack.longs(descriptorSet), null
+						0, stack.longs(descriptorSets[frameIndex]), null
 				);
 
 				float fieldOfView = 45f;
@@ -528,7 +535,7 @@ public class TerrainPlayground {
 						)
 						.rotateX((float) toRadians(-camera.pitch))
 						.rotateY((float) toRadians(camera.yaw));
-				cameraMatrix.getToAddress(uniformBuffer.hostAddress());
+				cameraMatrix.getToAddress(uniformBuffers[frameIndex].hostAddress());
 
 				var frustumCuller = new FrustumCuller(
 						new Vector3f(), camera.yaw, camera.pitch, aspectRatio, fieldOfView, nearPlane, farPlane
@@ -607,7 +614,7 @@ public class TerrainPlayground {
 		vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
 		descriptorSetLayout.destroy();
 		vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
-		vmaDestroyBuffer(boiler.vmaAllocator(), uniformBuffer.vkBuffer(), uniformBuffer.vmaAllocation());
+		for (var buffer : uniformBuffers) buffer.destroy(boiler);
 		vkDestroyImageView(boiler.vkDevice(), heightImage.vkImageView(), null);
 		vmaDestroyImage(boiler.vmaAllocator(), heightImage.vkImage(), heightImage.vmaAllocation());
 		vkDestroyImageView(boiler.vkDevice(), normalImage.vkImageView(), null);
