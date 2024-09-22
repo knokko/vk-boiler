@@ -119,7 +119,7 @@ var boiler = new BoilerBuilder(
 
 // Use the convenience methods like boiler.buffers.create(...)
 
-// Render loop with boiler.swapchains...
+// Render loop, for instance SimpleWindowRenderLoop
 
 boiler.destroyInitialObjects()
 ```
