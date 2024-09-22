@@ -22,7 +22,7 @@ allprojects {
 	}
 	
 	project.ext.jomlVersion = "1.10.1"
-	project.ext.lwjglVersion = "3.3.2"
+	project.ext.lwjglVersion = "3.3.4"
 	project.ext.coroutinesVersion = "1.7.3"
 	switch (OperatingSystem.current()) {
 		case OperatingSystem.LINUX:
