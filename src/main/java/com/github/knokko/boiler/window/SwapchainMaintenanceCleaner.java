@@ -27,8 +27,8 @@ class SwapchainMaintenanceCleaner extends SwapchainCleaner {
 	}
 
 	@Override
-	public VkbFence getPresentFence() {
-		return instance.sync.fenceBank.borrowFence(false, "PresentFence");
+	public VkbFence getPresentFence(String name) {
+		return instance.sync.fenceBank.borrowFence(false, "PresentFence-" + name);
 	}
 
 	@Override

@@ -24,6 +24,7 @@ import static org.lwjgl.vulkan.VK10.*;
 class VkbSwapchain {
 
 	private final BoilerInstance instance;
+	private final String name;
 	final long vkSwapchain;
 	private final SwapchainCleaner cleaner;
 	private final Set<Integer> supportedPresentModes;
@@ -43,6 +44,7 @@ class VkbSwapchain {
 			int presentMode, int width, int height, VkbQueueFamily presentFamily, Set<Integer> supportedPresentModes
 	) {
 		this.instance = instance;
+		this.name = title;
 		this.vkSwapchain = vkSwapchain;
 		this.cleaner = cleaner;
 
@@ -101,13 +103,13 @@ class VkbSwapchain {
 		if (outdated) return null;
 
 		try (var stack = stackPush()) {
-			var acquireFence = instance.sync.fenceBank.borrowFence(false, "AcquireFence");
+			var acquireFence = instance.sync.fenceBank.borrowFence(false, "AcquireFence-" + name + "-" + System.nanoTime());
 			long acquireSemaphore;
 
 			if (useAcquireFence) {
 				acquireSemaphore = VK_NULL_HANDLE;
 			} else {
-				acquireSemaphore = instance.sync.semaphoreBank.borrowSemaphore("AcquireSemaphore");
+				acquireSemaphore = instance.sync.semaphoreBank.borrowSemaphore("AcquireSemaphore-" + name + "-" + System.nanoTime());
 			}
 
 			var pImageIndex = stack.callocInt(1);
@@ -123,8 +125,8 @@ class VkbSwapchain {
 			if (acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR) {
 				int imageIndex = pImageIndex.get(0);
 
-				var presentSemaphore = instance.sync.semaphoreBank.borrowSemaphore("PresentSemaphore");
-				var presentFence = cleaner.getPresentFence();
+				var presentSemaphore = instance.sync.semaphoreBank.borrowSemaphore("PresentSemaphore-" + name + "-" + System.nanoTime());
+				var presentFence = cleaner.getPresentFence(name);
 				AcquiredImage acquiredImage = new AcquiredImage(
 						this, imageIndex, acquireFence, acquireSemaphore,
 						presentSemaphore, presentFence, presentMode
@@ -174,8 +176,8 @@ class VkbSwapchain {
 				outdated = true;
 				return;
 			}
-			assertVkSuccess(presentResult, "QueuePresentKHR", null);
-			assertVkSuccess(Objects.requireNonNull(presentInfo.pResults()).get(0), "QueuePresentKHR", null);
+			assertVkSuccess(presentResult, "QueuePresentKHR", name);
+			assertVkSuccess(Objects.requireNonNull(presentInfo.pResults()).get(0), "QueuePresentKHR", name);
 		}
 	}
 

@@ -30,7 +30,7 @@ class LegacySwapchainCleaner extends SwapchainCleaner {
 	}
 
 	@Override
-	public VkbFence getPresentFence() {
+	public VkbFence getPresentFence(String name) {
 		return null;
 	}
 

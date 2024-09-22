@@ -32,10 +32,10 @@ public class MultipleWindows {
 				.enableDynamicRendering()
 				.addWindow(new WindowBuilder(
 						800, 500, VK_IMAGE_USAGE_TRANSFER_DST_BIT
-				).callback(window -> windows[0] = window))
+				).callback(window -> windows[0] = window).title("FillWindow"))
 				.addWindow(new WindowBuilder(
 						800, 500, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-				).callback(window -> windows[1] = window))
+				).callback(window -> windows[1] = window).title("SpinWindow"))
 				.build();
 
 		var eventLoop = new WindowEventLoop();

@@ -48,11 +48,11 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 		commandPools = instance.commands.createPools(
 				VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
 				instance.queueFamilies().graphics().index(),
-				numFramesInFlight, "SimpleWindowRenderLoopPool"
+				numFramesInFlight, getClass().getSimpleName() + "Pool"
 		);
-		commandBuffers = instance.commands.createPrimaryBufferPerPool("SimpleWindowRenderLoopBuffer", commandPools);
+		commandBuffers = instance.commands.createPrimaryBufferPerPool(getClass().getSimpleName() + "Buffer", commandPools);
 		commandFences = instance.sync.fenceBank.borrowFences(
-				numFramesInFlight, true, "SimpleWindowRenderLoopCommandFence"
+				numFramesInFlight, true, getClass().getSimpleName() + "CommandFence"
 		);
 	}
 
@@ -65,13 +65,13 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 
 		assertVkSuccess(vkResetCommandPool(
 				instance.vkDevice(), commandPools[frameIndex], 0
-		), "ResetCommandPool", "SimpleWindowRenderLoop");
+		), "ResetCommandPool", getClass().getSimpleName());
 
 		var commandBuffer = commandBuffers[frameIndex];
 		var recorder = CommandRecorder.begin(
 				commandBuffer, instance, stack,
 				VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-				"SimpleWindowRenderLoop"
+				getClass().getSimpleName()
 		);
 		recorder.transitionLayout(acquiredImage.image(), ResourceUsage.fromPresent(lastUsage.stageMask()), firstUsage);
 		recordFrame(stack, recorder, acquiredImage, instance);

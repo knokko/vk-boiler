@@ -116,7 +116,7 @@ abstract class SwapchainCleaner {
 		}
 	}
 
-	abstract VkbFence getPresentFence();
+	abstract VkbFence getPresentFence(String name);
 
 	abstract void beforePresent(MemoryStack stack, VkPresentInfoKHR presentInfo, AcquiredImage acquiredImage);
 
