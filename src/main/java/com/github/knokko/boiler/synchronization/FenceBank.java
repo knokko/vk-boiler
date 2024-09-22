@@ -29,7 +29,9 @@ public class FenceBank {
 			var candidate = iterator.next();
 			if (!candidate.isPending()) {
 				iterator.remove();
-				return candidate;
+
+				//return candidate;
+				candidate.destroy();
 			}
 		}
 		return null;

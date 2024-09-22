@@ -75,6 +75,12 @@ dependencies {
 
 project(":samples") {
 	apply plugin: "com.github.johnrengelman.shadow"
+	project.ext.allNatives = [
+			"natives-windows", "natives-windows-x86", "natives-windows-arm64",
+			"natives-linux", "natives-linux-arm32", "natives-linux-arm64",
+			"natives-freebsd", "natives-linux-ppc64le", "natives-linux-riscv64",
+			"natives-macos", "natives-macos-arm64"
+	]
     dependencies {
         implementation project(":")
         implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
@@ -85,11 +91,13 @@ project(":samples") {
         implementation "org.lwjgl:lwjgl-openxr"
         implementation "org.joml:joml:${jomlVersion}"
 
-        runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-openxr::$lwjglNatives"
-		if (lwjglNatives == "natives-macos") runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
+		for (String target : project.ext.allNatives) {
+			runtimeOnly "org.lwjgl:lwjgl::$target"
+			runtimeOnly "org.lwjgl:lwjgl-glfw::$target"
+			runtimeOnly "org.lwjgl:lwjgl-vma::$target"
+			if (target == "natives-macos" || target == "natives-macos-arm64") runtimeOnly "org.lwjgl:lwjgl-vulkan::$target"
+			else runtimeOnly "org.lwjgl:lwjgl-openxr::$target"
+		}
     }
     shadowJar {
         manifest {

@@ -25,7 +25,7 @@ public class MultipleWindows {
 	public static void main(String[] args) throws InterruptedException {
 		var windows = new VkbWindow[2];
 
-		var boiler = new BoilerBuilder(
+		var builder = new BoilerBuilder(
 				VK_API_VERSION_1_2, "MultipleWindowsDemo", 1
 		)
 				.validation()
@@ -35,8 +35,9 @@ public class MultipleWindows {
 				).callback(window -> windows[0] = window).title("FillWindow"))
 				.addWindow(new WindowBuilder(
 						800, 500, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-				).callback(window -> windows[1] = window).title("SpinWindow"))
-				.build();
+				).callback(window -> windows[1] = window).title("SpinWindow"));
+		if (args.length > 0 && args[0].equals("dump")) builder.apiDump();
+		var boiler = builder.build();
 
 		var eventLoop = new WindowEventLoop();
 		eventLoop.addWindow(new SpinWindowLoop(windows[1]));

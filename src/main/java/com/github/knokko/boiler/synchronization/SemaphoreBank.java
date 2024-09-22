@@ -72,7 +72,8 @@ public class SemaphoreBank {
 			}
 		}
 
-		for (long semaphore : semaphores) unusedSemaphores.add(semaphore);
+		//for (long semaphore : semaphores) unusedSemaphores.add(semaphore);
+		for (long semaphore : semaphores) vkDestroySemaphore(instance.vkDevice(), semaphore, null);
 	}
 
 	/**

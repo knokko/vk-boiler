@@ -556,7 +556,7 @@ public class BoilerBuilder {
 
 					if (swapchainFeatures.swapchainMaintenance1()) {
 						ciDevice.pNext(swapchainFeatures);
-						pHasSwapchainMaintenance[0] = true;
+						//pHasSwapchainMaintenance[0] = true;
 					}
 				}
 			});
