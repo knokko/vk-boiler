@@ -85,7 +85,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 
 	@Override
 	protected void recordFrame(
-			MemoryStack stack, CommandRecorder recorder, AcquiredImage acquired, BoilerInstance boiler
+			MemoryStack stack, int frameIndex, CommandRecorder recorder, AcquiredImage acquired, BoilerInstance boiler
 	) {
 		float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
 		float colorScale = boiler.window().swapchainCompositeAlpha == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;

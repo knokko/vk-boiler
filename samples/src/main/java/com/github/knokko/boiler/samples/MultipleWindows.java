@@ -80,7 +80,10 @@ public class MultipleWindows {
 		}
 
 		@Override
-		protected void recordFrame(MemoryStack stack, CommandRecorder recorder, AcquiredImage swapchainImage, BoilerInstance boiler) {
+		protected void recordFrame(
+				MemoryStack stack, int frameIndex, CommandRecorder recorder,
+				AcquiredImage swapchainImage, BoilerInstance boiler
+		) {
 			recorder.clearColorImage(swapchainImage.image().vkImage(), red, green, blue, 1f);
 		}
 	}
@@ -129,7 +132,8 @@ public class MultipleWindows {
 
 		@Override
 		protected void recordFrame(
-				MemoryStack stack, CommandRecorder recorder, AcquiredImage swapchainImage, BoilerInstance boiler
+				MemoryStack stack, int frameIndex, CommandRecorder recorder,
+				AcquiredImage swapchainImage, BoilerInstance boiler
 		) {
 			var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
 			recorder.simpleColorRenderingAttachment(
