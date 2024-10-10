@@ -17,7 +17,7 @@ public class ReflectionHelper {
 					&& candidate.getName().startsWith(prefix) && candidate.getName().endsWith(suffix)
 			) {
 				try {
-					return candidate.getInt(null) == value;
+					return candidate.getLong(null) == value;
 				} catch (IllegalAccessException e) {
 					return false;
 				}
