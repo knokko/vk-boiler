@@ -65,7 +65,11 @@ public class CommandRecorder {
 	 */
 	public final VkCommandBuffer commandBuffer;
 	private final BoilerInstance instance;
-	private final MemoryStack stack;
+
+	/**
+	 * The <i>MemoryStack</i> that the recorder may use. It is guaranteed to be valid until recording is finished.
+	 */
+	public final MemoryStack stack;
 	private final String context;
 
 	private CommandRecorder(VkCommandBuffer commandBuffer, BoilerInstance instance, MemoryStack stack, String context) {
