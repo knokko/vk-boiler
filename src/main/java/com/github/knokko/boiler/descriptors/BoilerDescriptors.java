@@ -132,7 +132,7 @@ public class BoilerDescriptors {
 		write.dstSet(descriptorSet);
 		write.dstBinding(binding);
 		write.dstArrayElement(0);
-		write.descriptorCount(1);
+		write.descriptorCount(image.remaining());
 		write.descriptorType(type);
 		write.pImageInfo(image);
 	}
