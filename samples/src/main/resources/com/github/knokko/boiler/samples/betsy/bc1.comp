@@ -524,15 +524,45 @@ void main()
 		}
 	}
 
-	// write the color block
-	if(maxEndp16 < minEndp16)
-	//if ((maxEndp16 < minEndp16) == (alphaMask == 0))
-	{
-		const float tmpValue = minEndp16;
-		minEndp16 = maxEndp16;
-		maxEndp16 = tmpValue;
-		mask ^= 0x55555555u;
+	if (alphaMask == 0) {
+		if (maxEndp16 < minEndp16) {
+			mask ^= 0x55555555u;
+			const float tmpValue = minEndp16;
+			minEndp16 = maxEndp16;
+			maxEndp16 = tmpValue;
+		}
+	} else {
+		if (maxEndp16 >= minEndp16) {
+			mask ^= 0x55555555u;
+			const float tmpValue = minEndp16;
+			minEndp16 = maxEndp16;
+			maxEndp16 = tmpValue;
+		}
+
+		for (uint i = 0; i < 16; i++) {
+			if ((alphaMask & (1u << i)) != 0) {
+				mask |= 3u << (2u * i);
+			}
+		}
 	}
+
+	// write the color block
+	//if(maxEndp16 < minEndp16)
+//	if ((maxEndp16 < minEndp16) && (alphaMask == 0))
+//	{
+//		mask ^= 0x55555555u;
+//		const float tmpValue = minEndp16;
+//		minEndp16 = maxEndp16;
+//		maxEndp16 = tmpValue;
+//	}
+//
+//	if ((maxEndp16 >= minEndp16) && (alphaMask != 0))
+//	{
+//		mask ^= 0x55555555u;
+//		const float tmpValue = minEndp16;
+//		minEndp16 = maxEndp16;
+//		maxEndp16 = tmpValue;
+//	}
 
 	uint2 outputBytes;
 	outputBytes.x = uint( maxEndp16 ) | ( uint( minEndp16 ) << 16u );
