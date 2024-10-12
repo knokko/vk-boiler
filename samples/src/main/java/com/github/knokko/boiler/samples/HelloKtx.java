@@ -209,10 +209,10 @@ public class HelloKtx extends SimpleWindowRenderLoop {
 		var betsyScratchBuffer = boiler.buffers.createMapped(4096, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "BetsyScratch");
 		var betsyScratchHost = memByteBuffer(betsyScratchBuffer.hostAddress(), (int) betsyScratchBuffer.size());
 		for (byte[] bytes5 : stb__OMatch5) {
-			betsyScratchHost.put(bytes5);
+			betsyScratchHost.putFloat(bytes5[0]).putFloat(bytes5[1]);
 		}
 		for (byte[] bytes6 : stb__OMatch6) {
-			betsyScratchHost.put(bytes6);
+			betsyScratchHost.putFloat(bytes6[0]).putFloat(bytes6[1]);
 		}
 
 		var betsyWrites = VkWriteDescriptorSet.calloc(3, stack);

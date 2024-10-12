@@ -445,13 +445,27 @@ void main()
 
 	// Load the whole 4x4 block
 	const uint2 pixelsToLoadBase = gl_GlobalInvocationID.xy << 2u;
+	uint alphaMask = 0;
+	uint solidColor = 0;
 	for( uint i = 0u; i < 16u; ++i )
 	{
 		const uint2 pixelsToLoad = pixelsToLoadBase + uint2( i & 0x03u, i >> 2u );
-		srcPixelsBlock[i] = sourceBuffer[pixelsToLoad.x + width * pixelsToLoad.y];
+		uint rgba = sourceBuffer[pixelsToLoad.x + width * pixelsToLoad.y];
+		uint alpha = rgba >> 24;
+		if (alpha > 130) {
+			rgba |= 255u << 24;
+			solidColor = rgba;
+			srcPixelsBlock[i] = rgba;
+			bAllColoursEqual = bAllColoursEqual && srcPixelsBlock[0] == rgba;
+		} else alphaMask |= 1u << i;
 //		const float3 srcPixels0 = OGRE_Load2D( srcTex, int2( pixelsToLoad ), 0 ).xyz;
 //		srcPixelsBlock[i] = packUnorm4x8( float4( srcPixels0, 1.0f ) );
-		bAllColoursEqual = bAllColoursEqual && srcPixelsBlock[0] == srcPixelsBlock[i];
+	}
+
+	if (alphaMask != 0 && solidColor != 0) {
+		for (uint i = 0; i < 16; i++) {
+			if ((alphaMask & (1u << i)) != 0) srcPixelsBlock[i] = solidColor;
+		}
 	}
 
 	float maxEndp16, minEndp16;
@@ -511,7 +525,8 @@ void main()
 	}
 
 	// write the color block
-	if( maxEndp16 < minEndp16 )
+	if(maxEndp16 < minEndp16)
+	//if ((maxEndp16 < minEndp16) == (alphaMask == 0))
 	{
 		const float tmpValue = minEndp16;
 		minEndp16 = maxEndp16;
