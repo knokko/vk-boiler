@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.compute;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
@@ -72,20 +73,17 @@ public class TestComputePipelines {
 					commandPool, 1, "Filling"
 			)[0];
 
-			instance.commands.begin(commandBuffer, stack, "Filling");
+			var commandRecorder = CommandRecorder.begin(commandBuffer, instance, stack, "Filling");
 
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-			vkCmdBindDescriptorSets(
-					commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout,
-					0, stack.longs(descriptorSet), null
-			);
+			commandRecorder.bindComputeDescriptors(pipelineLayout, descriptorSet);
 			vkCmdPushConstants(
 					commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
 					stack.ints(valuesPerInvocation)
 			);
 			vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
-			assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Filling");
+			commandRecorder.end();
 			long startTime = System.currentTimeMillis();
 			instance.queueFamilies().graphics().first().submit(
 					commandBuffer, "Filling", new WaitSemaphore[0], fence

@@ -319,6 +319,30 @@ public class CommandRecorder {
 		else vkCmdBeginRenderingKHR(commandBuffer, renderingInfo);
 	}
 
+	private void bindDescriptors(int bindPoint, long pipelineLayout, long... descriptorSets) {
+		vkCmdBindDescriptorSets(
+				commandBuffer, bindPoint, pipelineLayout, 0, stack.longs(descriptorSets), null
+		);
+	}
+
+	/**
+	 * Calls <i>vkCmdBindDescriptorSets</i> using the given pipeline layout and descriptor sets. The <i>firstSet</i>
+	 * will be 0 and <i>pDynamicOffsets</i> will be <b>null</b>. The <i>pipelineBindPoint</i> will be
+	 * 	 * <i>VK_PIPELINE_BIND_POINT_GRAPHICS</i>.
+	 */
+	public void bindGraphicsDescriptors(long pipelineLayout, long... descriptorSets) {
+		bindDescriptors(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, descriptorSets);
+	}
+
+	/**
+	 * Calls <i>vkCmdBindDescriptorSets</i> using the given pipeline layout and descriptor sets. The <i>firstSet</i>
+	 * will be 0 and <i>pDynamicOffsets</i> will be <b>null</b>. The <i>pipelineBindPoint</i> will be
+	 * <i>VK_PIPELINE_BIND_POINT_COMPUTE</i>.
+	 */
+	public void bindComputeDescriptors(long pipelineLayout, long... descriptorSets) {
+		bindDescriptors(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSets);
+	}
+
 	/**
 	 * Calls <i>vkCmdEndRendering(KHR)</i>
 	 */

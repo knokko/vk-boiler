@@ -84,13 +84,10 @@ public class TestWriteImage {
 			);
 
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-			vkCmdBindDescriptorSets(
-					commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout,
-					0, stack.longs(descriptorSet), null
-			);
+			recorder.bindComputeDescriptors(pipelineLayout, descriptorSet);
 			vkCmdDispatch(commandBuffer, 1, 1, 1);
 
-			assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", "Sampling");
+			recorder.end();
 			instance.queueFamilies().graphics().first().submit(
 					commandBuffer, "Sampling", null, fence
 			);

@@ -329,10 +329,7 @@ public class HelloXR {
 
 				vkCmdBeginRenderingKHR(commandBuffers[frameIndex], dynamicRenderingInfo);
 				vkCmdBindPipeline(commandBuffers[frameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-				vkCmdBindDescriptorSets(
-						commandBuffers[frameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS,
-						pipelineLayout, 0, stack.longs(descriptorSets[frameIndex]), null
-				);
+				commands.bindGraphicsDescriptors(pipelineLayout, descriptorSets[frameIndex]);
 				vkCmdBindVertexBuffers(
 						commandBuffers[frameIndex], 0,
 						stack.longs(vertexBuffer.vkBuffer()), stack.longs(0)

@@ -517,10 +517,7 @@ public class TerrainPlayground {
 				vkCmdBeginRenderPass(commandBuffer, biRenderPass, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, groundPipeline);
 				recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
-				vkCmdBindDescriptorSets(
-						commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
-						0, stack.longs(descriptorSets[frameIndex]), null
-				);
+				recorder.bindGraphicsDescriptors(pipelineLayout, descriptorSets[frameIndex]);
 
 				float fieldOfView = 45f;
 				float aspectRatio = (float) swapchainImage.width() / (float) swapchainImage.height();
