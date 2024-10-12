@@ -532,18 +532,32 @@ void main()
 			maxEndp16 = tmpValue;
 		}
 	} else {
+		bool swapped = false;
 		if (maxEndp16 >= minEndp16) {
-			//mask ^= 0x55555555u;
-			mask = 0;
+			mask ^= 0x55555555u;
+			swapped = true;
 			const float tmpValue = minEndp16;
 			minEndp16 = maxEndp16;
 			maxEndp16 = tmpValue;
 		}
 
 		for (uint i = 0; i < 16; i++) {
+			uint bitIndex = 2u * i;
 			if ((alphaMask & (1u << i)) != 0) {
-				mask |= 3u << (2u * i);
+				mask |= 3u << bitIndex;
+			} else {
+				uint localMask = (mask >> bitIndex) & 3u;
+				//if (!swapped) localMask = 3 - localMask;
+
+				if (localMask == 3) localMask = 2;
+				mask &= ~(3u << bitIndex);
+				mask |= localMask << bitIndex;
 			}
+
+//			else if (((alphaMask >> (2u * i)) & 3u) == 3u) {
+//				mask &= ~(3u << (2u * i));
+//				mask |= 2u << (2u * i);
+//			}
 		}
 	}
 
