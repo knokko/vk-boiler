@@ -533,7 +533,8 @@ void main()
 		}
 	} else {
 		if (maxEndp16 >= minEndp16) {
-			mask ^= 0x55555555u;
+			//mask ^= 0x55555555u;
+			mask = 0;
 			const float tmpValue = minEndp16;
 			minEndp16 = maxEndp16;
 			maxEndp16 = tmpValue;
