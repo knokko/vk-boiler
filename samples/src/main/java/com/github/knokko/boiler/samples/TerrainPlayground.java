@@ -208,14 +208,15 @@ public class TerrainPlayground {
 					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT, "DeltaHeightImage"
 			);
 
+			int normalBufferOffset = content.length;
+			if (normalBufferOffset % 4 != 0) normalBufferOffset = 4 * (1 + normalBufferOffset / 4);
+			int normalBufferSize = 4 * normalImage.width() * normalImage.height();
 			var stagingBuffer = boiler.buffers.createMapped(
-					content.length, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "HeightImageStagingBuffer"
-			);
-			var normalStagingBuffer = boiler.buffers.createMapped(
-					4L * normalImage.width() * normalImage.height(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "DeltaHeightImageStagingBuffer"
+					normalBufferOffset + normalBufferSize,
+					VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "HeightImageStagingBuffer"
 			);
 			var stagingHostBuffer = memShortBuffer(stagingBuffer.hostAddress(), numValues);
-			var normalHostBuffer = memByteBuffer(normalStagingBuffer.hostAddress(), (int) normalStagingBuffer.size());
+			var normalHostBuffer = memByteBuffer(stagingBuffer.hostAddress() + normalBufferOffset, normalBufferSize);
 			var commandPool = boiler.commands.createPool(
 					VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
 					boiler.queueFamilies().graphics().index(),
@@ -273,8 +274,8 @@ public class TerrainPlayground {
 			);
 			recorder.transitionLayout(image, null, ResourceUsage.TRANSFER_DEST);
 			recorder.transitionLayout(normalImage, null, ResourceUsage.TRANSFER_DEST);
-			recorder.copyBufferToImage(image, stagingBuffer.vkBuffer());
-			recorder.copyBufferToImage(normalImage, normalStagingBuffer.vkBuffer());
+			recorder.copyBufferToImage(image, stagingBuffer.range(0, content.length));
+			recorder.copyBufferToImage(normalImage, stagingBuffer.range(normalBufferOffset, normalBufferSize));
 			recorder.transitionLayout(
 					image, ResourceUsage.TRANSFER_DEST,
 					ResourceUsage.shaderRead(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
@@ -292,7 +293,6 @@ public class TerrainPlayground {
 			boiler.sync.fenceBank.returnFence(fence);
 			vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 			vmaDestroyBuffer(boiler.vmaAllocator(), stagingBuffer.vkBuffer(), stagingBuffer.vmaAllocation());
-			vmaDestroyBuffer(boiler.vmaAllocator(), normalStagingBuffer.vkBuffer(), normalStagingBuffer.vmaAllocation());
 			return new VkbImage[]{image, normalImage};
 		} catch (IOException shouldNotHappen) {
 			throw new RuntimeException(shouldNotHappen);

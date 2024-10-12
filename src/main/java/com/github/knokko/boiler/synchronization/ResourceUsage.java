@@ -41,6 +41,14 @@ public record ResourceUsage(int imageLayout, int accessMask, int stageMask) {
 		return new ResourceUsage(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, stageMask);
 	}
 
+	public static ResourceUsage compute(int imageLayout, int accessMask) {
+		return new ResourceUsage(imageLayout, accessMask, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	}
+
+	public static ResourceUsage computeBuffer(int accessMask) {
+		return compute(0, accessMask);
+	}
+
 	public static ResourceUsage fromPresent(int stageMask) {
 		return new ResourceUsage(VK_IMAGE_LAYOUT_UNDEFINED, 0, stageMask);
 	}

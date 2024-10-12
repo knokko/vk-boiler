@@ -3,26 +3,36 @@
 // #include "/media/matias/Datos/SyntaxHighlightingMisc.h"
 
 #include "CrossPlatformSettings_piece_all.glsl"
-#include "UavCrossPlatform_piece_all.glsl"
 
 #define FLT_MAX 340282346638528859811704183484516925440.0f
 
-layout(set = 0, binding = 2) uniform Refinements {
+layout(push_constant) uniform Refinements {
 	uint p_numRefinements;
+	uint width;
 };
+//layout(set = 0, binding = 2) uniform Refinements {
+//	uint p_numRefinements;
+//};
 
-layout(set = 0, binding = 3) uniform sampler2D srcTex;
+//layout(set = 0, binding = 3) uniform sampler2D srcTex;
 
-layout( rg32ui, binding = 0 ) uniform restrict writeonly uimage2D dstTexture;
+//layout( rg32ui, binding = 0 ) uniform restrict writeonly uimage2D dstTexture;
 
-layout( std430, binding = 1 ) readonly restrict buffer globalBuffer
+layout(std430, binding = 0) buffer GlobalBuffer
 {
 	float2 c_oMatch5[256];
 	float2 c_oMatch6[256];
 };
+layout(std430, binding = 1) readonly restrict buffer InputBuffer
+{
+	uint sourceBuffer[];
+};
+layout(std430, binding = 2) writeonly restrict buffer OutputBuffer {
+	uint destBuffer[];
+};
 
-layout( local_size_x = 8,  //
-local_size_y = 8,  //
+layout( local_size_x = 1,  //
+local_size_y = 1,  //
 local_size_z = 1 ) in;
 
 float3 rgb565to888( float rgb565 )
@@ -437,8 +447,9 @@ void main()
 	for( uint i = 0u; i < 16u; ++i )
 	{
 		const uint2 pixelsToLoad = pixelsToLoadBase + uint2( i & 0x03u, i >> 2u );
-		const float3 srcPixels0 = OGRE_Load2D( srcTex, int2( pixelsToLoad ), 0 ).xyz;
-		srcPixelsBlock[i] = packUnorm4x8( float4( srcPixels0, 1.0f ) );
+		srcPixelsBlock[i] = sourceBuffer[pixelsToLoad.x + width * pixelsToLoad.y];
+//		const float3 srcPixels0 = OGRE_Load2D( srcTex, int2( pixelsToLoad ), 0 ).xyz;
+//		srcPixelsBlock[i] = packUnorm4x8( float4( srcPixels0, 1.0f ) );
 		bAllColoursEqual = bAllColoursEqual && srcPixelsBlock[0] == srcPixelsBlock[i];
 	}
 
@@ -512,5 +523,10 @@ void main()
 	outputBytes.y = mask;
 
 	uint2 dstUV = gl_GlobalInvocationID.xy;
-	imageStore( dstTexture, int2( dstUV ), uint4( outputBytes.xy, 0u, 0u ) );
+	uint outputBlocksPerRow = width / 4; // TODO Ensure that width is divisable by 4
+	uint outputBlockSize = 8 / 4; // 8 bytes per block and 1 uint is 4 bytes
+	//imageStore( dstTexture, int2( dstUV ), uint4( outputBytes.xy, 0u, 0u ) );
+	uint outputIndex = outputBlockSize * (dstUV.x + outputBlocksPerRow * dstUV.y);
+	destBuffer[outputIndex] = outputBytes.x;
+	destBuffer[outputIndex + 1] = outputBytes.y;
 }

@@ -105,7 +105,7 @@ public class HelloKtx extends SimpleWindowRenderLoop {
 				VK_IMAGE_ASPECT_COLOR_BIT, "SimpleImage"
 		);
 
-		var stagingBuffer = boiler.buffers.createMapped(4 * 16 * 16, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "StagingBuffer");
+		var stagingBuffer = boiler.buffers.createMapped(5 * 16 * 16, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "StagingBuffer");
 		try {
 			var bufferedImage = ImageIO.read(Objects.requireNonNull(HelloKtx.class.getClassLoader().getResourceAsStream(
 					"com/github/knokko/boiler/samples/images/test2.png"
@@ -114,6 +114,43 @@ public class HelloKtx extends SimpleWindowRenderLoop {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+
+		var betsyPushConstants = VkPushConstantRange.calloc(1, stack);
+		betsyPushConstants.offset(0);
+		betsyPushConstants.size(8);
+		betsyPushConstants.stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
+
+		var betsyBindings = VkDescriptorSetLayoutBinding.calloc(3, stack);
+		for (int index = 0; index < 3; index++) {
+			boiler.descriptors.binding(betsyBindings, index, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+		}
+
+		var betsyDescriptorSetLayout = boiler.descriptors.createLayout(stack, betsyBindings, "BetsyDescriptorSetLayout");
+		var computePipelineLayout = boiler.pipelines.createLayout(
+				betsyPushConstants, "BetsyPipelineLayout", betsyDescriptorSetLayout.vkDescriptorSetLayout
+		);
+		var betsyDescriptorPool = betsyDescriptorSetLayout.createPool(1, 0, "BetsyDescriptorPool");
+		var betsyDescriptorSet = betsyDescriptorPool.allocate(1)[0];
+		var computePipeline = boiler.pipelines.createComputePipeline(
+				computePipelineLayout, "com/github/knokko/boiler/samples/betsy/bc1.spv", "BetsyBC1"
+		);
+
+		var betsyScratchBuffer = boiler.buffers.create(4096, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "BetsyScratch");
+
+		var betsyWrites = VkWriteDescriptorSet.calloc(3, stack);
+		boiler.descriptors.writeBuffer(
+				stack, betsyWrites, betsyDescriptorSet, 0,
+				VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, betsyScratchBuffer.fullRange()
+		);
+		boiler.descriptors.writeBuffer(
+				stack, betsyWrites, betsyDescriptorSet, 1,
+				VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stagingBuffer.range(0, 4 * 16 * 16)
+		);
+		boiler.descriptors.writeBuffer(
+				stack, betsyWrites, betsyDescriptorSet, 2,
+				VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stagingBuffer.range(4 * 16 * 16, 16 * 16)
+		);
+		vkUpdateDescriptorSets(boiler.vkDevice(), betsyWrites, null);
 
 		var stagingCommandPool = boiler.commands.createPool(
 				VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
@@ -156,11 +193,40 @@ public class HelloKtx extends SimpleWindowRenderLoop {
 				this.ktxVkTextureBC7.image(), this.ktxVkTextureBC7.imageFormat(), VK_IMAGE_ASPECT_COLOR_BIT, "KtxImageViewBC7"
 		);
 
+		var vkb1 = new VkbImage(
+				this.ktxVkTextureBC1.image(), this.ktxImageViewBC1, VK_NULL_HANDLE,
+				this.ktxVkTextureBC1.width(), this.ktxVkTextureBC1.height(), VK_IMAGE_ASPECT_COLOR_BIT
+		);
+
 		var stagingCommandBuffer = boiler.commands.createPrimaryBuffers(stagingCommandPool, 1, "StagingCommandBuffer")[0];
 		var recorder = CommandRecorder.begin(stagingCommandBuffer, boiler, stack, "Staging");
+		vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+		vkCmdBindDescriptorSets(
+				recorder.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+				computePipelineLayout, 0, stack.longs(betsyDescriptorSet), null
+		);// TODO Create convenience method for this?
+		vkCmdPushConstants(
+				recorder.commandBuffer, computePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, stack.ints(2, vkb1.width())
+		);
+		System.out.println("vkb1 size is " + vkb1.width() + " x " + vkb1.height());
+		vkCmdDispatch(recorder.commandBuffer, 4, 4, 1);
+		recorder.bufferBarrier(
+				stagingBuffer.range(4 * 16 * 16, 16 * 16),
+				ResourceUsage.computeBuffer(VK_ACCESS_SHADER_WRITE_BIT),
+				ResourceUsage.TRANSFER_SOURCE
+		);
+		recorder.bufferBarrier(
+				stagingBuffer.range(0, 4 * 16 * 16),
+				ResourceUsage.computeBuffer(VK_ACCESS_SHADER_READ_BIT),
+				ResourceUsage.TRANSFER_SOURCE
+		);
 		recorder.transitionLayout(this.simpleImage, null, ResourceUsage.TRANSFER_DEST);
-		recorder.copyBufferToImage(this.simpleImage, stagingBuffer.vkBuffer());// TODO Use buffer range instead?
+		recorder.transitionLayout(vkb1, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT), ResourceUsage.TRANSFER_DEST);
+
+		recorder.copyBufferToImage(this.simpleImage, stagingBuffer.range(0, 4 * 16 * 16));
+		recorder.copyBufferToImage(vkb1, stagingBuffer.range(4 * 16 * 16, 16 * 16));
 		recorder.transitionLayout(this.simpleImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT));
+		recorder.transitionLayout(vkb1, ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT));
 		recorder.end();
 
 		var stagingFence = boiler.sync.fenceBank.borrowFence(false, "StagingFence");
@@ -170,6 +236,12 @@ public class HelloKtx extends SimpleWindowRenderLoop {
 
 		vkDestroyCommandPool(boiler.vkDevice(), stagingCommandPool, null);
 		stagingBuffer.destroy(boiler);
+
+		betsyDescriptorPool.destroy();
+		betsyDescriptorSetLayout.destroy();
+		vkDestroyPipelineLayout(boiler.vkDevice(), computePipelineLayout, null);
+		vkDestroyPipeline(boiler.vkDevice(), computePipeline, null);
+		betsyScratchBuffer.destroy(boiler);
 
 		this.sampler = boiler.images.createSimpleSampler(
 				VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
