@@ -62,7 +62,7 @@ public class TestCommandRecorder {
 			recorder.transitionLayout(destImage, null, ResourceUsage.TRANSFER_DEST);
 			recorder.copyImage(sourceImage, destImage);
 			recorder.transitionLayout(destImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-			recorder.copyImageToBuffer(destImage, destBuffer.vkBuffer());
+			recorder.copyImageToBuffer(destImage, destBuffer.fullRange());
 
 			recorder.end("Copying");
 
@@ -119,14 +119,14 @@ public class TestCommandRecorder {
 			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Blitting");
 
 			recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_DEST);
-			recorder.copyBufferToImage(sourceImage, buffer.vkBuffer());
+			recorder.copyBufferToImage(sourceImage, buffer.fullRange());
 			recorder.transitionLayout(sourceImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 			recorder.transitionLayout(destImage, null, ResourceUsage.TRANSFER_DEST);
 
 			recorder.blitImage(VK_FILTER_LINEAR, sourceImage, destImage);
 
 			recorder.transitionLayout(destImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-			recorder.copyImageToBuffer(destImage, buffer.vkBuffer());
+			recorder.copyImageToBuffer(destImage, buffer.fullRange());
 			recorder.end("Copying");
 
 			var hostBuffer = memByteBuffer(buffer.hostAddress(), 4 * width1 * height1);

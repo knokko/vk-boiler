@@ -84,7 +84,7 @@ public class TestDynamicRendering {
 			recorder.endDynamicRendering();
 
 			recorder.transitionLayout(image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.TRANSFER_SOURCE);
-			recorder.copyImageToBuffer(image, destBuffer.vkBuffer());
+			recorder.copyImageToBuffer(image, destBuffer.fullRange());
 			recorder.end();
 
 			instance.queueFamilies().graphics().first().submit(commandBuffer, "Test", null, fence);
@@ -173,7 +173,7 @@ public class TestDynamicRendering {
 					image, ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL),
 					ResourceUsage.TRANSFER_SOURCE
 			);
-			recorder.copyImageToBuffer(image, destBuffer.vkBuffer());
+			recorder.copyImageToBuffer(image, destBuffer.fullRange());
 
 			recorder.end();
 			instance.queueFamilies().graphics().first().submit(

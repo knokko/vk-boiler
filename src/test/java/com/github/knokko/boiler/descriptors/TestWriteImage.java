@@ -78,7 +78,7 @@ public class TestWriteImage {
 			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Sampling");
 
 			recorder.transitionLayout(image, null, ResourceUsage.TRANSFER_DEST);
-			recorder.copyBufferToImage(image, sourceBuffer.vkBuffer());
+			recorder.copyBufferToImage(image, sourceBuffer.fullRange());
 			recorder.transitionLayout(
 					image, ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
 			);

@@ -136,12 +136,13 @@ public class CommandRecorder {
 	/**
 	 * Calls <i>vkCmdCopyImageToBuffer</i>
 	 * @param image The source image
-	 * @param vkBuffer The destination buffer
+	 * @param bufferRange The destination buffer range. The size of the buffer range is ignored because the used size is
+	 * 	 *                    implicitly determined by the image format and extent
 	 */
-	public void copyImageToBuffer(VkbImage image, long vkBuffer) {
+	public void copyImageToBuffer(VkbImage image, VkbBufferRange bufferRange) {
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
 		var copyRegion = bufferCopyRegions.get(0);
-		copyRegion.bufferOffset(0);
+		copyRegion.bufferOffset(bufferRange.offset());
 		copyRegion.bufferRowLength(image.width());
 		copyRegion.bufferImageHeight(image.height());
 		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask());
@@ -149,19 +150,20 @@ public class CommandRecorder {
 		copyRegion.imageExtent().set(image.width(), image.height(), 1);
 
 		vkCmdCopyImageToBuffer(
-				commandBuffer, image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkBuffer, bufferCopyRegions
+				commandBuffer, image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, bufferRange.buffer().vkBuffer(), bufferCopyRegions
 		);
 	}
 
 	/**
 	 * Calls <i>vkCmdCopyBufferToImage</i>
 	 * @param image The destination image
-	 * @param vkBuffer The source buffer
+	 * @param bufferRange The source buffer range. The size of the buffer range is ignored because the used size is
+	 *                    implicitly determined by the image format and extent
 	 */
-	public void copyBufferToImage(VkbImage image, long vkBuffer) {
+	public void copyBufferToImage(VkbImage image, VkbBufferRange bufferRange) {
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
 		var copyRegion = bufferCopyRegions.get(0);
-		copyRegion.bufferOffset(0);
+		copyRegion.bufferOffset(bufferRange.offset());
 		copyRegion.bufferRowLength(image.width());
 		copyRegion.bufferImageHeight(image.height());
 		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask());
@@ -169,7 +171,7 @@ public class CommandRecorder {
 		copyRegion.imageExtent().set(image.width(), image.height(), 1);
 
 		vkCmdCopyBufferToImage(
-				commandBuffer, vkBuffer, image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferCopyRegions
+				commandBuffer, bufferRange.buffer().vkBuffer(), image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferCopyRegions
 		);
 	}
 
