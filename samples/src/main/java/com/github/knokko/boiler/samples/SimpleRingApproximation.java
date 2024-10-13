@@ -2,6 +2,7 @@ package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
+import com.github.knokko.boiler.builders.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
@@ -25,7 +26,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_1, "SimpleRingApproximation", VK_MAKE_VERSION(0, 2, 0)
 		)
-				.validation()
+				.validation(new ValidationFeatures(false, false, false, true, true))
 				.enableDynamicRendering()
 				.addWindow(new WindowBuilder(1000, 8000, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
 				.build();
