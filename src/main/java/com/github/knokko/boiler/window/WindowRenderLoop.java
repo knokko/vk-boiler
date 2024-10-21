@@ -43,39 +43,45 @@ public abstract class WindowRenderLoop {
 	private void run() {
 		try (var stack = stackPush()) {
 			setup(window.instance, stack);
+		} catch (Throwable setupFailed) {
+			window.destroy();
+			throw setupFailed;
 		}
 
-		long currentFrame = 0;
-		while (!glfwWindowShouldClose(window.glfwWindow)) {
-			if (window.windowLoop == null) glfwPollEvents();
+		try {
+			long currentFrame = 0;
+			while (!glfwWindowShouldClose(window.glfwWindow)) {
+				if (window.windowLoop == null) glfwPollEvents();
 
-			int frameIndex = (int) (currentFrame % numFramesInFlight);
+				int frameIndex = (int) (currentFrame % numFramesInFlight);
 
-			try (var stack = stackPush()) {
-				AcquiredImage acquiredImage;
-				if (acquireSwapchainImageWithFence) acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
-				else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);
-				if (acquiredImage == null) {
-					//noinspection BusyWait
-					sleep(100);
-					continue;
+				try (var stack = stackPush()) {
+					AcquiredImage acquiredImage;
+					if (acquireSwapchainImageWithFence)
+						acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
+					else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);
+					if (acquiredImage == null) {
+						//noinspection BusyWait
+						sleep(100);
+						continue;
+					}
+
+					if (acquireSwapchainImageWithFence) acquiredImage.acquireFence.awaitSignal();
+
+					var renderSubmission = renderFrame(stack, frameIndex, acquiredImage, window.instance);
+					if (renderSubmission == null) throw new RuntimeException(
+							"Submission must not be null, make sure to submit a fence or timeline signal semaphore"
+					);
+					window.presentSwapchainImage(acquiredImage, renderSubmission);
+				} catch (InterruptedException e) {
+					throw new RuntimeException(e);
 				}
-
-				if (acquireSwapchainImageWithFence) acquiredImage.acquireFence.awaitSignal();
-
-				var renderSubmission = renderFrame(stack, frameIndex, acquiredImage, window.instance);
-				if (renderSubmission == null) throw new RuntimeException(
-						"Submission must not be null, make sure to submit a fence or timeline signal semaphore"
-				);
-				window.presentSwapchainImage(acquiredImage, renderSubmission);
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
+				currentFrame += 1;
 			}
-			currentFrame += 1;
+		} finally {
+			cleanUp(window.instance);
+			window.destroy();
 		}
-
-		cleanUp(window.instance);
-		window.destroy();
 	}
 
 	/**
@@ -91,7 +97,11 @@ public abstract class WindowRenderLoop {
 		didStart = true;
 
 		if (window.windowLoop == null) this.run();
-		else new Thread(this::run).start();
+		else {
+			var thread = new Thread(this::run);
+			thread.setDaemon(true); // Ensure that the render thread dies when the main thread dies (unexpectedly)
+			thread.start();
+		}
 	}
 
 	/**

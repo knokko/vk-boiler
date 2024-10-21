@@ -340,13 +340,15 @@ public class VkbWindow {
 	public synchronized void destroy() {
 		if (hasBeenDestroyed) return;
 
-		cleaner.destroyEverything();
-		vkDestroySurfaceKHR(instance.vkInstance(), vkSurface, null);
-		surfaceCapabilities.free();
+		try {
+			cleaner.destroyEverything();
+			vkDestroySurfaceKHR(instance.vkInstance(), vkSurface, null);
+			surfaceCapabilities.free();
+		} finally {
+			if (windowLoop != null) windowLoop.destroy(this);
+			else glfwDestroyWindow(glfwWindow);
 
-		if (windowLoop != null) windowLoop.destroy(this);
-		else glfwDestroyWindow(glfwWindow);
-
-		hasBeenDestroyed = true;
+			hasBeenDestroyed = true;
+		}
 	}
 }

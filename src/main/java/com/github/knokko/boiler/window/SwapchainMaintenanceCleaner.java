@@ -42,6 +42,6 @@ class SwapchainMaintenanceCleaner extends SwapchainCleaner {
 
 	@Override
 	void waitUntilStateCanBeDestroyed(State state) {
-		for (var image : state.acquiredImages()) image.presentFence.awaitSignal();
+		for (var image : state.acquiredImages()) image.presentFence.waitIfSubmitted();
 	}
 }
