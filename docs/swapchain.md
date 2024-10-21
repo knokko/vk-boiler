@@ -161,7 +161,10 @@ eventLoop.addWindow(new ClassThatExtendsWindowRenderLoop(boiler.window()));
 eventLoop.runMain();
 ```
 The [TranslucentWindowPlayground sample](../samples/src/main/java/com/github/knokko/boiler/samples/TranslucentWindowPlayground.java)
-demonstrates this.
+demonstrates this. If you want to also run your own code on the
+main thread, you can use the
+`WindowEventLoop(waitTimeout, updateCallback)` constructor to
+periodically call your `updateCallback` on the main thread.
 
 ### Using multiple windows
 Given the code snippet above, adding more windows is trivial:

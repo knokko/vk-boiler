@@ -14,6 +14,25 @@ public class WindowEventLoop {
 
 	private final BlockingQueue<Task> queue = new LinkedBlockingQueue<>();
 	private final ConcurrentHashMap<VkbWindow, State> stateMap = new ConcurrentHashMap<>();
+	private final Runnable updateCallback;
+	private final double waitTimeout;
+
+	/**
+	 * @param waitTimeout The timeout (in seconds) that will be passed to each call to <i>glfwWaitEventsTimeout</i>.
+	 *                    When this is 0, the event loop will call <i>glfwWaitEvents</i> instead.
+	 * @param updateCallback An optional callback that will be called every time after <i>glfwWaitEvents</i> or
+	 *                       <i>glfwWaitEventsTimeout</i>. You can use this if you need to occasionally run some code
+	 *                       on the main thread. Note that you can use <i>glfwPostEmptyEvent</i> from another thread to
+	 *                       cause <i>glfwWaitEvents(Timeout)</i> to return early.
+	 */
+	public WindowEventLoop(double waitTimeout, Runnable updateCallback) {
+		this.updateCallback = updateCallback;
+		this.waitTimeout = waitTimeout;
+	}
+
+	public WindowEventLoop() {
+		this(0.0, null);
+	}
 
 	private void update(VkbWindow resizedWindow) {
 		Task task;
@@ -83,7 +102,9 @@ public class WindowEventLoop {
 	 */
 	public void runMain() {
 		while (!stateMap.isEmpty()) {
-			glfwWaitEvents();
+			if (waitTimeout > 0.0) glfwWaitEventsTimeout(waitTimeout);
+			else glfwWaitEvents();
+			if (updateCallback != null) updateCallback.run();
 			update(null);
 			initializeNewWindows();
 		}
