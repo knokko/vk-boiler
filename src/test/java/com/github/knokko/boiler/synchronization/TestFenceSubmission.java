@@ -119,7 +119,7 @@ public class TestFenceSubmission {
 		).getMessage(), "Fence is not signaled, nor pending");
 	}
 
-	private void emptySubmission(BoilerInstance instance, VkbFence fence) {
+	static void emptySubmission(BoilerInstance instance, VkbFence fence) {
 		try (var stack = stackPush()) {
 			var emptySubmitInfo = VkSubmitInfo.calloc(stack);
 			emptySubmitInfo.sType$Default();

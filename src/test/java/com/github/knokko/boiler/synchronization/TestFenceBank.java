@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
+import static com.github.knokko.boiler.synchronization.TestFenceSubmission.emptySubmission;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
@@ -14,21 +15,8 @@ import static org.lwjgl.vulkan.VK10.*;
 public class TestFenceBank {
 
 	private void signalFence(BoilerInstance instance, VkbFence fence) {
-		var commandPool = instance.commands.createPool(
-				0, instance.queueFamilies().graphics().index(), "SignalFence"
-		);
-		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "Signal")[0];
-		try (var stack = stackPush()) {
-			var commands = CommandRecorder.begin(commandBuffer, instance, stack, "Signal");
-			commands.end();
-
-			instance.queueFamilies().graphics().first().submit(
-					commandBuffer, "Signal", null, fence
-			);
-			fence.awaitSignal();
-		}
-
-		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+		emptySubmission(instance, fence);
+		fence.awaitSignal();
 	}
 
 	@Test

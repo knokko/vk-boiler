@@ -1,12 +1,10 @@
 package com.github.knokko.boiler.compute;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
-import com.github.knokko.boiler.commands.CommandRecorder;
-import com.github.knokko.boiler.synchronization.WaitSemaphore;
+import com.github.knokko.boiler.commands.SingleTimeCommands;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.*;
@@ -64,41 +62,23 @@ public class TestComputePipelines {
 
 			vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
 
-			var fence = instance.sync.fenceBank.borrowFence(false, "Filling");
-
-			long commandPool = instance.commands.createPool(
-					0, instance.queueFamilies().graphics().index(), "Filling"
-			);
-			var commandBuffer = instance.commands.createPrimaryBuffers(
-					commandPool, 1, "Filling"
-			)[0];
-
-			var commandRecorder = CommandRecorder.begin(commandBuffer, instance, stack, "Filling");
-
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-			commandRecorder.bindComputeDescriptors(pipelineLayout, descriptorSet);
-			vkCmdPushConstants(
-					commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
-					stack.ints(valuesPerInvocation)
-			);
-			vkCmdDispatch(commandBuffer, groupCount, 1, 1);
-
-			commandRecorder.end();
-			long startTime = System.currentTimeMillis();
-			instance.queueFamilies().graphics().first().submit(
-					commandBuffer, "Filling", new WaitSemaphore[0], fence
-			);
-
-			fence.awaitSignal();
-			System.out.println("Submission took " + (System.currentTimeMillis() - startTime) + " ms");
+			var commands = new SingleTimeCommands(instance);
+			commands.submit("Filling", recorder -> {
+				vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+				recorder.bindComputeDescriptors(pipelineLayout, descriptorSet);
+				vkCmdPushConstants(
+						recorder.commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+						stack.ints(valuesPerInvocation)
+				);
+				vkCmdDispatch(recorder.commandBuffer, groupCount, 1, 1);
+			}).awaitCompletion();
+			commands.destroy();
 
 			for (int index = 0; index < hostBuffer.limit(); index++) {
 				assertEquals(123456, hostBuffer.get(index));
 			}
 
-			instance.sync.fenceBank.returnFence(fence);
 			descriptorPool.destroy();
-			vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
 			vkDestroyPipeline(instance.vkDevice(), computePipeline, null);
 			descriptorSetLayout.destroy();
 			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);

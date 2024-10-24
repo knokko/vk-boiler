@@ -1,12 +1,11 @@
 package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
-import com.github.knokko.boiler.commands.CommandRecorder;
+import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memGetInt;
@@ -67,38 +66,23 @@ public class TestWriteImage {
 
 			vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
 
-			var fence = instance.sync.fenceBank.borrowFence(false, "Fence");
+			var commands = new SingleTimeCommands(instance);
+			commands.submit("Sampling", recorder -> {
+				recorder.transitionLayout(image, null, ResourceUsage.TRANSFER_DEST);
+				recorder.copyBufferToImage(image, sourceBuffer.fullRange());
+				recorder.transitionLayout(
+						image, ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
+				);
 
-			long commandPool = instance.commands.createPool(
-					0, instance.queueFamilies().compute().index(), "CommandPool"
-			);
-			var commandBuffer = instance.commands.createPrimaryBuffers(
-					commandPool, 1, "Sampling"
-			)[0];
-			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Sampling");
-
-			recorder.transitionLayout(image, null, ResourceUsage.TRANSFER_DEST);
-			recorder.copyBufferToImage(image, sourceBuffer.fullRange());
-			recorder.transitionLayout(
-					image, ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
-			);
-
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-			recorder.bindComputeDescriptors(pipelineLayout, descriptorSet);
-			vkCmdDispatch(commandBuffer, 1, 1, 1);
-
-			recorder.end();
-			instance.queueFamilies().graphics().first().submit(
-					commandBuffer, "Sampling", null, fence
-			);
-
-			fence.waitAndReset();
+				vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+				recorder.bindComputeDescriptors(pipelineLayout, descriptorSet);
+				vkCmdDispatch(recorder.commandBuffer, 1, 1, 1);
+			}).awaitCompletion();
+			commands.destroy();
 
 			assertEquals(100, memGetInt(destBuffer.hostAddress()));
 
-			instance.sync.fenceBank.returnFence(fence);
 			descriptorPool.destroy();
-			vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
 			vkDestroyPipeline(instance.vkDevice(), computePipeline, null);
 			descriptorSetLayout.destroy();
 			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);

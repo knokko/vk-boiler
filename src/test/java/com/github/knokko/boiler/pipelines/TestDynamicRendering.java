@@ -2,7 +2,7 @@ package com.github.knokko.boiler.pipelines;
 
 import com.github.knokko.boiler.buffers.MappedVkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
-import com.github.knokko.boiler.commands.CommandRecorder;
+import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
@@ -63,51 +63,41 @@ public class TestDynamicRendering {
 			graphicsPipeline = pipeline.build("RedPipeline");
 		}
 
-		var fence = instance.sync.fenceBank.borrowFence(false, "TestFence");
-		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "TestPool");
-		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "TestCommandBuffer")[0];
-
-		try (var stack = stackPush()) {
-			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Empty RenderPass");
-
+		var commands = new SingleTimeCommands(instance);
+		commands.submit("Empty Renderpass", recorder -> {
 			recorder.transitionLayout(image, null, ResourceUsage.COLOR_ATTACHMENT_WRITE);
 
-			var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
+			var colorAttachments = VkRenderingAttachmentInfo.calloc(1, recorder.stack);
 			recorder.simpleColorRenderingAttachment(
 					colorAttachments.get(0), image.vkImageView(),
 					VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
 					1f, 0f, 1f, 1f
 			);
 			recorder.beginSimpleDynamicRendering(width, height, colorAttachments, null, null);
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-			vkCmdDraw(commandBuffer, 6, 1, 0, 0);
+			vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+			vkCmdDraw(recorder.commandBuffer, 6, 1, 0, 0);
 			recorder.endDynamicRendering();
 
 			recorder.transitionLayout(image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.TRANSFER_SOURCE);
 			recorder.copyImageToBuffer(image, destBuffer.fullRange());
-			recorder.end();
+		}).awaitCompletion();
+		commands.destroy();
 
-			instance.queueFamilies().graphics().first().submit(commandBuffer, "Test", null, fence);
-			fence.waitAndReset();
+		assertEquals((byte) 255, memGetByte(destBuffer.hostAddress()));
+		assertEquals((byte) 0, memGetByte(destBuffer.hostAddress() + 1));
+		assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 2));
+		assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 3));
 
-			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress()));
-			assertEquals((byte) 0, memGetByte(destBuffer.hostAddress() + 1));
-			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 2));
-			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 3));
-
-			long centerAddress = destBuffer.hostAddress() + 4 * (width / 2 + width * (height / 2));
-			assertEquals((byte) 255, memGetByte(centerAddress));
-			assertEquals((byte) 0, memGetByte(centerAddress + 1));
-			assertEquals((byte) 0, memGetByte(centerAddress + 2));
-			assertEquals((byte) 255, memGetByte(centerAddress + 3));
-		}
+		long centerAddress = destBuffer.hostAddress() + 4 * (width / 2 + width * (height / 2));
+		assertEquals((byte) 255, memGetByte(centerAddress));
+		assertEquals((byte) 0, memGetByte(centerAddress + 1));
+		assertEquals((byte) 0, memGetByte(centerAddress + 2));
+		assertEquals((byte) 255, memGetByte(centerAddress + 3));
 
 		image.destroy(instance);
 		destBuffer.destroy(instance);
 		vkDestroyPipeline(instance.vkDevice(), graphicsPipeline, null);
 		vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
-		instance.sync.fenceBank.returnFence(fence);
-		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
 
 		instance.destroyInitialObjects();
 	}
@@ -150,13 +140,8 @@ public class TestDynamicRendering {
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 
-		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "DepthPool");
-		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "DepthCommandBuffer")[0];
-		var fence = instance.sync.fenceBank.borrowFence(false, "DepthFence");
-
-		try (var stack = stackPush()) {
-			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "DepthCommands");
-
+		var commands = new SingleTimeCommands(instance);
+		commands.submit("DepthCommands", recorder -> {
 			recorder.transitionLayout(
 					image, null,
 					ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
@@ -174,20 +159,13 @@ public class TestDynamicRendering {
 					ResourceUsage.TRANSFER_SOURCE
 			);
 			recorder.copyImageToBuffer(image, destBuffer.fullRange());
+		}).awaitCompletion();
+		commands.destroy();
 
-			recorder.end();
-			instance.queueFamilies().graphics().first().submit(
-					commandBuffer, "DepthSubmission", null, fence
-			);
-			fence.waitAndReset();
+		assertEquals(0.75f, memGetFloat(destBuffer.hostAddress()));
 
-			assertEquals(0.75f, memGetFloat(destBuffer.hostAddress()));
-		}
-
-		instance.sync.fenceBank.returnFence(fence);
 		destBuffer.destroy(instance);
 		image.destroy(instance);
-		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
 		instance.destroyInitialObjects();
 	}
 }

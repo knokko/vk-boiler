@@ -8,12 +8,49 @@ import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.memByteBuffer;
-import static org.lwjgl.system.MemoryUtil.memGetByte;
+import static org.lwjgl.system.MemoryUtil.*;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 
 public class TestCommandRecorder {
+
+	@Test
+	public void testAlreadyRecording() {
+		var instance = new BoilerBuilder(
+				VK_API_VERSION_1_0, "TestAlreadyRecording", 1
+		).validation().forbidValidationErrors().build();
+
+		var buffer = instance.buffers.createMapped(
+				8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "TestBuffer"
+		);
+		memPutInt(buffer.hostAddress(), 1234);
+		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "CopyPool");
+		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "CopyCommandBuffer")[0];
+		var fence = instance.sync.fenceBank.borrowFence(false, "CopyFence");
+		try (var stack = stackPush()) {
+
+			var biCommands = VkCommandBufferBeginInfo.calloc(stack);
+			biCommands.sType$Default();
+			biCommands.flags(0);
+			biCommands.pInheritanceInfo(null);
+			assertVkSuccess(vkBeginCommandBuffer(
+					commandBuffer, biCommands
+			), "BeginCommandBuffer", "Copying");
+			var recorder = CommandRecorder.alreadyRecording(commandBuffer, instance, stack);
+			recorder.copyBuffer(buffer.range(0, 4), buffer.vkBuffer(), 4);
+			recorder.end("Copying");
+
+			instance.queueFamilies().transfer().first().submit(commandBuffer, "Copying", null, fence);
+			fence.awaitSignal();
+		}
+
+		assertEquals(1234, memGetInt(buffer.hostAddress() + 4));
+
+		instance.sync.fenceBank.returnFence(fence);
+		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+		buffer.destroy(instance);
+		instance.destroyInitialObjects();
+	}
 
 	@Test
 	public void testCopyImage() {
@@ -39,22 +76,8 @@ public class TestCommandRecorder {
 				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
 		);
 
-		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "CopyPool");
-		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "CopyCommandBuffer")[0];
-		var fence = instance.sync.fenceBank.borrowFence(false, "CopyFence");
-
-		try (var stack = stackPush()) {
-			var biCommands = VkCommandBufferBeginInfo.calloc(stack);
-			biCommands.sType$Default();
-			biCommands.flags(0);
-			biCommands.pInheritanceInfo(null);
-
-			assertVkSuccess(vkBeginCommandBuffer(
-					commandBuffer, biCommands
-			), "BeginCommandBuffer", "Copying");
-
-			var recorder = CommandRecorder.alreadyRecording(commandBuffer, instance, stack);
-
+		var commands = new SingleTimeCommands(instance);
+		commands.submit("Copying", recorder -> {
 			recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_DEST);
 			recorder.clearColorImage(sourceImage.vkImage(), 0f, 1f, 1f, 1f);
 			recorder.transitionLayout(sourceImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
@@ -63,20 +86,14 @@ public class TestCommandRecorder {
 			recorder.copyImage(sourceImage, destImage);
 			recorder.transitionLayout(destImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 			recorder.copyImageToBuffer(destImage, destBuffer.fullRange());
+		}).awaitCompletion();
 
-			recorder.end("Copying");
+		assertEquals((byte) 0, memGetByte(destBuffer.hostAddress()));
+		assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 1));
+		assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 2));
+		assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 3));
 
-			instance.queueFamilies().graphics().first().submit(commandBuffer, "Copying", null, fence);
-			fence.waitAndReset();
-
-			assertEquals((byte) 0, memGetByte(destBuffer.hostAddress()));
-			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 1));
-			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 2));
-			assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 3));
-		}
-
-		instance.sync.fenceBank.returnFence(fence);
-		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+		commands.destroy();
 		destBuffer.destroy(instance);
 		sourceImage.destroy(instance);
 		destImage.destroy(instance);
@@ -111,13 +128,10 @@ public class TestCommandRecorder {
 				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
 		);
 
-		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "CopyPool");
-		var commandBuffer = instance.commands.createPrimaryBuffers(commandPool, 1, "CopyCommandBuffer")[0];
-		var fence = instance.sync.fenceBank.borrowFence(false, "CopyFence");
+		var hostBuffer = memByteBuffer(buffer.hostAddress(), 4 * width1 * height1);
 
-		try (var stack = stackPush()) {
-			var recorder = CommandRecorder.begin(commandBuffer, instance, stack, "Blitting");
-
+		var commands = new SingleTimeCommands(instance);
+		commands.submit("Blitting", recorder -> {
 			recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_DEST);
 			recorder.copyBufferToImage(sourceImage, buffer.fullRange());
 			recorder.transitionLayout(sourceImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
@@ -127,9 +141,7 @@ public class TestCommandRecorder {
 
 			recorder.transitionLayout(destImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 			recorder.copyImageToBuffer(destImage, buffer.fullRange());
-			recorder.end("Copying");
 
-			var hostBuffer = memByteBuffer(buffer.hostAddress(), 4 * width1 * height1);
 			// First pixel is (R, G, B, A) = (100, 0, 200, 255)
 			hostBuffer.put(0, (byte) 100);
 			hostBuffer.put(1, (byte) 0);
@@ -143,19 +155,15 @@ public class TestCommandRecorder {
 				hostBuffer.put(index + 2, (byte) 0);
 				hostBuffer.put(index + 3, (byte) 255);
 			}
+		}).awaitCompletion();
 
-			instance.queueFamilies().graphics().first().submit(commandBuffer, "Copying", null, fence);
-			fence.waitAndReset();
+		// So the blitted pixel should be (25, 0, 50, 255)
+		assertEquals((byte) 25, hostBuffer.get(0));
+		assertEquals((byte) 0, hostBuffer.get(1));
+		assertEquals((byte) 50, hostBuffer.get(2));
+		assertEquals((byte) 255, hostBuffer.get(3));
 
-			// So the blitted pixel should be (25, 0, 50, 255)
-			assertEquals((byte) 25, hostBuffer.get(0));
-			assertEquals((byte) 0, hostBuffer.get(1));
-			assertEquals((byte) 50, hostBuffer.get(2));
-			assertEquals((byte) 255, hostBuffer.get(3));
-		}
-
-		instance.sync.fenceBank.returnFence(fence);
-		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+		commands.destroy();
 		buffer.destroy(instance);
 		sourceImage.destroy(instance);
 		destImage.destroy(instance);

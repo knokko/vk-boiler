@@ -85,6 +85,24 @@ recording a command buffer, or `CommandRecorder.alreadyRecording(...)`
 to wrap a command buffer that is already being recorded. Use code
 completion and/or the source code to explore all possible options.
 
+### SingleTimeCommands
+The `SingleTimeCommands` class is the recommend way to execute
+one-time-submit commands. Using it is as simple as
+```java
+var commands = new SingleTimeCommands(boiler);
+commands.submit("Example", recorder -> {
+		recorder.copyBufferRanges(...); // Just an example
+		// Or do something with recorder.commandBuffer
+		// And note that you can also use recorder.stack
+}).awaitCompletion(); // The awaitCompletion() is optional
+// Optional: reuse this instance later with different commands
+commands.destroy();
+```
+This could spare you all the boilerplate code of creating the
+command pool, allocating the command buffer, beginning the
+command buffer, ending the command buffer, submitting the
+command buffer, and awaiting its fence.
+
 ## Culling
 The `FrustumCuller` class can be used to test whether a given
 camera can see a given `AABB` (axis-aligned bounding box),
