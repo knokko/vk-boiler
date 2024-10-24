@@ -488,6 +488,12 @@ commonly-used instances.
 The following utilities are/were made for `vk-boiler` internally,
 but you are free to use it in applications as well.
 
+### Math functions
+- You can use `BoilerMath.nextMultipleOf(value, alignment)`
+to find the smallest integer multiple of `alignment` that is
+greater than or equal to `value`. As the name suggests, this
+can be useful when working with buffer alignment requirements.
+
 ### Set functions
 - You can use `CollectionHelper.createSet(a, b, c)` to create
 a `Set` containing the elements `a`, `b`, and `c`.
