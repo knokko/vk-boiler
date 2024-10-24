@@ -95,6 +95,19 @@ public class CommandRecorder {
 	}
 
 	/**
+	 * Calls <i>vkCmdCopyBuffer</i> to copy a <i>VkbBufferRange</i> to another <i>VkbBufferRange</i> with the same size.
+	 * @param source The source buffer range
+	 * @param destination The destination buffer range
+	 * @throws IllegalArgumentException When the buffer ranges don't have the same size
+	 */
+	public void copyBufferRanges(VkbBufferRange source, VkbBufferRange destination) {
+		if (destination.size() != source.size()) {
+			throw new IllegalArgumentException("Sizes differ: " + source.size() + " and " + destination.size());
+		}
+		copyBuffer(source, destination.buffer().vkBuffer(), destination.offset());
+	}
+
+	/**
 	 * Calls <i>vkCmdCopyImage</i>
 	 * @param source The source image
 	 * @param dest The destination image, must be at least as large as <i>source</i>
