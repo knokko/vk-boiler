@@ -144,6 +144,20 @@ public class BoilerBuffers {
 	}
 
 	/**
+	 * Stores the given image in the given mapped buffer range, using RGBA8 encoding. This is intended to be
+	 * used before <i>vkCmdCopyBufferToImage</i>.
+	 * @param destination The mapped buffer range in which the image data should be stored
+	 * @param image The image whose pixels should be stored in the buffer
+	 */
+	public void encodeBufferedImageIntoRangeRGBA(MappedVkbBufferRange destination, BufferedImage image) {
+		long expectedSize = 4L * image.getWidth() * image.getHeight();
+		if (destination.size() != expectedSize) {
+			throw new IllegalArgumentException("Expected destination size to be " + expectedSize + ", but got " + destination.size());
+		}
+		encodeBufferedImageRGBA(destination.buffer(), image, destination.offset());
+	}
+
+	/**
 	 * Decodes a <i>BufferedImage</i> with the given size from the pixel data in the given buffer at the given offset.
 	 * This method expects the image data to be in RGBA8 format.
 	 * @param mappedBuffer The buffer that contains the image data to be decoded
@@ -171,5 +185,21 @@ public class BoilerBuffers {
 		}
 
 		return image;
+	}
+
+	/**
+	 * Decodes a <i>BufferedImage</i> with the given size from the pixel data in the given mapped buffer range.
+	 * This method expects the image data to be in RGBA8 format.
+	 * @param source The buffer range that contains the image data to be decoded
+	 * @param width The width of the image
+	 * @param height The height of the image
+	 * @return The decoded image
+	 */
+	public BufferedImage decodeBufferedImageFromRangeRGBA(MappedVkbBufferRange source, int width, int height) {
+		long expectedSize = 4L * width * height;
+		if (source.size() != expectedSize) {
+			throw new IllegalArgumentException("Expected source size to be " + expectedSize + ", but got " + source.size());
+		}
+		return decodeBufferedImageRGBA(source.buffer(), source.offset(), width, height);
 	}
 }

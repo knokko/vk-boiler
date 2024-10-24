@@ -9,8 +9,7 @@ import java.awt.image.BufferedImage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryUtil.memGetByte;
 import static org.lwjgl.system.MemoryUtil.memPutByte;
-import static org.lwjgl.vulkan.VK10.VK_API_VERSION_1_0;
-import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 
@@ -23,6 +22,7 @@ public class TestImageEncode {
 		).validation().forbidValidationErrors().build();
 
 		var buffer = instance.buffers.createMapped(10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "DestBuffer");
+		var buffer2 = instance.buffers.createMapped(50, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "DestBuffer2");
 		var image = new BufferedImage(1, 2, BufferedImage.TYPE_INT_ARGB);
 		image.setRGB(0, 0, Color.RED.getRGB());
 		image.setRGB(0, 1, new Color(50, 100, 150, 200).getRGB());
@@ -38,7 +38,12 @@ public class TestImageEncode {
 		assertEquals((byte) 150, memGetByte(buffer.hostAddress() + 7));
 		assertEquals((byte) 200, memGetByte(buffer.hostAddress() + 8));
 
+		instance.buffers.encodeBufferedImageIntoRangeRGBA(buffer2.mappedRange(40, 8), image);
+		assertEquals((byte) 50, memGetByte(buffer2.hostAddress() + 44));
+		assertEquals((byte) 100, memGetByte(buffer2.hostAddress() + 45));
+
 		buffer.destroy(instance);
+		buffer2.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 
@@ -63,6 +68,9 @@ public class TestImageEncode {
 		var image = instance.buffers.decodeBufferedImageRGBA(buffer, 1, 1, 2);
 		assertEquals(Color.RED, new Color(image.getRGB(0, 0), true));
 		assertEquals(new Color(50, 100, 150, 200), new Color(image.getRGB(0, 1), true));
+
+		var image2 = instance.buffers.decodeBufferedImageFromRangeRGBA(buffer.mappedRange(5, 4), 1, 1);
+		assertEquals(new Color(50, 100, 150, 200), new Color(image2.getRGB(0, 0), true));
 
 		buffer.destroy(instance);
 		instance.destroyInitialObjects();

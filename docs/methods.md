@@ -48,6 +48,10 @@ decode/load a `BufferedImage` from a `MappedVkbBuffer`. You can use this
 after `vkCmdCopyImageToBuffer(...)` to read the contents of a `VkImage`.
 I find this very convenient for debugging.
 
+There is also `encodeBufferedIntoRangeRGBA` and
+`decodeBufferedImageFromRangeRGBA`, which use a `MappedVkbBufferRange`
+instead of a `MappedVkbBuffer` and offset.
+
 ## Commands
 Pretty much any Vulkan application needs command buffers, but using them
 can be quite verbose. The following features are provided to get rid of
