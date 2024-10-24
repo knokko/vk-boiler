@@ -28,6 +28,15 @@ tuple `(buffer, byteOffset, byteSize)`. You can obtain an instance by
 calling the `range(...)` or `fullRange()` method of a `DeviceVkbBuffer` or
 a `MappedVkbBuffer`.
 
+### MappedVkbBufferRange
+The `MappedVkbBufferRange` represents a range of a `MappedVkbBuffer`,
+which is a tuple `(mappedBuffer, byteOffset, byteSize)`. You can obtain
+an instance by calling the `mappedRange(...)` or `mappedFullRange()`
+method of a `MappedVkbBuffer`. It provides `byteBuffer()`,
+`shortBuffer()`, etc... methods to create Java NIO buffers whose memory
+is backed by the buffer range. It also provides a `range(...)` method to
+create a corresponding `VkbBufferRange`.
+
 ### Encoding/decoding images
 You can use `boiler.buffers.encodeBufferedImageRGBA(...)` to encode/store a
 `BufferedImage` in a `MappedVkbBuffer` in RGBA8 format. You can use this to
