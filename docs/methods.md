@@ -523,6 +523,13 @@ to encode the given set into a `PointerBuffer` that is allocated
 on the given `MemoryStack`. This is for instance useful for
 populating `ppEnabledLayerNames`.
 
+### Color packing
+The `ColorPacker` class provides a `rgb` and `argb` method that
+can be used to pack 8-bit red, green, blue, and alpha components
+into a (32-bit) `int`. It also provides methods to extract
+the red, green, blue, and alpha components from the `int`s that
+it has produced.
+
 ### pNext chains
 You can use `NextChain.findAddress(pNext, sType)` to find the
 memory address of the struct with the given `sType` in the
