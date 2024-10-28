@@ -80,4 +80,15 @@ public class ColorPacker {
 	public static int unsigned(byte value) {
 		return value & 0xFF;
 	}
+
+	/**
+	 * Returns a nice string showing the R, G, B, and A component of the packed color, like RGB(1, 2, 3) or
+	 * RGB(100, 200, 200, 200). The alpha is skipped when it is 255 (opaque).
+	 */
+	public static String toString(int packed) {
+		int alpha = unsigned(alpha(packed));
+		String rgb = unsigned(red(packed)) + ", " + unsigned(green(packed)) + ", " + unsigned(blue(packed));
+		if (alpha == 255) return "RGB(" + rgb + ")";
+		else return "RGBA(" + rgb + ", " + unsigned(alpha(packed)) + ")";
+	}
 }

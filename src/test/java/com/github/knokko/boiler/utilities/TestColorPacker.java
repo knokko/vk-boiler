@@ -51,4 +51,10 @@ public class TestColorPacker {
 		assertEquals(rgba(1, 2, 3, 255), rgb(1, 2, 3));
 		assertEquals(rgba(1, 2, 3, 255), rgb((byte) 1, (byte) 2, (byte) 3));
 	}
+
+	@Test
+	public void testToString() {
+		assertEquals("RGBA(0, 100, 255, 200)", ColorPacker.toString(rgba(0, 100, 255, 200)));
+		assertEquals("RGB(255, 100, 0)", ColorPacker.toString(rgb(255, 100, 0)));
+	}
 }
