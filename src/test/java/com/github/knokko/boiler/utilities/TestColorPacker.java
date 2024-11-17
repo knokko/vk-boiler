@@ -10,10 +10,12 @@ public class TestColorPacker {
 	@Test
 	public void testSimplePackingRGBA() {
 		assertEquals(0, rgba(0, 0, 0, 0));
+		assertEquals(0, rgba(0f, 0f, 0f, 0f));
 		assertEquals(-1, rgba(255, 255, 255, 255));
 		assertEquals(-1, rgba(-1, -1, -1, -1));
 		assertEquals(-1, rgba((byte) 255, (byte) 255, (byte) 255, (byte) 255));
 		assertEquals(-1, rgba((byte) -1, (byte) -1, (byte) -1, (byte) -1));
+		assertEquals(-1, rgba(1f, 1f, 1f, 1f));
 
 		int high = rgba((byte) 255, (byte) 254, (byte) 253, (byte) 252);
 		assertEquals(high, rgba(255, 254, 253, 252));
@@ -26,6 +28,7 @@ public class TestColorPacker {
 		assertEquals(254, unsigned(green(high)));
 		assertEquals(253, unsigned(blue(high)));
 		assertEquals(252, unsigned(alpha(high)));
+		assertEquals(1f, normalize(red(high)));
 
 		int low = rgba((byte) 1, (byte) 2, (byte) 3, (byte) 4);
 		assertEquals(low, rgba(1, 2, 3, 4));
@@ -50,11 +53,47 @@ public class TestColorPacker {
 		assertEquals(rgba(250, 251, 252, 255), rgb(-6, -5, -4));
 		assertEquals(rgba(1, 2, 3, 255), rgb(1, 2, 3));
 		assertEquals(rgba(1, 2, 3, 255), rgb((byte) 1, (byte) 2, (byte) 3));
+		assertEquals(rgba(0, 127, 128, 255), rgb(0f, 0.499f, 0.501f));
 	}
 
 	@Test
 	public void testToString() {
 		assertEquals("RGBA(0, 100, 255, 200)", ColorPacker.toString(rgba(0, 100, 255, 200)));
 		assertEquals("RGB(255, 100, 0)", ColorPacker.toString(rgb(255, 100, 0)));
+	}
+
+	@Test
+	public void testNormalize() {
+		for (byte b = Byte.MIN_VALUE; b < Byte.MAX_VALUE; b++) {
+			assertEquals(b, denormalize(normalize(b)));
+			assertEquals(b, denormalize(normalize(b) - 0.4f / 255f));
+			assertEquals(b, denormalize(normalize(b) + 0.4f / 255f));
+		}
+		assertEquals(Byte.MAX_VALUE, denormalize(normalize(Byte.MAX_VALUE)));
+	}
+
+	@Test
+	public void testSrgbToLinear() {
+		assertEquals(0f, linearToSrgb(0f), 0.001f);
+		assertEquals(0f, srgbToLinear(0f), 0.001f);
+		assertEquals(1f, linearToSrgb(1f), 0.001f);
+		assertEquals(1f, srgbToLinear(1f), 0.001f);
+
+		assertEquals(-1, srgbToLinear(-1));
+		assertEquals(-1, linearToSrgb(-1));
+		assertEquals(0, srgbToLinear(0));
+		assertEquals(0, linearToSrgb(0));
+
+		float[] testValues = { 0f, 0.1f, 0.003f, 0.0033f, 0.039f, 0.041f, 0.4f, 0.8f, 1f };
+		for (float test : testValues) {
+			assertEquals(test, srgbToLinear(linearToSrgb(test)), 0.001f);
+			assertEquals(test, linearToSrgb(srgbToLinear(test)), 0.001f);
+		}
+
+		int testCase = srgbToLinear(rgba(242, 183, 113, 123));
+		assertEquals(226, unsigned(red(testCase)));
+		assertEquals(121, unsigned(green(testCase)));
+		assertEquals(42, unsigned(blue(testCase)));
+		assertEquals(123, unsigned(alpha(testCase)));
 	}
 }

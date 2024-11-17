@@ -1,5 +1,7 @@
 package com.github.knokko.boiler.utilities;
 
+import static java.lang.Math.*;
+
 /**
  * Helper class to pack RGB(A) colors into a single <b>int</b>. This is similar to what <i>java.awt.Color</i> does,
  * but the component order is different. The  advantage of this class over <i>java.awt.Color</i>,
@@ -7,6 +9,24 @@ package com.github.knokko.boiler.utilities;
  * and you don't risk triggering AWT on macOS, which could sabotage GLFW.
  */
 public class ColorPacker {
+
+	/**
+	 * Takes a float in the range [0.0, 1.0], and converts it to a byte (0.0 will be mapped to 0, 1.0 will be mapped to
+	 * -1).
+	 */
+	public static byte denormalize(float normalized) {
+		int i = (int) (255 * normalized + 0.5f);
+		i = min(255, max(0, i));
+		return (byte) i;
+	}
+
+	/**
+	 * Takes a raw byte, and converts it to a float in the range [0.0, 1.0]. This is the inverse of
+	 * {@link #denormalize(float)}.
+	 */
+	public static float normalize(byte rawValue) {
+		return unsigned(rawValue) / 255f;
+	}
 
 	/**
 	 * Packs red, green, blue, and alpha into an integer. The red component will be stored in the least-significant
@@ -27,6 +47,16 @@ public class ColorPacker {
 	}
 
 	/**
+	 * Packs red, green, blue, and alpha into an integer. The red component will be stored in the least-significant
+	 * 8 bits, the green component will be stored in the next 8 bits, etc...<br>
+	 *
+	 * You must give the parameters in the range [0.0, 1.0]
+	 */
+	public static int rgba(float red, float green, float blue, float alpha) {
+		return rgba(denormalize(red), denormalize(green), denormalize(blue), denormalize(alpha));
+	}
+
+	/**
 	 * Packs red, green, and blue into an integer. The red component will be stored in the least-significant
 	 * 8 bits, the green component will be stored in the next 8 bits, and the blue component will be stored next to
 	 * green. The 8 most-significant bits will be set to 1, making the stored color opaque.
@@ -44,6 +74,17 @@ public class ColorPacker {
 	 */
 	public static int rgb(int red, int green, int blue) {
 		return rgba(red, green, blue, 255);
+	}
+
+	/**
+	 * Packs red, green, and blue into an integer. The red component will be stored in the least-significant
+	 * 8 bits, the green component will be stored in the next 8 bits, and the blue component will be stored next to
+	 * green. The 8 most-significant bits will be set to 1, making the stored color opaque.<br>
+	 *
+	 * You must give the parameters in the range [0.0, 1.0].
+	 */
+	public static int rgb(float red, float green, float blue) {
+		return rgba(red, green, blue, 1f);
 	}
 
 	/**
@@ -90,5 +131,57 @@ public class ColorPacker {
 		String rgb = unsigned(red(packed)) + ", " + unsigned(green(packed)) + ", " + unsigned(blue(packed));
 		if (alpha == 255) return "RGB(" + rgb + ")";
 		else return "RGBA(" + rgb + ", " + unsigned(alpha(packed)) + ")";
+	}
+
+	/**
+	 * Performs a srgb-to-linear conversion on the given srgb value.
+	 * <p>
+	 * 	This can be useful when you want to use the color of an image file that you have on disk. When you use
+	 * 	a color picker in image editing software, you will get the RGBA values of the pixel	<i>after</i> it has been
+	 * 	converted to SRGB. When you divide this value by 255f and try to output it from your fragment shader, you will
+	 * 	notice that it is probably much brighter than you expected. This problem is caused by the implicit
+	 * 	linear-to-srgb conversion when you use an SRGB swapchain image.
+	 * </p>
+	 * <p>
+	 *     You can counteract this problem by using this method to convert the picked value back to linear before
+	 *     outputting it in your fragment shader.
+	 * </p>
+	 */
+	public static float srgbToLinear(float srgb) {
+		if (srgb <= 0.04f) return srgb / 12.92f;
+		else return (float) pow((srgb + 0.055f) / 1.055f, 2.4f);
+	}
+
+	/**
+	 * This is the inverse of {@link #srgbToLinear(float)}
+	 */
+	public static float linearToSrgb(float linear) {
+		if (linear <= 0.00313f) return 12.92f * linear;
+		else return 1.055f * (float) pow(linear, 1f / 2.4f) - 0.055f;
+	}
+
+	/**
+	 * Applies the srgb-to-linear conversion of {@link #srgbToLinear(float)} to the RGB components of the packed color.
+	 * The alpha component is untouched.
+	 */
+	public static int srgbToLinear(int packedSrgb) {
+		return rgba(
+				srgbToLinear(normalize(red(packedSrgb))),
+				srgbToLinear(normalize(green(packedSrgb))),
+				srgbToLinear(normalize(blue(packedSrgb))),
+				normalize(alpha(packedSrgb))
+		);
+	}
+
+	/**
+	 * The inverse of {@link #srgbToLinear(int)}
+	 */
+	public static int linearToSrgb(int packedLinear) {
+		return rgba(
+				linearToSrgb(normalize(red(packedLinear))),
+				linearToSrgb(normalize(green(packedLinear))),
+				linearToSrgb(normalize(blue(packedLinear))),
+				normalize(alpha(packedLinear))
+		);
 	}
 }
