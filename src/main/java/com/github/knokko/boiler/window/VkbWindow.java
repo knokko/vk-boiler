@@ -296,6 +296,7 @@ public class VkbWindow {
 		}
 		this.usedPresentModes.add(presentMode);
 
+		instance.checkForFatalValidationErrors();
 		if (windowLoop != null && windowLoop.shouldCheckResize(this)) {
 			windowLoop.queueResize(() -> maybeRecreateSwapchain(presentMode), this);
 		}

@@ -627,6 +627,7 @@ public class BoilerBuilder {
 		var instanceResult = BoilerInstanceBuilder.createInstance(this);
 
 		long validationErrorThrower = 0;
+		BoilerInstance[] propagateInstance = { null };
 		if (forbidValidationErrors) {
 			if (!instanceResult.enabledExtensions().contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 				throw new ValidationException("Debug utils extension is not enabled");
@@ -640,6 +641,8 @@ public class BoilerBuilder {
 				ciReporter.pfnUserCallback((severity, types, data, userData) -> {
 					String message = VkDebugUtilsMessengerCallbackDataEXT.create(data).pMessageString();
 					if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
+						var instance = propagateInstance[0];
+						if (instance != null) instance.reportFatalValidationError();
 						throw new ValidationException(message);
 					} else System.out.println(message);
 					return VK_FALSE;
@@ -668,6 +671,7 @@ public class BoilerBuilder {
 				instanceResult.enabledLayers(), instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
 				deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower
 		);
+		propagateInstance[0] = instance;
 		if (xr != null) xr.boilerInstance = instance;
 
 		for (int windowIndex = 0; windowIndex < windows.size(); windowIndex++) {

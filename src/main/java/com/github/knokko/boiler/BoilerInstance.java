@@ -55,7 +55,8 @@ public class BoilerInstance {
 	public final BoilerSync sync;
 	public final BoilerDebug debug;
 
-	private boolean destroyed = false;
+	private volatile boolean encounteredFatalValidationError;
+	private volatile boolean destroyed = false;
 
 	/**
 	 * Note: using this constructor is allowed, but it is subject to change, even in non-major updates of
@@ -96,6 +97,16 @@ public class BoilerInstance {
 
 	private void checkDestroyed() {
 		if (destroyed) throw new IllegalStateException("This instance has already been destroyed");
+	}
+
+	public void checkForFatalValidationErrors() {
+		if (encounteredFatalValidationError) {
+			throw new IllegalStateException("A fatal validation error has been encountered");
+		}
+	}
+
+	public void reportFatalValidationError() {
+		encounteredFatalValidationError = true;
 	}
 
 	/**
