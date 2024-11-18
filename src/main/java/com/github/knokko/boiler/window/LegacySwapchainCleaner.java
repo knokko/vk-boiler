@@ -16,6 +16,14 @@ class LegacySwapchainCleaner extends SwapchainCleaner {
 		for (int myImageIndex = state.acquiredImages().size() - 1; myImageIndex >= 0; myImageIndex--) {
 			var image = state.acquiredImages().get(myImageIndex);
 			if (canDestroyOlderImages[image.index()]) {
+				if (!image.acquireFence.isSignaled()) {
+					System.err.println("How dafuq is acquire fence not signaled?");
+					if (image.acquireFence.isPending()) {
+						System.err.println("How is it pending?");
+					}
+					continue;
+				}
+
 				destroyImageNow(image, true);
 			} else {
 				remainingImages.add(image);
