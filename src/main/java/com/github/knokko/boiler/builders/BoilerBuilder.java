@@ -131,6 +131,14 @@ public class BoilerBuilder {
 		if (VK_API_VERSION_VARIANT(apiVersion) != 0)
 			throw new IllegalArgumentException("Variant of API version must be 0");
 
+		int supportedApiVersion = VK.getInstanceVersionSupported();
+		if (apiVersion > supportedApiVersion) {
+			throw new UnsupportedOperationException(
+					"Attempted to use unsupported instance version " + apiVersion + ", only up to " +
+							supportedApiVersion + " is supported"
+			);
+		}
+
 		this.apiVersion = apiVersion;
 		this.applicationName = applicationName;
 		this.applicationVersion = applicationVersion;

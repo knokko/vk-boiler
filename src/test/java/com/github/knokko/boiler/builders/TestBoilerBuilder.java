@@ -164,11 +164,9 @@ public class TestBoilerBuilder {
 	}
 
 	private void testApiVersionCheck(int apiVersion) {
-		var builder = new BoilerBuilder(apiVersion, "TestApiVersionCheck", 1)
-				.validation()
-				.forbidValidationErrors()
-				.physicalDeviceSelector((stack, candidates, vkInstance) -> fail("There should be no candidates"));
-		assertThrows(NoVkPhysicalDeviceException.class, builder::build);
+		assertThrows(UnsupportedOperationException.class, () -> new BoilerBuilder(
+				apiVersion, "TestApiVersionCheck", 2
+		));
 	}
 
 	@Test
