@@ -1,5 +1,6 @@
 package com.github.knokko.boiler.builders;
 
+import com.github.knokko.boiler.builders.instance.ValidationFeaturesChecker;
 import com.github.knokko.boiler.exceptions.MissingVulkanExtensionException;
 import com.github.knokko.boiler.exceptions.MissingVulkanLayerException;
 import com.github.knokko.boiler.utilities.CollectionHelper;
@@ -89,22 +90,27 @@ class BoilerInstanceBuilder {
 
 			VkValidationFeaturesEXT pValidationFeatures;
 			if (builder.validationFeatures != null) {
+
 				pValidationFeatures = VkValidationFeaturesEXT.calloc(stack);
 				pValidationFeatures.sType$Default();
 				pValidationFeatures.pNext(0L);
 
+				var supportedValidationFeatures = new ValidationFeaturesChecker(stack);
+
 				var validationFlags = stack.callocInt(5);
-				if (builder.validationFeatures.gpuAssisted())
+				if (builder.validationFeatures.gpuAssisted() && supportedValidationFeatures.gpuAssistedValidation)
 					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
-				if (builder.validationFeatures.gpuAssistedReserve())
+				if (builder.validationFeatures.gpuAssistedReserve() && supportedValidationFeatures.gpuAssistedValidation)
 					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT);
 				if (builder.validationFeatures.bestPractices())
 					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT);
-				if (builder.validationFeatures.debugPrint())
+				if (builder.validationFeatures.debugPrint() && supportedValidationFeatures.debugPrintf)
 					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT);
 				if (builder.validationFeatures.synchronization())
 					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT);
 				validationFlags.flip();
+
+				supportedValidationFeatures.destroy();
 
 				if (validationFlags.limit() > 0) pValidationFeatures.pEnabledValidationFeatures(validationFlags);
 				else pValidationFeatures = null;

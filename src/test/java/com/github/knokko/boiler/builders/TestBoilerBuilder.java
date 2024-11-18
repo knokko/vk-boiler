@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.builders;
 
 import com.github.knokko.boiler.builders.instance.ValidationFeatures;
+import com.github.knokko.boiler.builders.instance.ValidationFeaturesChecker;
 import com.github.knokko.boiler.builders.queue.QueueFamilyAllocation;
 import com.github.knokko.boiler.builders.queue.QueueFamilyMapping;
 import com.github.knokko.boiler.debug.ValidationException;
@@ -83,13 +84,20 @@ public class TestBoilerBuilder {
 				.vkInstanceCreator((ciInstance, stack) -> {
 					pDidCallInstanceCreator[0] = true;
 
-					var validationFeatures = VkValidationFeaturesEXT.create(ciInstance.pNext());
-					assertEquals(VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT, validationFeatures.sType());
+					var check = new ValidationFeaturesChecker(stack);
+					if (check.gpuAssistedValidation) {
+						assertNotEquals(0L, ciInstance.pNext());
+						var validationFeatures = VkValidationFeaturesEXT.create(ciInstance.pNext());
+						assertEquals(VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT, validationFeatures.sType());
 
-					var validationFlags = Objects.requireNonNull(validationFeatures.pEnabledValidationFeatures());
-					assertEquals(2, validationFeatures.enabledValidationFeatureCount());
-					assertEquals(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT, validationFlags.get(0));
-					assertEquals(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT, validationFlags.get(1));
+						var validationFlags = Objects.requireNonNull(validationFeatures.pEnabledValidationFeatures());
+						assertEquals(2, validationFeatures.enabledValidationFeatureCount());
+						assertEquals(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT, validationFlags.get(0));
+						assertEquals(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT, validationFlags.get(1));
+					} else {
+						assertEquals(0L, ciInstance.pNext());
+						System.err.println("Is GPU-assisted validation really not supported?");
+					}
 
 					var appInfo = Objects.requireNonNull(ciInstance.pApplicationInfo());
 					assertEquals("TestComplexVulkan1.2", appInfo.pApplicationNameString());
