@@ -79,8 +79,16 @@ public abstract class WindowRenderLoop {
 				currentFrame += 1;
 			}
 		} finally {
-			cleanUp(window.instance);
-			window.destroy();
+			try {
+				cleanUp(window.instance);
+				window.destroy();
+			} catch (Throwable cleanUpFailed) {
+				// The purpose of this catch block is to ensure that errors during cleanUp don't suppress the
+				// more important errors encountered in the try block
+				System.err.println("Failed to clean-up WindowRenderLoop:");
+				//noinspection CallToPrintStackTrace
+				cleanUpFailed.printStackTrace();
+			}
 		}
 	}
 
