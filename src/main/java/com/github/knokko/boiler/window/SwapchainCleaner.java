@@ -48,7 +48,14 @@ abstract class SwapchainCleaner {
 				int oldSwapchainIndex = swapchainIndex;
 				while (swapchainIndex > 0) {
 					swapchainIndex -= 1;
-					destroyStateNow(swapchains.get(swapchainIndex), true);
+					var oldSwapchain = swapchains.get(swapchainIndex);
+					for (var image : oldSwapchain.acquiredImages) {
+						if (!image.acquireFence.isSignaled()) {
+							System.err.println("Acquire fence is not signaled when swapchain should be destroyed");
+							if (!image.acquireFence.isPending()) System.err.println("It's not even pending!");
+						}
+					}
+					destroyStateNow(oldSwapchain, true);
 				}
 				var newSwapchains = new ArrayList<>(swapchains.subList(oldSwapchainIndex, swapchains.size()));
 				swapchains.clear();
