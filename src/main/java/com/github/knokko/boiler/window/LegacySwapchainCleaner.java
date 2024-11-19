@@ -6,6 +6,9 @@ import org.lwjgl.vulkan.VkPresentInfoKHR;
 
 import java.util.List;
 
+import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static org.lwjgl.vulkan.VK10.vkQueueWaitIdle;
+
 class LegacySwapchainCleaner extends SwapchainCleaner {
 
 	@Override
@@ -40,5 +43,9 @@ class LegacySwapchainCleaner extends SwapchainCleaner {
 
 	@Override
 	void waitUntilStateCanBeDestroyed(State state) {
+		var queue = state.swapchain().presentFamily.first();
+		synchronized (queue) {
+			assertVkSuccess(vkQueueWaitIdle(queue.vkQueue()), "QueueWaitIdle", "LegacySwapchainCleaner");
+		}
 	}
 }
