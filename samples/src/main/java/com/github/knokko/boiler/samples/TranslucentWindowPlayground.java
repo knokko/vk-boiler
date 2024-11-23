@@ -48,6 +48,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 				.validation(new ValidationFeatures(
 						false, false, false, true, true
 				))
+				.bestPractices()
 				.dontInitGLFW()
 				.addWindow(new WindowBuilder(
 						800, 600, VK_IMAGE_USAGE_TRANSFER_DST_BIT

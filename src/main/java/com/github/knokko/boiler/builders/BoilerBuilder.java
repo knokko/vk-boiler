@@ -3,6 +3,7 @@ package com.github.knokko.boiler.builders;
 import com.github.knokko.boiler.builders.device.*;
 import com.github.knokko.boiler.builders.instance.PreVkInstanceCreator;
 import com.github.knokko.boiler.builders.instance.ValidationFeatures;
+import com.github.knokko.boiler.builders.instance.VendorBestPractices;
 import com.github.knokko.boiler.builders.instance.VkInstanceCreator;
 import com.github.knokko.boiler.builders.queue.MinimalQueueFamilyMapper;
 import com.github.knokko.boiler.builders.queue.QueueFamilyMapper;
@@ -25,10 +26,10 @@ import static org.lwjgl.glfw.GLFWVulkan.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
+import static org.lwjgl.vulkan.EXTLayerSettings.VK_EXT_LAYER_SETTINGS_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTMemoryBudget.VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTSurfaceMaintenance1.VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTSwapchainMaintenance1.VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME;
-import static org.lwjgl.vulkan.EXTValidationFeatures.*;
 import static org.lwjgl.vulkan.KHRBindMemory2.VK_KHR_BIND_MEMORY_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRCreateRenderpass2.VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRDedicatedAllocation.VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME;
@@ -86,6 +87,7 @@ public class BoilerBuilder {
 	final Set<String> requiredVulkanDeviceExtensions = new HashSet<>();
 
 	ValidationFeatures validationFeatures = null;
+	VendorBestPractices vendorBestPractices = null;
 	boolean forbidValidationErrors = false;
 
 	boolean dynamicRendering = false;
@@ -174,6 +176,22 @@ public class BoilerBuilder {
 					true, true, false, true, true
 			));
 		}
+	}
+
+	/**
+	 * Enables vendor-specific best practices. This will only work if validation is enabled, does nothing otherwise.
+	 */
+	public BoilerBuilder bestPractices(VendorBestPractices bestPractices) {
+		this.vendorBestPractices = bestPractices;
+		return this;
+	} // TODO Document this and test this
+
+	/**
+	 * Enables AMD best practices and Nvidia best practices. This will only work if validation is enabled, does
+	 * nothing otherwise.
+	 */
+	public BoilerBuilder bestPractices() {
+		return bestPractices(new VendorBestPractices(false, true, false, true));
 	}
 
 	/**
@@ -590,7 +608,7 @@ public class BoilerBuilder {
 
 		if (validationFeatures != null) {
 			this.requiredVulkanInstanceExtensions.add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-			this.requiredVulkanInstanceExtensions.add(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+			this.requiredVulkanInstanceExtensions.add(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME);
 			this.requiredVulkanLayers.add("VK_LAYER_KHRONOS_validation");
 		}
 

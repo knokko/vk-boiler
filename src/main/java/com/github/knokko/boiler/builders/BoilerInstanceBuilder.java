@@ -6,16 +6,19 @@ import com.github.knokko.boiler.exceptions.MissingVulkanLayerException;
 import com.github.knokko.boiler.utilities.CollectionHelper;
 import org.lwjgl.vulkan.*;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.EXTValidationFeatures.*;
+import static org.lwjgl.system.MemoryUtil.*;
+import static org.lwjgl.vulkan.EXTLayerSettings.VK_LAYER_SETTING_TYPE_BOOL32_EXT;
+import static org.lwjgl.vulkan.EXTLayerSettings.VK_LAYER_SETTING_TYPE_INT32_EXT;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
-import static org.lwjgl.vulkan.VK10.vkEnumerateInstanceExtensionProperties;
-import static org.lwjgl.vulkan.VK10.vkEnumerateInstanceLayerProperties;
+import static org.lwjgl.vulkan.VK10.*;
 
 class BoilerInstanceBuilder {
 
@@ -88,38 +91,63 @@ class BoilerInstanceBuilder {
 			appInfo.engineVersion(builder.engineVersion);
 			appInfo.apiVersion(builder.apiVersion);
 
-			VkValidationFeaturesEXT pValidationFeatures;
+			VkLayerSettingsCreateInfoEXT ciValidationSettings;
 			if (builder.validationFeatures != null) {
-
-				pValidationFeatures = VkValidationFeaturesEXT.calloc(stack);
-				pValidationFeatures.sType$Default();
-				pValidationFeatures.pNext(0L);
+				ciValidationSettings = VkLayerSettingsCreateInfoEXT.calloc(stack);
+				ciValidationSettings.sType$Default();
 
 				var supportedValidationFeatures = new ValidationFeaturesChecker(stack);
+				List<String> chosenLayerSettings = new ArrayList<>();
 
-				var validationFlags = stack.callocInt(5);
-				if (builder.validationFeatures.gpuAssisted() && supportedValidationFeatures.gpuAssistedValidation)
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
-				if (builder.validationFeatures.gpuAssistedReserve() && supportedValidationFeatures.gpuAssistedValidation)
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT);
-				if (builder.validationFeatures.bestPractices())
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT);
-				if (builder.validationFeatures.debugPrint() && supportedValidationFeatures.debugPrintf)
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT);
-				if (builder.validationFeatures.synchronization())
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT);
-				validationFlags.flip();
+				boolean gpuAssisted = builder.validationFeatures.gpuAssisted() && supportedValidationFeatures.gpuAssistedValidation;
+				boolean debugPrint = builder.validationFeatures.debugPrint() && supportedValidationFeatures.debugPrintf;
+				if (debugPrint) gpuAssisted = false;
+
+				if (gpuAssisted) chosenLayerSettings.add("gpuav_debug_validate_instrumented_shaders");
+				if (builder.validationFeatures.bestPractices()) chosenLayerSettings.add("validate_best_practices");
+				if (builder.validationFeatures.synchronization()) chosenLayerSettings.add("validate_sync");
+				if (builder.vendorBestPractices != null) {
+					if (builder.vendorBestPractices.arm()) chosenLayerSettings.add("validate_best_practices_arm");
+					if (builder.vendorBestPractices.amd()) chosenLayerSettings.add("validate_best_practices_amd");
+					if (builder.vendorBestPractices.img()) chosenLayerSettings.add("validate_best_practices_img");
+					if (builder.vendorBestPractices.nvidia()) chosenLayerSettings.add("validate_best_practices_nvidia");
+				}
 
 				supportedValidationFeatures.destroy();
 
-				if (validationFlags.limit() > 0) pValidationFeatures.pEnabledValidationFeatures(validationFlags);
-				else pValidationFeatures = null;
+				int numLayerSettings = chosenLayerSettings.size();
+				if (gpuAssisted || debugPrint) numLayerSettings += 1;
 
-			} else pValidationFeatures = null;
+				var pTrue = stack.calloc(4).putInt(0, VK_TRUE);
+
+				var vvl = stack.UTF8("VK_LAYER_KHRONOS_validation");
+				var pValidationSettings = VkLayerSettingEXT.calloc(numLayerSettings, stack);
+				for (int index = 0; index < chosenLayerSettings.size(); index++) {
+					var setting = pValidationSettings.get(index);
+					setting.pLayerName(vvl);
+					setting.pSettingName(stack.UTF8(chosenLayerSettings.get(index)));
+					setting.type(VK_LAYER_SETTING_TYPE_BOOL32_EXT);
+					setting.pValues(pTrue);
+					VkLayerSettingEXT.nvalueCount(setting.address(), 1);
+				}
+
+				if (gpuAssisted || debugPrint) {
+					var setting = pValidationSettings.get(chosenLayerSettings.size());
+					setting.pLayerName(vvl);
+					setting.pSettingName(stack.UTF8("validate_gpu_based"));
+					setting.type(VK_LAYER_SETTING_TYPE_INT32_EXT);
+
+					int value = debugPrint ? 1 : 2;
+					setting.pValues(stack.calloc(4).putInt(0, value));
+					VkLayerSettingEXT.nvalueCount(setting.address(), 1);
+				}
+
+				if (numLayerSettings > 0) ciValidationSettings.pSettings(pValidationSettings);
+			} else ciValidationSettings = null;
 
 			var ciInstance = VkInstanceCreateInfo.calloc(stack);
 			ciInstance.sType$Default();
-			ciInstance.pNext(pValidationFeatures != null ? pValidationFeatures.address() : 0L);
+			if (ciValidationSettings != null) ciInstance.pNext(ciValidationSettings);
 			if (enabledExtensions.contains(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
 				ciInstance.flags(VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR);
 			} else ciInstance.flags(0);

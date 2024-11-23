@@ -2,6 +2,7 @@ package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
+import com.github.knokko.boiler.builders.instance.VendorBestPractices;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
@@ -26,11 +27,27 @@ public class HelloTriangle {
 				VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
 		)
 				.validation().forbidValidationErrors()
+				.bestPractices(new VendorBestPractices(true, true, true, true))
 				.addWindow(new WindowBuilder(
 						1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 				).presentModes(VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR))
 				.build();
 
+		try (var stack = stackPush()) {
+			var allocateInfo = VkMemoryAllocateInfo.calloc(stack);
+			allocateInfo.sType$Default();
+			allocateInfo.allocationSize(12345);
+			allocateInfo.memoryTypeIndex(2);
+
+			var pMemory = stack.callocLong(1);
+			for (int counter = 0; counter < 1000; counter++) {
+				assertVkSuccess(vkAllocateMemory(
+						boiler.vkDevice(), allocateInfo, null, pMemory
+				), "AllocateMemory", "trigger-nvidia-warnings");
+
+				vkFreeMemory(boiler.vkDevice(), pMemory.get(0), null);
+			}
+		}
 		int numFramesInFlight = 3;
 		var commandPool = boiler.commands.createPool(
 				VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,

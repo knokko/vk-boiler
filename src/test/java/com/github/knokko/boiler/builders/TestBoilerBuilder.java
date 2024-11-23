@@ -1,11 +1,15 @@
 package com.github.knokko.boiler.builders;
 
+import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.builders.instance.ValidationFeatures;
 import com.github.knokko.boiler.builders.instance.ValidationFeaturesChecker;
+import com.github.knokko.boiler.builders.instance.VendorBestPractices;
 import com.github.knokko.boiler.builders.queue.QueueFamilyAllocation;
 import com.github.knokko.boiler.builders.queue.QueueFamilyMapping;
+import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.exceptions.NoVkPhysicalDeviceException;
+import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.utilities.CollectionHelper;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
@@ -13,6 +17,7 @@ import org.lwjgl.vulkan.*;
 import java.util.HashSet;
 import java.util.Objects;
 
+import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.utilities.CollectionHelper.createSet;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -384,5 +389,53 @@ public class TestBoilerBuilder {
 		if (!message.equals("Vulkan layer \"VK_LAYER_LUNARG_api_dump\" is required, but not supported")) {
 			assertEquals("Mission completed", message);
 		}
+	}
+
+	private void triggerNvidiaBestPracticeWarning(BoilerBuilder builder) {
+		var instance = builder.build();
+
+//		var image = boiler.images.createSimple(
+//				10, 10, VK_FORMAT_R8_SINT, VK_IMAGE_USAGE_SAMPLED_BIT,
+//				VK_IMAGE_ASPECT_COLOR_BIT, "DummyImage"
+//		);
+//
+//		var commands = new SingleTimeCommands(boiler);
+//		commands.submit("CauseWarning", recorder -> {
+//			recorder.transitionLayout(image, null, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT));
+//		}).awaitCompletion();
+//		commands.destroy();
+//
+//		image.destroy(boiler);
+
+		try (var stack = stackPush()) {
+			var allocateInfo = VkMemoryAllocateInfo.calloc(stack);
+			allocateInfo.sType$Default();
+			allocateInfo.allocationSize(123);
+			allocateInfo.memoryTypeIndex(0);
+
+			var pMemory = stack.callocLong(1);
+			for (int counter = 0; counter < 1; counter++) {
+				assertVkSuccess(vkAllocateMemory(
+						instance.vkDevice(), allocateInfo, null, pMemory
+				), "AllocateMemory", "trigger-nvidia-warnings");
+
+				vkFreeMemory(instance.vkDevice(), pMemory.get(0), null);
+			}
+		}
+		instance.destroyInitialObjects();
+	}
+
+	@Test
+	public void testBestPracticesDefault() {
+		triggerNvidiaBestPracticeWarning(new BoilerBuilder(
+				VK_API_VERSION_1_0, "TestBestPracticeDefault", 1
+		).bestPractices().validation());
+	}
+
+	@Test
+	public void testBestPracticesNvidia() {
+		triggerNvidiaBestPracticeWarning(new BoilerBuilder(
+				VK_API_VERSION_1_2, "TestBestPracticesNvidia", 1
+		).validation(new ValidationFeatures(false, false, false, true, false)));
 	}
 }

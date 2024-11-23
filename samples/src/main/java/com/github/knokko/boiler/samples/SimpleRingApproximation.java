@@ -27,6 +27,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 				VK_API_VERSION_1_1, "SimpleRingApproximation", VK_MAKE_VERSION(0, 2, 0)
 		)
 				.validation(new ValidationFeatures(false, false, false, true, true))
+				.bestPractices()
 				.enableDynamicRendering()
 				.addWindow(new WindowBuilder(1000, 8000, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
 				.build();

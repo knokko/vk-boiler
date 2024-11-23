@@ -3,7 +3,6 @@ package com.github.knokko.boiler.samples;
 import com.github.knokko.boiler.buffers.MappedVkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
-import com.github.knokko.boiler.builders.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.culling.FrustumCuller;
 import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
@@ -303,8 +302,7 @@ public class TerrainPlayground {
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TerrainPlayground", VK_MAKE_VERSION(0, 1, 0)
 		)
-				.validation(new ValidationFeatures(true, true, false, true, true))
-				.forbidValidationErrors()
+				.validation().forbidValidationErrors().bestPractices()
 				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
 				.requiredFeatures12(VkPhysicalDeviceVulkan12Features::timelineSemaphore)
 				.featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
