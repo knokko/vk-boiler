@@ -115,6 +115,12 @@ public class FenceBank {
 	 */
 	public void destroy() {
 		if (!borrowedFences.isEmpty()) {
+			int counter = 0;
+			for (var fence : borrowedFences) {
+				counter += 1;
+				System.err.println("Fence " + fence + " was borrowed, but not returned");
+				if (counter > 5) break;
+			}
 			throw new IllegalStateException("Not all borrowed fences have been returned");
 		}
 		for (var fence : returnedFences) fence.destroy();

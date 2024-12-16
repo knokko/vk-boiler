@@ -33,6 +33,8 @@ public class VkbFence implements Comparable<VkbFence> {
 	private long lastCompletedSubmission;
 	private boolean isPending;
 
+	private String debugName;
+
 	VkbFence(BoilerInstance instance, long vkFence, boolean startSignaled) {
 		this.instance = instance;
 		this.vkFence = vkFence;
@@ -49,6 +51,11 @@ public class VkbFence implements Comparable<VkbFence> {
 		return (int) vkFence;
 	}
 
+	@Override
+	public String toString() {
+		return "VkbFence(name=" + debugName + ",pending=" + isPending +
+				",time=" + currentTime + ",finished=" + lastCompletedSubmission + ")";
+	}
 	/**
 	 * Sets the debug name of this fence (if <i>VK_EXT_debug_utils</i> is enabled). Note that this method is called
 	 * whenever you borrow a fence from the bank, so you should only call it yourself when you want to <b>change</b>
@@ -58,6 +65,7 @@ public class VkbFence implements Comparable<VkbFence> {
 	 */
 	public void setName(String name, MemoryStack stack) {
 		instance.debug.name(stack, vkFence, VK_OBJECT_TYPE_FENCE, name);
+		debugName = name;
 	}
 
 	/**
@@ -112,6 +120,14 @@ public class VkbFence implements Comparable<VkbFence> {
 	 */
 	public synchronized void signal() {
 		if (isPending()) throw new IllegalStateException("Fence is still pending");
+		lastCompletedSubmission = currentTime;
+	}
+
+	/**
+	 * Signals the fence forcibly, which should be done after a submission has failed.
+	 */
+	public synchronized void forceSignal() {
+		isPending = false;
 		lastCompletedSubmission = currentTime;
 	}
 

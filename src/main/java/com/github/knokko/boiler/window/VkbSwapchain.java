@@ -137,7 +137,12 @@ class VkbSwapchain {
 				return acquiredImage;
 			}
 
-			if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) return null;
+			if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
+				acquireFence.forceSignal();
+				instance.sync.fenceBank.returnFence(acquireFence);
+				instance.sync.semaphoreBank.returnSemaphores(acquireSemaphore);
+				return null;
+			}
 			else {
 				assertVkSuccess(acquireResult, "AcquireNextImageKHR", null);
 				throw new Error("This code should be unreachable");

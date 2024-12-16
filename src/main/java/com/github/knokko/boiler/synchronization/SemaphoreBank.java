@@ -3,6 +3,7 @@ package com.github.knokko.boiler.synchronization;
 import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.vulkan.VkSemaphoreCreateInfo;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
@@ -19,6 +20,7 @@ public class SemaphoreBank {
 	private final BoilerInstance instance;
 	private final ConcurrentSkipListSet<Long> unusedSemaphores = new ConcurrentSkipListSet<>();
 	private final ConcurrentSkipListSet<Long> borrowedSemaphores = new ConcurrentSkipListSet<>();
+	private final ConcurrentHashMap<Long, String> semaphoreNames = new ConcurrentHashMap<>();
 
 	SemaphoreBank(BoilerInstance instance) {
 		this.instance = instance;
@@ -45,6 +47,7 @@ public class SemaphoreBank {
 				semaphore = pSemaphore.get(0);
 			}
 			instance.debug.name(stack, semaphore, VK_OBJECT_TYPE_SEMAPHORE, name);
+			semaphoreNames.put(semaphore, name);
 		}
 		borrowedSemaphores.add(semaphore);
 		return semaphore;
@@ -70,6 +73,7 @@ public class SemaphoreBank {
 			if (!borrowedSemaphores.remove(semaphore)) {
 				throw new IllegalArgumentException("This semaphore wasn't borrowed");
 			}
+			semaphoreNames.remove(semaphore);
 		}
 
 		for (long semaphore : semaphores) unusedSemaphores.add(semaphore);
@@ -81,6 +85,12 @@ public class SemaphoreBank {
 	 */
 	public void destroy() {
 		if (!borrowedSemaphores.isEmpty()) {
+			int counter = 0;
+			for (var semaphore : borrowedSemaphores) {
+				counter += 1;
+				System.err.println("Semaphore " + semaphoreNames.get(semaphore) + " was borrowed, but not returned");
+				if (counter > 5) break;
+			}
 			throw new IllegalStateException("Not all borrowed semaphores have been returned");
 		}
 		for (long semaphore : unusedSemaphores) {
