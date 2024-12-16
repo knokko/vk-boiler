@@ -11,6 +11,7 @@ import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.exceptions.*;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.xr.XrBoiler;
+import org.lwjgl.system.Platform;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
@@ -647,12 +648,26 @@ public class BoilerBuilder {
 				ciReporter.messageSeverity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT);
 				ciReporter.messageType(VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT);
 				ciReporter.pfnUserCallback((severity, types, data, userData) -> {
-					String message = VkDebugUtilsMessengerCallbackDataEXT.create(data).pMessageString();
+					@SuppressWarnings("resource")
+					var error = VkDebugUtilsMessengerCallbackDataEXT.create(data);
+					var instance = propagateInstance[0];
+
 					if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
-						var instance = propagateInstance[0];
+						if (error.messageIdNumber() == 1284057537 && instance != null && Platform.get() == Platform.LINUX) {
+							try (var innerStack = stackPush()) {
+								var deviceProperties = VkPhysicalDeviceProperties.calloc(innerStack);
+								vkGetPhysicalDeviceProperties(instance.vkPhysicalDevice(), deviceProperties);
+								if (deviceProperties.deviceType() == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+									// I believe this one is a false positive on Nvidia Linux
+									System.out.println(error.pMessageString());
+									return VK_FALSE;
+								}
+							}
+						}
+
 						if (instance != null) instance.reportFatalValidationError();
-						throw new ValidationException(message);
-					} else System.out.println(message);
+						throw new ValidationException(error.pMessageString());
+					} else System.out.println(error.pMessageString());
 					return VK_FALSE;
 				});
 
