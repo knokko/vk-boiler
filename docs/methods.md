@@ -37,6 +37,12 @@ method of a `MappedVkbBuffer`. It provides `byteBuffer()`,
 is backed by the buffer range. It also provides a `range(...)` method to
 create a corresponding `VkbBufferRange`.
 
+### PerFrameBuffer
+The `PerFrameBuffer` wraps a `MappedVkbBufferRange`, and uses it to manage
+one-time-only data that you use every frame, and whose memory space can be
+reused after `numberOfFramesInFlight` frames. You can use it to easily
+share such space with multiple independent renderers.
+
 ### Encoding/decoding images
 You can use `boiler.buffers.encodeBufferedImageRGBA(...)` to encode/store a
 `BufferedImage` in a `MappedVkbBuffer` in RGBA8 format. You can use this to
