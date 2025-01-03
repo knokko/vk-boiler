@@ -101,6 +101,37 @@ public class TestCommandRecorder {
 	}
 
 	@Test
+	public void testCopyBcImageDoesNotCauseValidationError() {
+		var instance = new BoilerBuilder(
+				VK_API_VERSION_1_0, "Test bc image copy", VK_MAKE_VERSION(1, 0, 0)
+		).validation().forbidValidationErrors().build();
+
+		var sourceImage = instance.images.createSimple(
+				1, 3, VK_FORMAT_BC1_RGBA_SRGB_BLOCK,
+				VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				VK_IMAGE_ASPECT_COLOR_BIT, "source"
+		);
+
+		var destinationImage = instance.images.createSimple(
+				1, 3, VK_FORMAT_BC1_RGBA_SRGB_BLOCK,
+				VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				VK_IMAGE_ASPECT_COLOR_BIT, "destination"
+		);
+
+		var commands = new SingleTimeCommands(instance);
+		commands.submit("Copying", recorder -> {
+			recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_SOURCE);
+			recorder.transitionLayout(destinationImage, null, ResourceUsage.TRANSFER_DEST);
+			recorder.copyImage(sourceImage, destinationImage);
+		}).awaitCompletion();
+
+		commands.destroy();
+		sourceImage.destroy(instance);
+		destinationImage.destroy(instance);
+		instance.destroyInitialObjects();
+	}
+
+	@Test
 	public void testBlitImage() {
 		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TestCopyImage", 1

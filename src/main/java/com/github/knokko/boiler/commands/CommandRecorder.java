@@ -160,8 +160,8 @@ public class CommandRecorder {
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
 		var copyRegion = bufferCopyRegions.get(0);
 		copyRegion.bufferOffset(bufferRange.offset());
-		copyRegion.bufferRowLength(image.width());
-		copyRegion.bufferImageHeight(image.height());
+		copyRegion.bufferRowLength(0);
+		copyRegion.bufferImageHeight(0);
 		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask());
 		copyRegion.imageOffset().set(0, 0, 0);
 		copyRegion.imageExtent().set(image.width(), image.height(), 1);
@@ -181,8 +181,8 @@ public class CommandRecorder {
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
 		var copyRegion = bufferCopyRegions.get(0);
 		copyRegion.bufferOffset(bufferRange.offset());
-		copyRegion.bufferRowLength(image.width());
-		copyRegion.bufferImageHeight(image.height());
+		copyRegion.bufferRowLength(0);
+		copyRegion.bufferImageHeight(0);
 		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask());
 		copyRegion.imageOffset().set(0, 0, 0);
 		copyRegion.imageExtent().set(image.width(), image.height(), 1);
