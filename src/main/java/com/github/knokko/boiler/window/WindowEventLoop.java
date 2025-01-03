@@ -31,7 +31,7 @@ public class WindowEventLoop {
 	}
 
 	public WindowEventLoop() {
-		this(0.0, null);
+		this(0.5, null);
 	}
 
 	private void update(VkbWindow resizedWindow) {
@@ -72,19 +72,17 @@ public class WindowEventLoop {
 		}
 	}
 
-	private void initializeNewWindows() {
+	private void initializeAndDestroyWindows() {
 		stateMap.forEach((window, state) -> {
 			if (!state.initialized.isDone()) {
 				//noinspection resource
 				glfwSetFramebufferSizeCallback(window.glfwWindow, (glfwWindow, width, height) -> update(window));
 				state.initialized.complete(null);
 			}
+			if (state.renderLoop.thread != null && !state.renderLoop.thread.isAlive()) {
+				queue.add(new Task(null, state, window));
+			}
 		});
-	}
-
-	private void addWindow(VkbWindow window) {
-		stateMap.put(window, new State());
-		window.windowLoop = this;
 	}
 
 	/**
@@ -92,7 +90,8 @@ public class WindowEventLoop {
 	 * handle swapchain recreations for the given window. This method can be called from any thread.
 	 */
 	public void addWindow(WindowRenderLoop renderLoop) {
-		addWindow(renderLoop.window);
+		stateMap.put(renderLoop.window, new State(renderLoop));
+		renderLoop.window.windowLoop = this;
 		renderLoop.start();
 	}
 
@@ -106,7 +105,7 @@ public class WindowEventLoop {
 			else glfwWaitEvents();
 			if (updateCallback != null) updateCallback.run();
 			update(null);
-			initializeNewWindows();
+			initializeAndDestroyWindows();
 		}
 	}
 
@@ -130,10 +129,6 @@ public class WindowEventLoop {
 		return getState(window).shouldCheckResize;
 	}
 
-	void destroy(VkbWindow window) {
-		queueResize(null, window);
-	}
-
 	void queueResize(Runnable resize, VkbWindow window) {
 		var state = getState(window);
 		queue.add(new Task(resize, state, window));
@@ -146,9 +141,14 @@ public class WindowEventLoop {
 
 	private static class State {
 
+		final WindowRenderLoop renderLoop;
 		final CompletableFuture<Object> initialized = new CompletableFuture<>();
 		final Semaphore resizeCompleted = new Semaphore(0);
 		volatile boolean shouldCheckResize;
 		volatile long lastResizeTime;
+
+		State(WindowRenderLoop renderLoop) {
+			this.renderLoop = renderLoop;
+		}
 	}
 }

@@ -21,6 +21,7 @@ public abstract class WindowRenderLoop {
 	protected boolean acquireSwapchainImageWithFence;
 	protected int presentMode;
 	private volatile boolean didStart;
+	volatile Thread thread;
 
 	/**
 	 * @param window The window
@@ -106,7 +107,7 @@ public abstract class WindowRenderLoop {
 
 		if (window.windowLoop == null) this.run();
 		else {
-			var thread = new Thread(this::run);
+			this.thread = new Thread(this::run);
 			thread.setDaemon(true); // Ensure that the render thread dies when the main thread dies (unexpectedly)
 			thread.start();
 		}
