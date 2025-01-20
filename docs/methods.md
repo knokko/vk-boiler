@@ -176,9 +176,10 @@ descriptor sets from the pool.
 The limitation of `HomogeneousDescriptorPool` is that it
 supports only 1 descriptor set layout. If you want to
 allocate descriptor sets from different layouts from the
-same pool, you can use
-`boiler.descriptors.allocate(vkDescriptorPool, name, vkDescriptorSetLayouts...)`
-instead.
+same pool, you can use `SharedDescriptorPool` instead.
+
+Alternatively, you can use the 'raw'
+`boiler.descriptors.allocate(vkDescriptorPool, name, vkDescriptorSetLayouts...)`.
 
 ### Banks
 Descriptor 'banks' are wrapped descriptor pools from which
