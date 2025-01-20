@@ -7,6 +7,8 @@ import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
+import static org.lwjgl.system.MemoryUtil.memCallocLong;
+import static org.lwjgl.system.MemoryUtil.memFree;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class BoilerDescriptors {
@@ -54,12 +56,15 @@ public class BoilerDescriptors {
 	 */
 	public long[] allocate(long descriptorPool, String name, long... layouts) {
 		try (var stack = stackPush()) {
+			boolean useHeap = layouts.length > 10;
+
+			var pSetLayouts = useHeap ? memCallocLong(layouts.length).put(0, layouts) : stack.longs(layouts);
 			var aiSets = VkDescriptorSetAllocateInfo.calloc(stack);
 			aiSets.sType$Default();
 			aiSets.descriptorPool(descriptorPool);
-			aiSets.pSetLayouts(stack.longs(layouts));
+			aiSets.pSetLayouts(pSetLayouts);
 
-			var pSets = stack.callocLong(layouts.length);
+			var pSets = useHeap ? memCallocLong(layouts.length) : stack.callocLong(layouts.length);
 			assertVkSuccess(vkAllocateDescriptorSets(
 					instance.vkDevice(), aiSets, pSets
 			), "AllocateDescriptorSets", name);
@@ -67,8 +72,17 @@ public class BoilerDescriptors {
 			long[] results = new long[layouts.length];
 			for (int index = 0; index < results.length; index++) {
 				long set = pSets.get(index);
-				instance.debug.name(stack, set, VK_OBJECT_TYPE_DESCRIPTOR_SET, name);
+				if (instance.debug.hasDebug) {
+					try (var innerStack = stackPush()) {
+						instance.debug.name(innerStack, set, VK_OBJECT_TYPE_DESCRIPTOR_SET, name);
+					}
+				}
 				results[index] = set;
+			}
+
+			if (useHeap) {
+				memFree(pSetLayouts);
+				memFree(pSets);
 			}
 			return results;
 		}
