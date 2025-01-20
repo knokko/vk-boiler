@@ -1,6 +1,8 @@
 package com.github.knokko.boiler.commands;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.buffers.MappedVkbBufferRange;
+import com.github.knokko.boiler.buffers.VkbBuffer;
 import com.github.knokko.boiler.buffers.VkbBufferRange;
 import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
@@ -95,6 +97,48 @@ public class CommandRecorder {
 	}
 
 	/**
+	 * Repeatedly calls <i>vkCmdCopyBuffer</i> to copy between each pair in {@code sources} and {@code destinations}.
+	 * When convenient, you can use {@link #convert} if you want to copy an array of {@link VkbBuffer}s or
+	 * {@link MappedVkbBufferRange}s instead.
+	 * @param sources The source buffer ranges
+	 * @param destinations The destination buffer ranges
+	 */
+	public void bulkCopyBuffer(VkbBufferRange[] sources, VkbBufferRange[] destinations) {
+		if (sources.length != destinations.length) {
+			throw new IllegalArgumentException("Must have same #sources as #destinations");
+		}
+		var copyRegion = VkBufferCopy.calloc(1, stack);
+
+		for (int index = 0; index < sources.length; index++) {
+			if (sources[index].size() > destinations[index].size()) {
+				throw new IllegalArgumentException("Each source must be at least as large as the corresponding destination");
+			}
+			copyRegion.srcOffset(sources[index].offset());
+			copyRegion.dstOffset(destinations[index].offset());
+			copyRegion.size(sources[index].size());
+			vkCmdCopyBuffer(commandBuffer, sources[index].buffer().vkBuffer(), destinations[index].buffer().vkBuffer(), copyRegion);
+		}
+	}
+
+	/**
+	 * Converts an array of {@link MappedVkbBufferRange}s to an array of {@link VkbBufferRange}s
+	 */
+	public VkbBufferRange[] convert(MappedVkbBufferRange[] ranges) {
+		VkbBufferRange[] result = new VkbBufferRange[ranges.length];
+		for (int index = 0; index < result.length; index++) result[index] = ranges[index].range();
+		return result;
+	}
+
+	/**
+	 * Converts an array of {@link VkbBuffer}s to an array of {@link VkbBufferRange}s
+	 */
+	public VkbBufferRange[] convert(VkbBuffer[] buffers) {
+		VkbBufferRange[] result = new VkbBufferRange[buffers.length];
+		for (int index = 0; index < result.length; index++) result[index] = buffers[index].fullRange();
+		return result;
+	}
+
+	/**
 	 * Calls <i>vkCmdCopyBuffer</i> to copy a <i>VkbBufferRange</i> to another <i>VkbBufferRange</i> with the same size.
 	 * @param source The source buffer range
 	 * @param destination The destination buffer range
@@ -125,6 +169,36 @@ public class CommandRecorder {
 				commandBuffer, source.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 				dest.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageCopyRegions
 		);
+	}
+
+	/**
+	 * Repeatedly calls <i>vkCmdCopyImage</i> to copy between each pair in {@code sources} and {@code destinations}
+	 * @param sources The source images
+	 * @param destinations The destination images
+	 */
+	public void bulkCopyImage(VkbImage[] sources, VkbImage[] destinations) {
+		if (sources.length != destinations.length) {
+			throw new IllegalArgumentException("Must have same #sources as #destinations");
+		}
+
+		var imageCopyRegions = VkImageCopy.calloc(1, stack);
+		var copyRegion = imageCopyRegions.get(0);
+		copyRegion.srcOffset().set(0, 0, 0);
+		copyRegion.dstOffset().set(0, 0, 0);
+
+		for (int index = 0; index < sources.length; index++) {
+			if (sources[index].width() > destinations[index].width() || sources[index].height() > destinations[index].height()) {
+				throw new IllegalArgumentException("Each source must be at least as large as the corresponding destination");
+			}
+			instance.images.subresourceLayers(copyRegion.srcSubresource(), sources[index].aspectMask());
+			instance.images.subresourceLayers(copyRegion.dstSubresource(), destinations[index].aspectMask());
+			copyRegion.extent().set(sources[index].width(), sources[index].height(), 1);
+
+			vkCmdCopyImage(
+					commandBuffer, sources[index].vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					destinations[index].vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageCopyRegions
+			);
+		}
 	}
 
 	/**
@@ -172,6 +246,35 @@ public class CommandRecorder {
 	}
 
 	/**
+	 * Repeatedly calls <i>vkCmdCopyImageToBuffer</i> to copy each image in {@code images} to the corresponding buffer
+	 * in {@code buffers} with the same index.
+	 * When convenient, you can use {@link #convert} if you want to copy to an array of {@link VkbBuffer}s or
+	 * {@link MappedVkbBufferRange}s instead.
+	 * @param images The source images
+	 * @param buffers The destination buffers
+	 */
+	public void bulkCopyImageToBuffer(VkbImage[] images, VkbBufferRange[] buffers) {
+		if (images.length != buffers.length) throw new IllegalArgumentException("#images must be equal to #buffers");
+
+		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
+		var copyRegion = bufferCopyRegions.get(0);
+		copyRegion.bufferRowLength(0);
+		copyRegion.bufferImageHeight(0);
+		copyRegion.imageOffset().set(0, 0, 0);
+
+		for (int index = 0; index < images.length; index++) {
+			copyRegion.bufferOffset(buffers[index].offset());
+			instance.images.subresourceLayers(copyRegion.imageSubresource(), images[index].aspectMask());
+			copyRegion.imageExtent().set(images[index].width(), images[index].height(), 1);
+
+			vkCmdCopyImageToBuffer(
+					commandBuffer, images[index].vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					buffers[index].buffer().vkBuffer(), bufferCopyRegions
+			);
+		}
+	}
+
+	/**
 	 * Calls <i>vkCmdCopyBufferToImage</i>
 	 * @param image The destination image
 	 * @param bufferRange The source buffer range. The size of the buffer range is ignored because the used size is
@@ -190,6 +293,35 @@ public class CommandRecorder {
 		vkCmdCopyBufferToImage(
 				commandBuffer, bufferRange.buffer().vkBuffer(), image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferCopyRegions
 		);
+	}
+
+	/**
+	 * Repeatedly calls <i>vkCmdCopyBufferToImage</i> to copy each buffer in {@code buffers} to the corresponding image
+	 * in {@code images} with the same index.
+	 * When convenient, you can use {@link #convert} if you want to copy an array of {@link VkbBuffer}s or
+	 * {@link MappedVkbBufferRange}s instead.
+	 * @param images The destination images
+	 * @param buffers The source buffers
+	 */
+	public void bulkCopyBufferToImage(VkbImage[] images, VkbBufferRange[] buffers) {
+		if (images.length != buffers.length) throw new IllegalArgumentException("#images must be equal to #buffers");
+
+		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
+		var copyRegion = bufferCopyRegions.get(0);
+		copyRegion.bufferRowLength(0);
+		copyRegion.bufferImageHeight(0);
+		copyRegion.imageOffset().set(0, 0, 0);
+
+		for (int index = 0; index < images.length; index++) {
+			copyRegion.bufferOffset(buffers[index].offset());
+			instance.images.subresourceLayers(copyRegion.imageSubresource(), images[index].aspectMask());
+			copyRegion.imageExtent().set(images[index].width(), images[index].height(), 1);
+
+			vkCmdCopyBufferToImage(
+					commandBuffer, buffers[index].buffer().vkBuffer(), images[index].vkImage(),
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferCopyRegions
+			);
+		}
 	}
 
 	/**
@@ -213,6 +345,34 @@ public class CommandRecorder {
 				commandBuffer, srcUsage.stageMask(), dstUsage.stageMask(),
 				0, null, bufferBarrier, null
 		);
+	}
+
+	/**
+	 * Repeatedly calls <i>vkCmdPipelineBarrier</i> to record a buffer barrier for each buffer in {@code buffers}.
+	 * When convenient, you can use {@link #convert} if you want to create barriers for an array of {@link VkbBuffer}s
+	 * or {@link MappedVkbBufferRange}s instead.
+	 * @param srcUsage The <i>srcAccessMask</i> and <i>srcStageMask</i>
+	 * @param dstUsage The <i>dstAccessMask</i> and <i>dstStageMask</i>
+	 * @param buffers The buffer ranges for which a pipeline barrier should be recorded
+	 */
+	public void bulkBufferBarrier(ResourceUsage srcUsage, ResourceUsage dstUsage, VkbBufferRange... buffers) {
+		var bufferBarrier = VkBufferMemoryBarrier.calloc(1, stack);
+		bufferBarrier.sType$Default();
+		bufferBarrier.srcAccessMask(srcUsage.accessMask());
+		bufferBarrier.dstAccessMask(dstUsage.accessMask());
+		bufferBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+		bufferBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+
+		for (VkbBufferRange bufferRange : buffers) {
+			bufferBarrier.buffer(bufferRange.buffer().vkBuffer());
+			bufferBarrier.offset(bufferRange.offset());
+			bufferBarrier.size(bufferRange.size());
+
+			vkCmdPipelineBarrier(
+					commandBuffer, srcUsage.stageMask(), dstUsage.stageMask(),
+					0, null, bufferBarrier, null
+			);
+		}
 	}
 
 	/**
@@ -256,6 +416,34 @@ public class CommandRecorder {
 				commandBuffer, oldUsage != null ? oldUsage.stageMask() : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				newUsage.stageMask(), 0, null, null, pImageBarrier
 		);
+	}
+
+	/**
+	 * Repeatedly calls <i>vkCmdPipelineBarrier</i> to transition the layout of each image in {@code images}.
+	 * @param oldUsage Contains the oldLayout, srcAccessMask, and srcStageMask. May be <i>null</i> to transition
+	 *                 from <i>VK_IMAGE_LAYOUT_UNDEFINED</i>
+	 * @param newUsage Contains the newLayout, dstAccessMask, and dstStageMask
+	 * @param images The images whose layout should be transitioned
+	 */
+	public void bulkTransitionLayout(ResourceUsage oldUsage, ResourceUsage newUsage, VkbImage... images) {
+		var pImageBarrier = VkImageMemoryBarrier.calloc(1, stack);
+		pImageBarrier.sType$Default();
+		pImageBarrier.srcAccessMask(oldUsage != null ? oldUsage.accessMask() : 0);
+		pImageBarrier.dstAccessMask(newUsage.accessMask());
+		pImageBarrier.oldLayout(oldUsage != null ? oldUsage.imageLayout() : VK_IMAGE_LAYOUT_UNDEFINED);
+		pImageBarrier.newLayout(newUsage.imageLayout());
+		pImageBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+		pImageBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+
+		for (VkbImage image : images) {
+			pImageBarrier.image(image.vkImage());
+			instance.images.subresourceRange(stack, pImageBarrier.subresourceRange(), image.aspectMask());
+
+			vkCmdPipelineBarrier(
+					commandBuffer, oldUsage != null ? oldUsage.stageMask() : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+					newUsage.stageMask(), 0, null, null, pImageBarrier
+			);
+		}
 	}
 
 	/**

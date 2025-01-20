@@ -1,6 +1,10 @@
 package com.github.knokko.boiler.commands;
 
+import com.github.knokko.boiler.buffers.MappedVkbBuffer;
+import com.github.knokko.boiler.buffers.MappedVkbBufferRange;
+import com.github.knokko.boiler.buffers.VkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
@@ -198,6 +202,64 @@ public class TestCommandRecorder {
 		buffer.destroy(instance);
 		sourceImage.destroy(instance);
 		destImage.destroy(instance);
+		instance.destroyInitialObjects();
+	}
+
+	@Test
+	public void testBulkOperations() {
+		var instance = new BoilerBuilder(
+				VK_API_VERSION_1_2, "TestBulkOperations", 1
+		).validation().forbidValidationErrors().build();
+
+		int amount = 500;
+		var sourceBuffers = new MappedVkbBuffer[amount];
+		var middleBuffers = new VkbBuffer[amount];
+		var images1 = new VkbImage[amount];
+		var images2 = new VkbImage[amount];
+		var destinationBuffers = new MappedVkbBuffer[amount];
+		var destinationRanges = new MappedVkbBufferRange[amount];
+
+		for (int index = 0; index < amount; index++) {
+			sourceBuffers[index] = instance.buffers.createMapped(4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "Source" + index);
+			sourceBuffers[index].fullMappedRange().intBuffer().put(index);
+			middleBuffers[index] = instance.buffers.create(
+					4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "Middle" + index
+			);
+			images1[index] = instance.images.createSimple(
+					1, 1, VK_FORMAT_R8G8B8A8_UNORM,
+					VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					VK_IMAGE_ASPECT_COLOR_BIT, "Test1Image" + index
+			);
+			images2[index] = instance.images.createSimple(
+					1, 1, VK_FORMAT_R8G8B8A8_UNORM,
+					VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					VK_IMAGE_ASPECT_COLOR_BIT, "Test2Image" + index
+			);
+			destinationBuffers[index] = instance.buffers.createMapped(4L, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "Destination" + index);
+			destinationRanges[index] = destinationBuffers[index].fullMappedRange();
+		}
+
+		var commands = new SingleTimeCommands(instance);
+		commands.submit("Bulk", recorder -> {
+			recorder.bulkCopyBuffer(recorder.convert(sourceBuffers), recorder.convert(middleBuffers));
+			recorder.bulkBufferBarrier(ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE, recorder.convert(middleBuffers));
+			recorder.bulkTransitionLayout(null, ResourceUsage.TRANSFER_DEST, images1);
+			recorder.bulkCopyBufferToImage(images1, recorder.convert(middleBuffers));
+			recorder.bulkTransitionLayout(ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE, images1);
+			recorder.bulkTransitionLayout(null, ResourceUsage.TRANSFER_DEST, images2);
+			recorder.bulkCopyImage(images1, images2);
+			recorder.bulkTransitionLayout(ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE, images2);
+			recorder.bulkCopyImageToBuffer(images2, recorder.convert(destinationRanges));
+		});
+		commands.destroy();
+
+		for (int index = 0; index < amount; index++) assertEquals(index, destinationRanges[index].intBuffer().get());
+
+		for (var buffer : destinationBuffers) buffer.destroy(instance);
+		for (var image : images2) image.destroy(instance);
+		for (var image : images1) image.destroy(instance);
+		for (var buffer : middleBuffers) buffer.destroy(instance);
+		for (var buffer : sourceBuffers) buffer.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 }
