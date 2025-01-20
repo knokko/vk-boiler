@@ -72,28 +72,3 @@ dependencies {
 		useJUnitPlatform()
 	}
 }
-
-project(":samples") {
-	apply plugin: "com.github.johnrengelman.shadow"
-    dependencies {
-        implementation project(":")
-        implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
-        implementation "org.lwjgl:lwjgl"
-        implementation "org.lwjgl:lwjgl-vma"
-        implementation "org.lwjgl:lwjgl-vulkan"
-        implementation "org.lwjgl:lwjgl-glfw"
-        implementation "org.lwjgl:lwjgl-openxr"
-        implementation "org.joml:joml:${jomlVersion}"
-
-        runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
-        runtimeOnly "org.lwjgl:lwjgl-openxr::$lwjglNatives"
-		if (lwjglNatives == "natives-macos") runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
-    }
-    shadowJar {
-        manifest {
-            attributes ("Main-Class": "com.github.knokko.boiler.samples.MultipleWindows")
-        }
-    }
-}

@@ -130,6 +130,9 @@ boiler.destroyInitialObjects()
 To learn about the rest of the features, just check the code completion
 suggestions :)
 
+You can run sample `X` by running `./gradlew runX`, for instance
+`./gradlew runHelloTriangle` to run the `HelloTriangle` sample.
+
 ## Add to your build
 ### Java version
 This project requires Java 17 or later (Java 17 and 21 are tested in CI).
