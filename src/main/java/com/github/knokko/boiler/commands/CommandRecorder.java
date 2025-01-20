@@ -12,6 +12,7 @@ import org.lwjgl.vulkan.*;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.utilities.ColorPacker.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
+import static org.lwjgl.system.MemoryUtil.memFree;
 import static org.lwjgl.vulkan.KHRDynamicRendering.vkCmdBeginRenderingKHR;
 import static org.lwjgl.vulkan.KHRDynamicRendering.vkCmdEndRenderingKHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -357,23 +358,40 @@ public class CommandRecorder {
 	 * @param buffers The buffer ranges for which a pipeline barrier should be recorded
 	 */
 	public void bulkBufferBarrier(ResourceUsage srcUsage, ResourceUsage dstUsage, VkbBufferRange... buffers) {
-		var bufferBarrier = VkBufferMemoryBarrier.calloc(1, stack);
-		bufferBarrier.sType$Default();
-		bufferBarrier.srcAccessMask(srcUsage.accessMask());
-		bufferBarrier.dstAccessMask(dstUsage.accessMask());
-		bufferBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-		bufferBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+		boolean useHeap = buffers.length > 10;
+		int capacity = Math.min(buffers.length, 100);
+		var pBufferBarriers = useHeap ? VkBufferMemoryBarrier.calloc(capacity) : VkBufferMemoryBarrier.calloc(capacity, stack);
 
+		for (int index = 0; index < capacity; index++) {
+			var bufferBarrier = pBufferBarriers.get(index);
+			bufferBarrier.sType$Default();
+			bufferBarrier.srcAccessMask(srcUsage.accessMask());
+			bufferBarrier.dstAccessMask(dstUsage.accessMask());
+			bufferBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+			bufferBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+		}
+
+		int index = 0;
+		int total = 0;
 		for (VkbBufferRange bufferRange : buffers) {
+			var bufferBarrier = pBufferBarriers.get(index);
 			bufferBarrier.buffer(bufferRange.buffer().vkBuffer());
 			bufferBarrier.offset(bufferRange.offset());
 			bufferBarrier.size(bufferRange.size());
 
-			vkCmdPipelineBarrier(
-					commandBuffer, srcUsage.stageMask(), dstUsage.stageMask(),
-					0, null, bufferBarrier, null
-			);
+			index += 1;
+			total += 1;
+			if (index == capacity || total == buffers.length) {
+				pBufferBarriers.limit(index);
+				vkCmdPipelineBarrier(
+						commandBuffer, srcUsage.stageMask(), dstUsage.stageMask(),
+						0, null, pBufferBarriers, null
+				);
+				index = 0;
+			}
 		}
+
+		if (useHeap) memFree(pBufferBarriers);
 	}
 
 	/**
@@ -427,24 +445,41 @@ public class CommandRecorder {
 	 * @param images The images whose layout should be transitioned
 	 */
 	public void bulkTransitionLayout(ResourceUsage oldUsage, ResourceUsage newUsage, VkbImage... images) {
-		var pImageBarrier = VkImageMemoryBarrier.calloc(1, stack);
-		pImageBarrier.sType$Default();
-		pImageBarrier.srcAccessMask(oldUsage != null ? oldUsage.accessMask() : 0);
-		pImageBarrier.dstAccessMask(newUsage.accessMask());
-		pImageBarrier.oldLayout(oldUsage != null ? oldUsage.imageLayout() : VK_IMAGE_LAYOUT_UNDEFINED);
-		pImageBarrier.newLayout(newUsage.imageLayout());
-		pImageBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-		pImageBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+		boolean useHeap = images.length > 10;
+		int capacity = Math.min(images.length, 100);
+		var pImageBarriers = useHeap ? VkImageMemoryBarrier.calloc(capacity) : VkImageMemoryBarrier.calloc(capacity, stack);
 
+		for (int index = 0; index < capacity; index++) {
+			var pImageBarrier = pImageBarriers.get(index);
+			pImageBarrier.sType$Default();
+			pImageBarrier.srcAccessMask(oldUsage != null ? oldUsage.accessMask() : 0);
+			pImageBarrier.dstAccessMask(newUsage.accessMask());
+			pImageBarrier.oldLayout(oldUsage != null ? oldUsage.imageLayout() : VK_IMAGE_LAYOUT_UNDEFINED);
+			pImageBarrier.newLayout(newUsage.imageLayout());
+			pImageBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+			pImageBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+		}
+
+		int index = 0;
+		int total = 0;
 		for (VkbImage image : images) {
+			var pImageBarrier = pImageBarriers.get(index);
 			pImageBarrier.image(image.vkImage());
 			instance.images.subresourceRange(stack, pImageBarrier.subresourceRange(), image.aspectMask());
 
-			vkCmdPipelineBarrier(
-					commandBuffer, oldUsage != null ? oldUsage.stageMask() : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-					newUsage.stageMask(), 0, null, null, pImageBarrier
-			);
+			index += 1;
+			total += 1;
+			if (index == capacity || total == images.length) {
+				pImageBarriers.limit(index);
+				vkCmdPipelineBarrier(
+						commandBuffer, oldUsage != null ? oldUsage.stageMask() : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+						newUsage.stageMask(), 0, null, null, pImageBarriers
+				);
+				index = 0;
+			}
 		}
+
+		if (useHeap) memFree(pImageBarriers);
 	}
 
 	/**
