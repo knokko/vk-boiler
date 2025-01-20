@@ -16,6 +16,7 @@ import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import static com.github.knokko.boiler.utilities.ColorPacker.rgb;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
@@ -98,11 +99,9 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 				ResourceUsage.COLOR_ATTACHMENT_WRITE
 		);
 
-		var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
-		recorder.simpleColorRenderingAttachment(
-				colorAttachments.get(0), swapchainImage.image().vkImageView(),
-				VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
-				0.07f, 0.4f, 0.6f, 1f
+		var colorAttachments = recorder.singleColorRenderingAttachment(
+				swapchainImage.image().vkImageView(), VK_ATTACHMENT_LOAD_OP_CLEAR,
+				VK_ATTACHMENT_STORE_OP_STORE, rgb(20, 120, 180)
 		);
 
 		recorder.beginSimpleDynamicRendering(

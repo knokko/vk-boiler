@@ -9,10 +9,10 @@ import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.window.*;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPushConstantRange;
-import org.lwjgl.vulkan.VkRenderingAttachmentInfo;
 
 import java.util.Random;
 
+import static com.github.knokko.boiler.utilities.ColorPacker.rgb;
 import static org.joml.Math.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
@@ -135,10 +135,9 @@ public class MultipleWindows {
 				MemoryStack stack, int frameIndex, CommandRecorder recorder,
 				AcquiredImage swapchainImage, BoilerInstance boiler
 		) {
-			var colorAttachments = VkRenderingAttachmentInfo.calloc(1, stack);
-			recorder.simpleColorRenderingAttachment(
-					colorAttachments.get(0), swapchainImage.image().vkImageView(), VK_ATTACHMENT_LOAD_OP_CLEAR,
-					VK_ATTACHMENT_STORE_OP_STORE, 0f, 0f, 0.7f, 1f
+			var colorAttachments = recorder.singleColorRenderingAttachment(
+					swapchainImage.image().vkImageView(), VK_ATTACHMENT_LOAD_OP_CLEAR,
+					VK_ATTACHMENT_STORE_OP_STORE, rgb(0, 0, 200)
 			);
 
 			recorder.beginSimpleDynamicRendering(

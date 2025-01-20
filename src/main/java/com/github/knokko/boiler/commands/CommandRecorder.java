@@ -10,6 +10,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static com.github.knokko.boiler.utilities.ColorPacker.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
 import static org.lwjgl.vulkan.KHRDynamicRendering.vkCmdBeginRenderingKHR;
 import static org.lwjgl.vulkan.KHRDynamicRendering.vkCmdEndRenderingKHR;
@@ -472,6 +473,21 @@ public class CommandRecorder {
 	}
 
 	/**
+	 * Creates and returns a {@link VkRenderingAttachmentInfo.Buffer} with a capacity of 1, and populates it using
+	 * {@link #simpleColorRenderingAttachment}
+	 */
+	public VkRenderingAttachmentInfo.Buffer singleColorRenderingAttachment(
+			long imageView, int loadOp, int storeOp, int clearColor
+	) {
+		var attachments = VkRenderingAttachmentInfo.calloc(1, stack);
+		simpleColorRenderingAttachment(
+				attachments.get(0), imageView, loadOp, storeOp, normalize(red(clearColor)),
+				normalize(green(clearColor)), normalize(blue(clearColor)), normalize(alpha(clearColor))
+		);
+		return attachments;
+	}
+
+	/**
 	 * Populates the given <i>VkRenderingAttachmentInfo</i> for a depth/stencil image. This is typically used right
 	 * before <i>beginSimpleDynamicRendering</i>
 	 */
@@ -497,8 +513,8 @@ public class CommandRecorder {
 	}
 
 	/**
-	 * Calls <i>vkCmdBeginRendering(KHR)</i>. Note that you can use <i>simpleColorRenderingAttachment</i> and
-	 * <i>simpleDepthRenderingAttachment</i> to populate the parameters.
+	 * Calls <i>vkCmdBeginRendering(KHR)</i>. Note that you can use {@link #simpleColorRenderingAttachment}
+	 * {@link #singleColorRenderingAttachment}, and {@link #simpleDepthRenderingAttachment} to populate the parameters.
 	 * @param width The width of the attached images, in pixels
 	 * @param height The height of the attached images, in pixels
 	 * @param colorAttachments The color attachments, may be null

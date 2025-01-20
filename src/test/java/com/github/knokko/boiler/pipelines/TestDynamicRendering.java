@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
 import org.lwjgl.vulkan.VkRenderingAttachmentInfo;
 
+import static com.github.knokko.boiler.utilities.ColorPacker.rgb;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memGetByte;
@@ -67,11 +68,9 @@ public class TestDynamicRendering {
 		commands.submit("Empty Renderpass", recorder -> {
 			recorder.transitionLayout(image, null, ResourceUsage.COLOR_ATTACHMENT_WRITE);
 
-			var colorAttachments = VkRenderingAttachmentInfo.calloc(1, recorder.stack);
-			recorder.simpleColorRenderingAttachment(
-					colorAttachments.get(0), image.vkImageView(),
-					VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
-					1f, 0f, 1f, 1f
+			var colorAttachments = recorder.singleColorRenderingAttachment(
+					image.vkImageView(), VK_ATTACHMENT_LOAD_OP_CLEAR,
+					VK_ATTACHMENT_STORE_OP_STORE, rgb(255, 0, 255)
 			);
 			recorder.beginSimpleDynamicRendering(width, height, colorAttachments, null, null);
 			vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
