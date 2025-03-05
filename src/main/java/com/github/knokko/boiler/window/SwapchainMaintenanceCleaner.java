@@ -33,6 +33,7 @@ class SwapchainMaintenanceCleaner extends SwapchainCleaner {
 
 	@Override
 	public void beforePresent(MemoryStack stack, VkPresentInfoKHR presentInfo, AcquiredImage acquiredImage) {
+		System.out.println("SWAPCHAIN MAINTENACE");
 		var fiPresent = VkSwapchainPresentFenceInfoEXT.calloc(stack);
 		fiPresent.sType$Default();
 		fiPresent.pFences(stack.longs(acquiredImage.presentFence.getVkFenceAndSubmit()));

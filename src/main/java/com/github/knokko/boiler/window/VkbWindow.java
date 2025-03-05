@@ -306,11 +306,17 @@ public class VkbWindow {
 		if (currentSwapchain.isOutdated()) recreateSwapchain(presentMode);
 		if (currentSwapchain == null) return null;
 
+		System.out.println("acquire...1: " + System.currentTimeMillis() / 100);
 		var acquiredImage = currentSwapchain.acquireImage(presentMode, width, height, useAcquireFence);
+		System.out.println("aquireed1: " + System.currentTimeMillis() / 100);
 		if (acquiredImage == null) {
+			System.out.println("recreate1...: " + System.currentTimeMillis() / 100);
 			recreateSwapchain(presentMode);
+			System.out.println("recreated1: " + System.currentTimeMillis() / 100);
 			if (currentSwapchain == null) return null;
+			System.out.println("acquire...2: " + System.currentTimeMillis() / 100);
 			acquiredImage = currentSwapchain.acquireImage(presentMode, width, height, useAcquireFence);
+			System.out.println("acquired2: " + System.currentTimeMillis() / 100);
 		}
 
 		return acquiredImage;

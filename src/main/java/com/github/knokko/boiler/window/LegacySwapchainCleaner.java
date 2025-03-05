@@ -39,6 +39,7 @@ class LegacySwapchainCleaner extends SwapchainCleaner {
 
 	@Override
 	void beforePresent(MemoryStack stack, VkPresentInfoKHR presentInfo, AcquiredImage acquiredImage) {
+		System.out.println("LEGACY SWAPCHAIN");
 	}
 
 	@Override

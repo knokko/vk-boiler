@@ -173,10 +173,14 @@ class VkbSwapchain {
 			}
 
 			image.renderSubmission = renderSubmission;
+			System.out.println("before present... " + System.currentTimeMillis() / 100);
 			cleaner.beforePresent(stack, presentInfo, image);
+			System.out.println("before present: " + System.currentTimeMillis() / 100);
 
 
+			System.out.println("actual present..." + System.currentTimeMillis() / 100);
 			int presentResult = presentFamily.first().present(presentInfo);
+			System.out.println("actual present: " + System.currentTimeMillis() / 100);
 			if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
 				outdated = true;
 				return;

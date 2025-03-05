@@ -548,7 +548,7 @@ public class BoilerBuilder {
 
 			this.beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> {
 				Set<String> deviceExtensions = decodeStringSet(ciDevice.ppEnabledExtensionNames());
-				if (deviceExtensions.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
+				if (deviceExtensions.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) && false) {
 					var swapchainFeatures = VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT.calloc(stack);
 					swapchainFeatures.sType$Default();
 

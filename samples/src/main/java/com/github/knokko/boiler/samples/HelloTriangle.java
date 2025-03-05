@@ -2,6 +2,8 @@ package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
+import com.github.knokko.boiler.builders.device.SimpleDeviceSelector;
+import com.github.knokko.boiler.builders.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
@@ -25,7 +27,7 @@ public class HelloTriangle {
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
 		)
-				.validation().forbidValidationErrors()
+				.validation(new ValidationFeatures(false, false, false, false, false)).forbidValidationErrors().apiDump()
 				.addWindow(new WindowBuilder(
 						1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 				).presentModes(VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR))
@@ -206,7 +208,9 @@ public class HelloTriangle {
 			}
 
 			try (var stack = stackPush()) {
+				System.out.println("acquire..." + System.currentTimeMillis() / 100);
 				var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(pPresentMode[0]);
+				System.out.println("acquired" + System.currentTimeMillis() / 100);
 				if (swapchainImage == null) {
 					//noinspection BusyWait
 					sleep(100);
@@ -255,7 +259,9 @@ public class HelloTriangle {
 						commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
 				);
 
+				System.out.println("present..." + System.currentTimeMillis() / 100);
 				boiler.window().presentSwapchainImage(swapchainImage, renderSubmission);
+				System.out.println("presented" + System.currentTimeMillis() / 100);
 				frameCounter += 1;
 			}
 		}
