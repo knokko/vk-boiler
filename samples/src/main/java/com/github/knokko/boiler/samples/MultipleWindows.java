@@ -61,7 +61,7 @@ public class MultipleWindows {
 
 		String contextSuffix = String.format("Extra(%.1f, %.1f, %.1f)", red, green, blue);
 		windowLoop.addWindow(new FillWindowLoop(boiler.addWindow(
-				new WindowBuilder(1000, 700, VK_IMAGE_USAGE_TRANSFER_DST_BIT).title(contextSuffix)
+				new WindowBuilder(1000, 700, VK_IMAGE_USAGE_TRANSFER_DST_BIT).title(contextSuffix).hideUntilFirstFrame()
 		), red, green, blue));
 	}
 

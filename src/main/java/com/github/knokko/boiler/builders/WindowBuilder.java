@@ -5,9 +5,7 @@ import com.github.knokko.boiler.exceptions.GLFWFailureException;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.window.VkbWindow;
-import org.lwjgl.vulkan.VkPhysicalDevice;
-import org.lwjgl.vulkan.VkSurfaceCapabilitiesKHR;
-import org.lwjgl.vulkan.VkSurfaceFormatKHR;
+import org.lwjgl.vulkan.*;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -27,6 +25,7 @@ public class WindowBuilder {
 	final int swapchainImageUsage;
 	long glfwWindow;
 	String title;
+	boolean hideUntilFirstFrame;
 	SurfaceFormatPicker surfaceFormatPicker = new SimpleSurfaceFormatPicker(
 			VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB
 	);
@@ -53,6 +52,14 @@ public class WindowBuilder {
 	 */
 	public WindowBuilder title(String title) {
 		this.title = title;
+		return this;
+	}
+
+	/**
+	 * Makes the window invisible until the first {@link org.lwjgl.vulkan.KHRSwapchain#vkQueuePresentKHR}
+	 */
+	public WindowBuilder hideUntilFirstFrame() {
+		this.hideUntilFirstFrame = true;
 		return this;
 	}
 
@@ -153,7 +160,7 @@ public class WindowBuilder {
 
 			return new VkbWindow(
 					hasSwapchainMaintenance, glfwWindow, vkSurface, presentModes, preparedPresentModes, title,
-					surfaceFormat.format(), surfaceFormat.colorSpace(), capabilities,
+					hideUntilFirstFrame, surfaceFormat.format(), surfaceFormat.colorSpace(), capabilities,
 					swapchainImageUsage, compositeAlpha, presentFamily
 			);
 		}
@@ -165,6 +172,7 @@ public class WindowBuilder {
 		if (title == null) throw new IllegalStateException("Missing .title(...)");
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		glfwWindowHint(GLFW_VISIBLE, hideUntilFirstFrame ? GLFW_FALSE : GLFW_TRUE);
 		glfwWindow = glfwCreateWindow(width, height, title, 0L, 0L);
 		if (glfwWindow == 0) {
 			try (var stack = stackPush()) {

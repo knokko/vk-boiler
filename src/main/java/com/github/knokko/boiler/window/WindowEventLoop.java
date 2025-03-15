@@ -66,7 +66,7 @@ public class WindowEventLoop {
 
 			task.state.shouldCheckResize = false;
 			task.state.lastResizeTime = System.nanoTime();
-			task.state.resizeCompleted.release();
+			task.state.actionCompleted.release();
 
 			task = queue.poll();
 		}
@@ -129,11 +129,11 @@ public class WindowEventLoop {
 		return getState(window).shouldCheckResize;
 	}
 
-	void queueResize(Runnable resize, VkbWindow window) {
+	void queueMainThreadAction(Runnable resize, VkbWindow window) {
 		var state = getState(window);
 		queue.add(new Task(resize, state, window));
 		glfwPostEmptyEvent();
-		state.resizeCompleted.acquireUninterruptibly();
+		state.actionCompleted.acquireUninterruptibly();
 	}
 
 	private record Task(Runnable runnable, State state, VkbWindow window) {
@@ -143,7 +143,7 @@ public class WindowEventLoop {
 
 		final WindowRenderLoop renderLoop;
 		final CompletableFuture<Object> initialized = new CompletableFuture<>();
-		final Semaphore resizeCompleted = new Semaphore(0);
+		final Semaphore actionCompleted = new Semaphore(0);
 		volatile boolean shouldCheckResize;
 		volatile long lastResizeTime;
 

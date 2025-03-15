@@ -29,7 +29,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		)
 				.validation(new ValidationFeatures(false, false, false, true, true))
 				.enableDynamicRendering()
-				.addWindow(new WindowBuilder(1000, 8000, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+				.addWindow(new WindowBuilder(1000, 8000, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).hideUntilFirstFrame())
 				.build();
 		new SimpleRingApproximation(boiler.window()).start();
 		boiler.destroyInitialObjects();

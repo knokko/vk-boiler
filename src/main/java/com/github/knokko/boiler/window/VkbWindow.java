@@ -9,8 +9,7 @@ import java.util.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static java.lang.Math.max;
-import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
-import static org.lwjgl.glfw.GLFW.glfwGetFramebufferSize;
+import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.vkGetPhysicalDeviceSurfaceCapabilities2KHR;
 import static org.lwjgl.vulkan.KHRSurface.*;
@@ -60,6 +59,8 @@ public class VkbWindow {
 	private VkbSwapchain currentSwapchain;
 	private long currentSwapchainID;
 	private final String title;
+	private final boolean hideUntilFirstFrame;
+	private boolean calledShowWindow;
 
 	private boolean hasBeenDestroyed;
 
@@ -72,8 +73,9 @@ public class VkbWindow {
 	public VkbWindow(
 			boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface,
 			Collection<Integer> supportedPresentModes, Set<Integer> preparedPresentModes,
-			String title, int surfaceFormat, int surfaceColorSpace, VkSurfaceCapabilitiesKHR surfaceCapabilities,
-			int swapchainImageUsage, int swapchainCompositeAlpha, VkbQueueFamily presentFamily
+			String title, boolean hideUntilFirstFrame, int surfaceFormat, int surfaceColorSpace,
+			VkSurfaceCapabilitiesKHR surfaceCapabilities, int swapchainImageUsage, int swapchainCompositeAlpha,
+			VkbQueueFamily presentFamily
 	) {
 		if (hasSwapchainMaintenance) cleaner = new SwapchainMaintenanceCleaner();
 		else cleaner = new LegacySwapchainCleaner();
@@ -88,6 +90,7 @@ public class VkbWindow {
 		this.swapchainCompositeAlpha = swapchainCompositeAlpha;
 		this.presentFamily = presentFamily;
 		this.title = title;
+		this.hideUntilFirstFrame = hideUntilFirstFrame;
 	}
 
 	public void setInstance(BoilerInstance instance) {
@@ -269,7 +272,7 @@ public class VkbWindow {
 		var oldSwapchain = currentSwapchain;
 
 		if (windowLoop == null) createSwapchain(presentMode, true);
-		else windowLoop.queueResize(() -> createSwapchain(presentMode, true), this);
+		else windowLoop.queueMainThreadAction(() -> createSwapchain(presentMode, true), this);
 
 		cleaner.onChangeCurrentSwapchain(oldSwapchain, currentSwapchain);
 	}
@@ -298,7 +301,7 @@ public class VkbWindow {
 
 		instance.checkForFatalValidationErrors();
 		if (windowLoop != null && windowLoop.shouldCheckResize(this)) {
-			windowLoop.queueResize(() -> maybeRecreateSwapchain(presentMode), this);
+			windowLoop.queueMainThreadAction(() -> maybeRecreateSwapchain(presentMode), this);
 		}
 
 		if (currentSwapchain == null) recreateSwapchain(presentMode);
@@ -325,6 +328,11 @@ public class VkbWindow {
 	 */
 	public void presentSwapchainImage(AcquiredImage image, AwaitableSubmission renderSubmission) {
 		image.swapchain.presentImage(image, Objects.requireNonNull(renderSubmission));
+		if (hideUntilFirstFrame && !calledShowWindow) {
+			if (windowLoop == null) glfwShowWindow(glfwWindow);
+			else windowLoop.queueMainThreadAction(() -> glfwShowWindow(glfwWindow), this);
+			calledShowWindow = true;
+		}
 	}
 
 	/**

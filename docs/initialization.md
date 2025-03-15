@@ -237,6 +237,12 @@ You can chain `.title(...)` to change the window title. By
 default, it will be your application name (that you passed to
 the constructor of the `BoilerBuilder`).
 
+#### Hide until first frame
+You can chain `.hideUntilFirstFrame()` to hide the window until
+the first image has been presented (at least, until the first
+call to `vkQueuePresentKHR`). This prevents people from seeing
+black/white/garbage content right after the window is opened.
+
 #### Composite alpha picker
 You can chain `.compositeAlphaPicker(callback)` to change the
 composite alpha picker. The default picker will try to simply
