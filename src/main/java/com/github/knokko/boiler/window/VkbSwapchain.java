@@ -140,7 +140,7 @@ class VkbSwapchain {
 			if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
 				acquireFence.forceSignal();
 				instance.sync.fenceBank.returnFence(acquireFence);
-				instance.sync.semaphoreBank.returnSemaphores(acquireSemaphore);
+				if (!useAcquireFence) instance.sync.semaphoreBank.returnSemaphores(acquireSemaphore);
 				return null;
 			}
 			else {
