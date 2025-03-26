@@ -67,7 +67,10 @@ abstract class SwapchainCleaner {
 	void destroyImageNow(AcquiredImage image, boolean doSafetyChecks) {
 		if (doSafetyChecks) {
 			if (!image.acquireFence.isSignaled()) {
-				throw new IllegalStateException("Acquire fence should be signaled by now!");
+				long startTime = System.nanoTime();
+				image.acquireFence.awaitSignal();
+				long endTime = System.nanoTime();
+				System.out.println("Weird: had to wait " + (endTime - startTime) + "ns for acquire fence...");
 			}
 
 			if (image.renderSubmission == null) {
