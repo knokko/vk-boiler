@@ -27,8 +27,6 @@ import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertV
 import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.memFloatBuffer;
-import static org.lwjgl.system.MemoryUtil.memIntBuffer;
 import static org.lwjgl.util.vma.Vma.vmaDestroyImage;
 import static org.lwjgl.vulkan.EXTDescriptorIndexing.VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRDynamicRendering.*;
@@ -188,29 +186,60 @@ public class HelloXR {
 		var commandBuffers = boiler.commands.createPrimaryBufferPerPool("Drawing", commandPools);
 		var fences = boiler.sync.fenceBank.borrowFences(NUM_FRAMES_IN_FLIGHT, false, "Drawing");
 
-		int vertexSize = (3 + 3) * 4;
-		var vertexBuffer = boiler.buffers.createMapped(
-				4 * vertexSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "VertexBuffer"
+		int colorVertexSize = (3 + 3) * 4;
+		int imageVertexSize = (3 + 2 + 1) * 4;
+		var colorVertexBuffer = boiler.buffers.createMapped(
+				4 * colorVertexSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "ColorVertexBuffer"
 		);
-		var hostVertexBuffer = memFloatBuffer(vertexBuffer.hostAddress(), 4 * 6);
-		hostVertexBuffer.put(-1f).put(0f).put(1f); // vertex1.position = (-1, 0, 1)
-		hostVertexBuffer.put(1f).put(0f).put(0f); // vertex1.color = red
-		hostVertexBuffer.put(1f).put(0f).put(1f); // vertex2.position = (1, 0, 1)
-		hostVertexBuffer.put(0f).put(1f).put(0f); // vertex2.color = green
-		hostVertexBuffer.put(0f).put(0f).put(-1f); // vertex3.position = (0, 0, -1)
-		hostVertexBuffer.put(0f).put(0f).put(1f); // vertex3.color = blue
-		hostVertexBuffer.put(0f).put(1f).put(0f); // vertex4.position = (0, 1, 0)
-		hostVertexBuffer.put(0.5f).put(0.5f).put(0.5f); // vertex4.color = grey
+		var imageVertexBuffer = boiler.buffers.createMapped(
+				12 * imageVertexSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "ImageVertexBuffer"
+		);
+		{
+			var hostVertexBuffer = colorVertexBuffer.fullMappedRange().floatBuffer();
+			hostVertexBuffer.put(-1f).put(0f).put(1f); // vertex1.position = (-1, 0, 1)
+			hostVertexBuffer.put(1f).put(0f).put(0f); // vertex1.color = red
+			hostVertexBuffer.put(1f).put(0f).put(1f); // vertex2.position = (1, 0, 1)
+			hostVertexBuffer.put(0f).put(1f).put(0f); // vertex2.color = green
+			hostVertexBuffer.put(0f).put(0f).put(-1f); // vertex3.position = (0, 0, -1)
+			hostVertexBuffer.put(0f).put(0f).put(1f); // vertex3.color = blue
+			hostVertexBuffer.put(0f).put(1f).put(0f); // vertex4.position = (0, 1, 0)
+			hostVertexBuffer.put(0.5f).put(0.5f).put(0.5f); // vertex4.color = grey
+		}
+		{
+			var hostVertexBuffer = imageVertexBuffer.fullMappedRange().byteBuffer();
+			hostVertexBuffer.putFloat(-0.7f).putFloat(0.2f).putFloat(-1f); // quad1.bottomLeft = (-0.7, 0.2f, -1f)
+			hostVertexBuffer.putInt(0).putFloat(0f).putFloat(0f); // quad1.bottomLeft has texture 0 with coordinates (0, 0)
+			hostVertexBuffer.putFloat(0.7f).putFloat(0.2f).putFloat(-1f); // quad1.bottomRight = (0.7, 0.2f, -1f)
+			hostVertexBuffer.putInt(0).putFloat(1f).putFloat(0f); // quad1.bottomRight has texture 0 with coordinates (1, 0)
+			hostVertexBuffer.putFloat(0.7f).putFloat(0.8f).putFloat(-1f); // quad1.topRight = (0.7, 0.8f, -1f)
+			hostVertexBuffer.putInt(0).putFloat(1f).putFloat(1f); // quad1.topRight has texture 0 with coordinates (1, 1)
+			hostVertexBuffer.putFloat(-0.7f).putFloat(0.8f).putFloat(-1f); // quad1.topLeft = (-0.7, 0.8f, -1f)
+			hostVertexBuffer.putInt(0).putFloat(0f).putFloat(1f); // quad1.topLeft has texture 0 with coordinates (0, 1)
+			// TODO The other two
+		}
 
-		var indexBuffer = boiler.buffers.createMapped(
-				5 * 3 * 4, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "IndexBuffer"
+		var colorIndexBuffer = boiler.buffers.createMapped(
+				5 * 3 * 4, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "ColorIndexBuffer"
 		);
-		var hostIndexBuffer = memIntBuffer(indexBuffer.hostAddress(), 5 * 3);
-		hostIndexBuffer.put(0).put(1).put(2); // bottom triangle, pointing up
-		hostIndexBuffer.put(2).put(1).put(0); // bottom triangle, pointing down
-		hostIndexBuffer.put(0).put(1).put(3); // back of the hand triangle
-		hostIndexBuffer.put(1).put(2).put(3); // right of the hand triangle
-		hostIndexBuffer.put(2).put(0).put(3); // left of the hand triangle
+		{
+			var hostIndexBuffer = colorIndexBuffer.fullMappedRange().intBuffer();
+			hostIndexBuffer.put(0).put(1).put(2); // bottom triangle, pointing up
+			hostIndexBuffer.put(2).put(1).put(0); // bottom triangle, pointing down
+			hostIndexBuffer.put(0).put(1).put(3); // back of the hand triangle
+			hostIndexBuffer.put(1).put(2).put(3); // right of the hand triangle
+			hostIndexBuffer.put(2).put(0).put(3); // left of the hand triangle
+		}
+
+		var imageIndexBuffer = boiler.buffers.createMapped(
+				4 * 6 * 4, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "ImageIndexBuffer"
+		);
+		{
+			var hostIndexBuffer = imageIndexBuffer.fullMappedRange().intBuffer();
+			for (int offset = 0; offset < 12; offset += 4) {
+				hostIndexBuffer.put(offset).put(offset + 1).put(offset + 2);
+				hostIndexBuffer.put(offset + 2).put(offset + 3).put(offset);
+			}
+		}
 
 		var matrixBuffers = new MappedVkbBuffer[NUM_FRAMES_IN_FLIGHT];
 		for (int index = 0; index < NUM_FRAMES_IN_FLIGHT; index++) {
@@ -222,8 +251,8 @@ public class HelloXR {
 		VkbDescriptorSetLayout colorDescriptorSetLayout, imageDescriptorSetLayout;
 		SharedDescriptorPool sharedDescriptorPool;
 		long[] colorDescriptorSets, imageDescriptorSets;
-		long colorPipelineLayout;
-		long colorPipeline;
+		long colorPipelineLayout, imagePipelineLayout;
+		long colorPipeline, imagePipeline;
 		try (var stack = stackPush()) {
 
 			var colorLayoutBindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
@@ -250,7 +279,8 @@ public class HelloXR {
 				for (long descriptorSet : descriptorSets) {
 					boiler.descriptors.writeBuffer(
 							stack, descriptorWrites, descriptorSet,
-							0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, matrixBuffers[index].fullRange()
+							0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+							descriptorSet == descriptorSets[0] ? matrixBuffers[index].fullRange() : matrixBuffers[index].range(0, 128)
 					);
 					vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
 				}
@@ -277,45 +307,95 @@ public class HelloXR {
 			colorPipelineLayout = boiler.pipelines.createLayout(
 					pushConstants, "ColorPipelineLayout", colorDescriptorSetLayout.vkDescriptorSetLayout
 			);
-
-			var vertexBindings = VkVertexInputBindingDescription.calloc(1, stack);
-			vertexBindings.binding(0);
-			vertexBindings.stride(vertexSize);
-			vertexBindings.inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
-
-			var vertexAttributes = VkVertexInputAttributeDescription.calloc(2, stack);
-			var positionAttribute = vertexAttributes.get(0);
-			positionAttribute.location(0);
-			positionAttribute.binding(0);
-			positionAttribute.format(VK_FORMAT_R32G32B32_SFLOAT);
-			positionAttribute.offset(0);
-			var colorAttribute = vertexAttributes.get(1);
-			colorAttribute.location(1);
-			colorAttribute.binding(0);
-			colorAttribute.format(VK_FORMAT_R32G32B32_SFLOAT);
-			colorAttribute.offset(12);
-
-			var ciVertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack);
-			ciVertexInput.sType$Default();
-			ciVertexInput.pVertexBindingDescriptions(vertexBindings);
-			ciVertexInput.pVertexAttributeDescriptions(vertexAttributes);
-
-			var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
-			pipelineBuilder.simpleShaderStages(
-					"Xr", "com/github/knokko/boiler/samples/graphics/xr-color.vert.spv",
-					"com/github/knokko/boiler/samples/graphics/xr-color.frag.spv"
+			imagePipelineLayout = boiler.pipelines.createLayout(
+					null, "ImagePipelineLayout", imageDescriptorSetLayout.vkDescriptorSetLayout
 			);
-			pipelineBuilder.ciPipeline.pVertexInputState(ciVertexInput);
-			pipelineBuilder.simpleInputAssembly();
-			pipelineBuilder.fixedViewport(width, height);
-			pipelineBuilder.simpleRasterization(VK_CULL_MODE_BACK_BIT);
-			pipelineBuilder.noMultisampling();
-			pipelineBuilder.simpleDepth(VK_COMPARE_OP_LESS_OR_EQUAL);
-			pipelineBuilder.ciPipeline.layout(colorPipelineLayout);
-			pipelineBuilder.noColorBlending(1);
-			pipelineBuilder.dynamicRendering(3, depthFormat, VK_FORMAT_UNDEFINED, swapchainFormat);
 
-			colorPipeline = pipelineBuilder.build("ColorPipeline");
+			{
+				var vertexBindings = VkVertexInputBindingDescription.calloc(1, stack);
+				vertexBindings.binding(0);
+				vertexBindings.stride(colorVertexSize);
+				vertexBindings.inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
+
+				var vertexAttributes = VkVertexInputAttributeDescription.calloc(2, stack);
+				var positionAttribute = vertexAttributes.get(0);
+				positionAttribute.location(0);
+				positionAttribute.binding(0);
+				positionAttribute.format(VK_FORMAT_R32G32B32_SFLOAT);
+				positionAttribute.offset(0);
+				var colorAttribute = vertexAttributes.get(1);
+				colorAttribute.location(1);
+				colorAttribute.binding(0);
+				colorAttribute.format(VK_FORMAT_R32G32B32_SFLOAT);
+				colorAttribute.offset(12);
+
+				var ciVertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack);
+				ciVertexInput.sType$Default();
+				ciVertexInput.pVertexBindingDescriptions(vertexBindings);
+				ciVertexInput.pVertexAttributeDescriptions(vertexAttributes);
+
+				var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
+				pipelineBuilder.simpleShaderStages(
+						"Xr", "com/github/knokko/boiler/samples/graphics/xr-color.vert.spv",
+						"com/github/knokko/boiler/samples/graphics/xr-color.frag.spv"
+				);
+				pipelineBuilder.ciPipeline.pVertexInputState(ciVertexInput);
+				pipelineBuilder.simpleInputAssembly();
+				pipelineBuilder.fixedViewport(width, height);
+				pipelineBuilder.simpleRasterization(VK_CULL_MODE_BACK_BIT);
+				pipelineBuilder.noMultisampling();
+				pipelineBuilder.simpleDepth(VK_COMPARE_OP_LESS_OR_EQUAL);
+				pipelineBuilder.ciPipeline.layout(colorPipelineLayout);
+				pipelineBuilder.noColorBlending(1);
+				pipelineBuilder.dynamicRendering(3, depthFormat, VK_FORMAT_UNDEFINED, swapchainFormat);
+
+				colorPipeline = pipelineBuilder.build("ColorPipeline");
+			}
+			{
+				var vertexBindings = VkVertexInputBindingDescription.calloc(1, stack);
+				vertexBindings.binding(0);
+				vertexBindings.stride(imageVertexSize);
+				vertexBindings.inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
+
+				var vertexAttributes = VkVertexInputAttributeDescription.calloc(3, stack);
+				var positionAttribute = vertexAttributes.get(0);
+				positionAttribute.location(0);
+				positionAttribute.binding(0);
+				positionAttribute.format(VK_FORMAT_R32G32B32_SFLOAT);
+				positionAttribute.offset(0);
+				var textureIndexAttribute = vertexAttributes.get(1);
+				textureIndexAttribute.location(1);
+				textureIndexAttribute.binding(0);
+				textureIndexAttribute.format(VK_FORMAT_R32_SINT);
+				textureIndexAttribute.offset(12);
+				var textureCoordinatesAttribute = vertexAttributes.get(2);
+				textureCoordinatesAttribute.location(2);
+				textureCoordinatesAttribute.binding(0);
+				textureCoordinatesAttribute.format(VK_FORMAT_R32G32_SFLOAT);
+				textureCoordinatesAttribute.offset(16);
+
+				var ciVertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack);
+				ciVertexInput.sType$Default();
+				ciVertexInput.pVertexBindingDescriptions(vertexBindings);
+				ciVertexInput.pVertexAttributeDescriptions(vertexAttributes);
+
+				var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
+				pipelineBuilder.simpleShaderStages(
+						"Xr", "com/github/knokko/boiler/samples/graphics/xr-image.vert.spv",
+						"com/github/knokko/boiler/samples/graphics/xr-image.frag.spv"
+				);
+				pipelineBuilder.ciPipeline.pVertexInputState(ciVertexInput);
+				pipelineBuilder.simpleInputAssembly();
+				pipelineBuilder.fixedViewport(width, height);
+				pipelineBuilder.simpleRasterization(VK_CULL_MODE_NONE);
+				pipelineBuilder.noMultisampling();
+				pipelineBuilder.simpleDepth(VK_COMPARE_OP_LESS_OR_EQUAL);
+				pipelineBuilder.ciPipeline.layout(imagePipelineLayout);
+				pipelineBuilder.noColorBlending(1);
+				pipelineBuilder.dynamicRendering(3, depthFormat, VK_FORMAT_UNDEFINED, swapchainFormat);
+
+				imagePipeline = pipelineBuilder.build("ImagePipeline");
+			}
 		}
 
 		XrActionSet actionSet;
@@ -443,11 +523,11 @@ public class HelloXR {
 				commands.bindGraphicsDescriptors(colorPipelineLayout, colorDescriptorSets[frameIndex]);
 				vkCmdBindVertexBuffers(
 						commandBuffers[frameIndex], 0,
-						stack.longs(vertexBuffer.vkBuffer()), stack.longs(0)
+						stack.longs(colorVertexBuffer.vkBuffer()), stack.longs(0)
 				);
-				vkCmdBindIndexBuffer(commandBuffers[frameIndex], indexBuffer.vkBuffer(), 0, VK_INDEX_TYPE_UINT32);
+				vkCmdBindIndexBuffer(commandBuffers[frameIndex], colorIndexBuffer.vkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-				var hostMatrixBuffer = memFloatBuffer(matrixBuffers[frameIndex].hostAddress(), 5 * 16);
+				var hostMatrixBuffer = matrixBuffers[frameIndex].fullMappedRange().floatBuffer();
 				cameraMatrices[0].get(0, hostMatrixBuffer);
 				cameraMatrices[1].get(16, hostMatrixBuffer);
 
@@ -494,6 +574,15 @@ public class HelloXR {
 					vkCmdDrawIndexed(commandBuffers[frameIndex], 12, 1, 3, 0, 0);
 				}
 
+				vkCmdBindPipeline(commandBuffers[frameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipeline);
+				commands.bindGraphicsDescriptors(imagePipelineLayout, imageDescriptorSets[frameIndex]);
+				vkCmdBindVertexBuffers(
+						commandBuffers[frameIndex], 0,
+						stack.longs(imageVertexBuffer.vkBuffer()), stack.longs(0)
+				);
+				vkCmdBindIndexBuffer(commandBuffers[frameIndex], imageIndexBuffer.vkBuffer(), 0, VK_INDEX_TYPE_UINT32);
+				vkCmdDrawIndexed(commandBuffers[frameIndex], 18, 1, 0, 0, 0);
+
 				vkCmdEndRenderingKHR(commandBuffers[frameIndex]);
 				commands.end();
 			}
@@ -511,7 +600,9 @@ public class HelloXR {
 		boiler.sync.fenceBank.returnFences(fences);
 		for (var commandPool : commandPools) vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 		vkDestroyPipeline(boiler.vkDevice(), colorPipeline, null);
+		vkDestroyPipeline(boiler.vkDevice(), imagePipeline, null);
 		vkDestroyPipelineLayout(boiler.vkDevice(), colorPipelineLayout, null);
+		vkDestroyPipelineLayout(boiler.vkDevice(), imagePipelineLayout, null);
 		colorDescriptorSetLayout.destroy();
 		imageDescriptorSetLayout.destroy();
 		sharedDescriptorPool.destroy(boiler);
@@ -519,8 +610,10 @@ public class HelloXR {
 			vkDestroyImageView(boiler.vkDevice(), imageView, null);
 		}
 
-		vertexBuffer.destroy(boiler);
-		indexBuffer.destroy(boiler);
+		colorVertexBuffer.destroy(boiler);
+		imageVertexBuffer.destroy(boiler);
+		colorIndexBuffer.destroy(boiler);
+		imageIndexBuffer.destroy(boiler);
 		for (var matrixBuffer : matrixBuffers) matrixBuffer.destroy(boiler);
 		vkDestroyImageView(boiler.vkDevice(), depthImage.vkImageView(), null);
 		vmaDestroyImage(boiler.vmaAllocator(), depthImage.vkImage(), depthImage.vmaAllocation());
