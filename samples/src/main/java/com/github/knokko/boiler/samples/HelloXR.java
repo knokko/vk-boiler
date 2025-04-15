@@ -207,15 +207,36 @@ public class HelloXR {
 		}
 		{
 			var hostVertexBuffer = imageVertexBuffer.fullMappedRange().byteBuffer();
-			hostVertexBuffer.putFloat(-0.7f).putFloat(0.2f).putFloat(-1f); // quad1.bottomLeft = (-0.7, 0.2f, -1f)
-			hostVertexBuffer.putInt(0).putFloat(0f).putFloat(0f); // quad1.bottomLeft has texture 0 with coordinates (0, 0)
-			hostVertexBuffer.putFloat(0.7f).putFloat(0.2f).putFloat(-1f); // quad1.bottomRight = (0.7, 0.2f, -1f)
-			hostVertexBuffer.putInt(0).putFloat(1f).putFloat(0f); // quad1.bottomRight has texture 0 with coordinates (1, 0)
-			hostVertexBuffer.putFloat(0.7f).putFloat(0.8f).putFloat(-1f); // quad1.topRight = (0.7, 0.8f, -1f)
-			hostVertexBuffer.putInt(0).putFloat(1f).putFloat(1f); // quad1.topRight has texture 0 with coordinates (1, 1)
-			hostVertexBuffer.putFloat(-0.7f).putFloat(0.8f).putFloat(-1f); // quad1.topLeft = (-0.7, 0.8f, -1f)
-			hostVertexBuffer.putInt(0).putFloat(0f).putFloat(1f); // quad1.topLeft has texture 0 with coordinates (0, 1)
-			// TODO The other two
+
+			// First quad
+			hostVertexBuffer.putFloat(-0.7f).putFloat(0.2f).putFloat(-1f); // bottomLeft = (-0.7, 0.2f, -1f)
+			hostVertexBuffer.putInt(0).putFloat(0f).putFloat(0f); // bottomLeft has texture 0 with coordinates (0, 0)
+			hostVertexBuffer.putFloat(0.7f).putFloat(0.2f).putFloat(-1f); // bottomRight = (0.7, 0.2f, -1f)
+			hostVertexBuffer.putInt(0).putFloat(1f).putFloat(0f); // bottomRight has texture 0 with coordinates (1, 0)
+			hostVertexBuffer.putFloat(0.7f).putFloat(0.8f).putFloat(-1f); // topRight = (0.7, 0.8f, -1f)
+			hostVertexBuffer.putInt(0).putFloat(1f).putFloat(1f); // topRight has texture 0 with coordinates (1, 1)
+			hostVertexBuffer.putFloat(-0.7f).putFloat(0.8f).putFloat(-1f); // topLeft = (-0.7, 0.8f, -1f)
+			hostVertexBuffer.putInt(0).putFloat(0f).putFloat(1f); // topLeft has texture 0 with coordinates (0, 1)
+
+			// Second quad
+			hostVertexBuffer.putFloat(1f).putFloat(0.2f).putFloat(-1f); // bottomLeft = (1f, 0.2f, -1f)
+			hostVertexBuffer.putInt(1).putFloat(0f).putFloat(0f); // bottomLeft has texture 1 with coordinates (0, 0)
+			hostVertexBuffer.putFloat(0.3f).putFloat(0.2f).putFloat(0.5f); // bottomRight = (0.3, 0.2f, 0.5f)
+			hostVertexBuffer.putInt(1).putFloat(1f).putFloat(0f); // bottomRight has texture 1 with coordinates (1, 0)
+			hostVertexBuffer.putFloat(0.3f).putFloat(1.2f).putFloat(0.5f); // topRight = (0.3, 1.2f, 0.5f)
+			hostVertexBuffer.putInt(1).putFloat(1f).putFloat(1f); // topRight has texture 1 with coordinates (1, 1)
+			hostVertexBuffer.putFloat(1f).putFloat(1.2f).putFloat(-1f); // topLeft = (1f, 1.2f, -1f)
+			hostVertexBuffer.putInt(1).putFloat(0f).putFloat(1f); // topLeft has texture 1 with coordinates (0, 1)
+
+			// Third quad
+			hostVertexBuffer.putFloat(-0.3f).putFloat(0.2f).putFloat(0.5f); // bottomLeft = (-0.3f, 0.2f, 0.5f)
+			hostVertexBuffer.putInt(2).putFloat(0f).putFloat(0f); // bottomLeft has texture 2 with coordinates (0, 0)
+			hostVertexBuffer.putFloat(-0.3f).putFloat(0.2f).putFloat(-1f); // bottomRight = (-0.3, 0.2f, -1f)
+			hostVertexBuffer.putInt(2).putFloat(1f).putFloat(0f); // bottomRight has texture 2 with coordinates (1, 0)
+			hostVertexBuffer.putFloat(-0.3f).putFloat(1.2f).putFloat(-1f); // topRight = (-0.3, 1.2f, -1f)
+			hostVertexBuffer.putInt(2).putFloat(1f).putFloat(1f); // topRight has texture 2 with coordinates (1, 1)
+			hostVertexBuffer.putFloat(-0.3f).putFloat(1.2f).putFloat(0.5f); // topLeft = (-0.3f, 1.2f, 0.5f)
+			hostVertexBuffer.putInt(2).putFloat(0f).putFloat(1f); // topLeft has texture 2 with coordinates (0, 1)
 		}
 
 		var colorIndexBuffer = boiler.buffers.createMapped(

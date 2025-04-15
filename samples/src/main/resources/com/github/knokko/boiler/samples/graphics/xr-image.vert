@@ -16,5 +16,5 @@ layout(binding = 0) uniform Matrices {
 void main() {
 	gl_Position = matrices.eyes[gl_ViewIndex] * vec4(inPosition, 1.0);
 	outTextureIndex = inTextureIndex;
-	outTextureCoordinates = inTextureCoordinates;
+	outTextureCoordinates = vec2(inTextureCoordinates.x, 1.0 - inTextureCoordinates.y);
 }
