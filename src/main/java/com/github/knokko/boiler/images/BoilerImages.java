@@ -33,7 +33,9 @@ public class BoilerImages {
 	 * @param aspectMask The image view aspect mask (usually <i>VK_IMAGE_ASPECT_COLOR_BIT</i>)
 	 * @param name The debug name of the image (when <i>VK_EXT_debug_utils</i> is enabled)
 	 * @return The wrapped image
+	 * @deprecated Use {@link ImageBuilder} instead
 	 */
+	@Deprecated
 	public VkbImage createSimple(int width, int height, int format, int usage, int aspectMask, String name) {
 		return create(
 				width, height, format, usage, aspectMask,
@@ -55,7 +57,9 @@ public class BoilerImages {
 	 * @param arrayLayers The number of array layers of the image (usually 1)
 	 * @param name The debug name of the image (when <i>VK_EXT_debug_utils</i> is enabled)
 	 * @return The wrapped image
+	 * @deprecated Use {@link ImageBuilder} instead
 	 */
+	@Deprecated
 	public VkbImage createRaw(
 			int width, int height, int format, int usage,
 			int samples, int mipLevels, int arrayLayers, int aspectMask, String name
@@ -99,7 +103,9 @@ public class BoilerImages {
 	 * @param createView Whether this method should also create a <i>VkImageView</i> for the image
 	 * @param name The debug name of the image (when <i>VK_EXT_debug_utils</i> is enabled)
 	 * @return The wrapped image
+	 * @deprecated Use {@link ImageBuilder} instead
 	 */
+	@Deprecated
 	public VkbImage create(
 			int width, int height, int format, int usage, int aspectMask,
 			int samples, int mipLevels, int arrayLayers, boolean createView, String name

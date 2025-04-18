@@ -4,6 +4,7 @@ import com.github.knokko.boiler.buffers.MappedVkbBuffer;
 import com.github.knokko.boiler.buffers.MappedVkbBufferRange;
 import com.github.knokko.boiler.buffers.VkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
@@ -71,14 +72,12 @@ public class TestCommandRecorder {
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 
-		var sourceImage = instance.images.create(
-				width, height, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
-				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "SourceImage"
-		);
-		var destImage = instance.images.create(
-				width, height, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
-				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
-		);
+		var sourceImage = new ImageBuilder(
+				"SourceImage", width, height
+		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView().build(instance);
+		var destImage = new ImageBuilder(
+				"DestinationImage", width, height
+		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView().build(instance);
 
 		var commands = new SingleTimeCommands(instance);
 		commands.submit("Copying", recorder -> {
@@ -110,17 +109,13 @@ public class TestCommandRecorder {
 				VK_API_VERSION_1_0, "Test bc image copy", VK_MAKE_VERSION(1, 0, 0)
 		).validation().forbidValidationErrors().build();
 
-		var sourceImage = instance.images.createSimple(
-				1, 3, VK_FORMAT_BC1_RGBA_SRGB_BLOCK,
-				VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-				VK_IMAGE_ASPECT_COLOR_BIT, "source"
-		);
-
-		var destinationImage = instance.images.createSimple(
-				1, 3, VK_FORMAT_BC1_RGBA_SRGB_BLOCK,
-				VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-				VK_IMAGE_ASPECT_COLOR_BIT, "destination"
-		);
+		var sourceImage = new ImageBuilder(
+				"Source", 1, 3
+		).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK)
+				.setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).build(instance);
+		var destinationImage = new ImageBuilder(
+				"Destination", 1, 3
+		).texture().format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK).build(instance);
 
 		var commands = new SingleTimeCommands(instance);
 		commands.submit("Copying", recorder -> {
@@ -154,14 +149,12 @@ public class TestCommandRecorder {
 				VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
 
-		var sourceImage = instance.images.create(
-				width1, height1, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
-				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "SourceImage"
-		);
-		var destImage = instance.images.create(
-				width2, height2, format, imageUsage, VK_IMAGE_ASPECT_COLOR_BIT,
-				VK_SAMPLE_COUNT_1_BIT, 1, 1, false, "DestImage"
-		);
+		var sourceImage = new ImageBuilder(
+				"SourceImage", width1, height1
+		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView().build(instance);
+		var destImage = new ImageBuilder(
+				"DestinationImage", width2, height2
+		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView().build(instance);
 
 		var hostBuffer = memByteBuffer(buffer.hostAddress(), 4 * width1 * height1);
 
@@ -225,16 +218,12 @@ public class TestCommandRecorder {
 				middleBuffers[index] = instance.buffers.create(
 						4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "Middle" + index
 				);
-				images1[index] = instance.images.createSimple(
-						1, 1, VK_FORMAT_R8G8B8A8_UNORM,
-						VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-						VK_IMAGE_ASPECT_COLOR_BIT, "Test1Image" + index
-				);
-				images2[index] = instance.images.createSimple(
-						1, 1, VK_FORMAT_R8G8B8A8_UNORM,
-						VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-						VK_IMAGE_ASPECT_COLOR_BIT, "Test2Image" + index
-				);
+				images1[index] = new ImageBuilder(
+						"Test1Image" + index, 1, 1
+				).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_R8G8B8A8_UNORM).build(instance);
+				images2[index] = new ImageBuilder(
+						"Test2Image" + index, 1, 1
+				).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_R8G8B8A8_UNORM).build(instance);
 				destinationBuffers[index] = instance.buffers.createMapped(4L, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "Destination" + index);
 				destinationRanges[index] = destinationBuffers[index].fullMappedRange();
 			}

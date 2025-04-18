@@ -16,10 +16,9 @@ public class TestRawImage {
 				VK_API_VERSION_1_2, "TestRawImage", 1
 		).validation().forbidValidationErrors().build();
 
-		var image = instance.images.createRaw(
-				12, 34, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-				VK_SAMPLE_COUNT_1_BIT, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT, "RawImage"
-		);
+		var image = new ImageBuilder(
+				"RawImage", 12, 34
+		).texture().doNotBindMemory().doNotCreateView().build(instance);
 		assertNotEquals(VK_NULL_HANDLE, image.vkImage());
 		assertEquals(VK_NULL_HANDLE, image.vkImageView());
 		assertEquals(VK_NULL_HANDLE, image.vmaAllocation());
@@ -28,7 +27,6 @@ public class TestRawImage {
 		assertEquals(VK_IMAGE_ASPECT_COLOR_BIT, image.aspectMask());
 
 		image.destroy(instance);
-
 		instance.destroyInitialObjects();
 	}
 }

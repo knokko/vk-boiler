@@ -3,10 +3,10 @@ package com.github.knokko.boiler.pipelines;
 import com.github.knokko.boiler.buffers.MappedVkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
+import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
-import org.lwjgl.vulkan.VkRenderingAttachmentInfo;
 
 import static com.github.knokko.boiler.utilities.ColorPacker.rgb;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,11 +30,9 @@ public class TestDynamicRendering {
 		int height = 50;
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 
-		var image = instance.images.createSimple(
-				width, height, format,
-				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-				VK_IMAGE_ASPECT_COLOR_BIT, "TestColorAttachment"
-		);
+		var image = new ImageBuilder("TestColorAttachment", width, height).format(format).setUsage(
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+		).build(instance);
 		MappedVkbBuffer destBuffer = instance.buffers.createMapped(
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);
@@ -130,11 +128,9 @@ public class TestDynamicRendering {
 		int width = 20;
 		int height = 30;
 
-		var image = instance.images.createSimple(
-				width, height, VK_FORMAT_D32_SFLOAT,
-				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-				VK_IMAGE_ASPECT_DEPTH_BIT, "DepthImage"
-		);
+		var image = new ImageBuilder(
+				"DepthImage", width, height
+		).depthAttachment(VK_FORMAT_D32_SFLOAT).addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).build(instance);
 		var destBuffer = instance.buffers.createMapped(
 				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
 		);

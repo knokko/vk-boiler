@@ -8,6 +8,7 @@ import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.culling.FrustumCuller;
 import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
 import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
+import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
@@ -39,6 +40,7 @@ import static org.lwjgl.system.MemoryUtil.memShortBuffer;
 import static org.lwjgl.util.vma.Vma.vmaDestroyBuffer;
 import static org.lwjgl.util.vma.Vma.vmaDestroyImage;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
+import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -198,15 +200,8 @@ public class TerrainPlayground {
 			ShortBuffer hostHeightBuffer = ByteBuffer.wrap(content).order(ByteOrder.BIG_ENDIAN).asShortBuffer();
 			ShortBuffer deltaHeightBuffer = ShortBuffer.allocate(hostHeightBuffer.capacity());
 
-			var image = boiler.images.createSimple(
-					gridSize, gridSize, VK_FORMAT_R16_SINT,
-					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT, "HeightImage"
-			);
-
-			var normalImage = boiler.images.createSimple(
-					gridSize, gridSize, VK_FORMAT_R8G8B8A8_SNORM,
-					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT, "DeltaHeightImage"
-			);
+			var image = new ImageBuilder("HeightImage", gridSize, gridSize).texture().format(VK_FORMAT_R16_SINT).build(boiler);
+			var normalImage = new ImageBuilder("NormalImage", gridSize, gridSize).texture().format(VK_FORMAT_R8G8B8A8_SNORM).build(boiler);
 
 			int normalBufferOffset = content.length;
 			if (normalBufferOffset % 4 != 0) normalBufferOffset = 4 * (1 + normalBufferOffset / 4);
@@ -399,10 +394,9 @@ public class TerrainPlayground {
 
 		long frameCounter = 0;
 		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			var depthImage = boiler.images.createSimple(
-					swapchainImage.width(), swapchainImage.height(), depthFormat,
-					VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT, "Depth"
-			);
+			var depthImage = new ImageBuilder(
+					"DepthImage", swapchainImage.width(), swapchainImage.height()
+			).depthAttachment(depthFormat).build(boiler);
 
 			long framebuffer = boiler.images.createFramebuffer(
 					renderPass, swapchainImage.width(), swapchainImage.height(),
@@ -480,8 +474,10 @@ public class TerrainPlayground {
 				referenceFrames = frameCounter;
 			}
 
+			int presentMode = boiler.window().supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
+					VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR;
 			try (var stack = stackPush()) {
-				var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(VK_PRESENT_MODE_MAILBOX_KHR);
+				var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(presentMode);
 				if (swapchainImage == null) {
 					//noinspection BusyWait
 					sleep(100);

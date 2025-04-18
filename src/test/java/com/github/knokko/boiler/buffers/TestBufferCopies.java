@@ -2,6 +2,7 @@ package com.github.knokko.boiler.buffers;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
+import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 
@@ -61,11 +62,9 @@ public class TestBufferCopies {
 				100, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "source"
 		);
 
-		var destinationImage = instance.images.createSimple(
-				1, 3, VK_FORMAT_BC1_RGBA_SRGB_BLOCK,
-				VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-				VK_IMAGE_ASPECT_COLOR_BIT, "destination"
-		);
+		var destinationImage = new ImageBuilder(
+				"Destination", 1, 3
+		).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK).build(instance);
 
 		var commands = new SingleTimeCommands(instance);
 		commands.submit("Copying", recorder -> {

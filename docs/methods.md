@@ -228,15 +228,9 @@ rather than raw `VkImage`s because this additional information
 allows such methods to be implemented with fewer parameters.
 
 ### Creating images
-To create images, you can use:
-- `boiler.images.create(...)` to create an image,
-and optionally an image view, using a lot of parameters.
-VMA will be used to bind the image memory.
-- `boiler.images.createSimple(...)` to create an image and
-an image view using `boiler.images.create(...)`, but with a
-default of 1 mip level and 1 array layer.
-- `boiler.images.createRaw(...)` to create an image, without
-binding its memory.
+You can use the `ImageBuilder` class to easily create
+`VkImage`s. By default, it will also create a
+corresponding `VkImageView` and VMA allocation.
 
 ### Creating image views
 To create an image view for an existing image, you can use
@@ -245,9 +239,9 @@ To create an image view for an existing image, you can use
 simply calls the former method, but assumes some default
 parameters.
 
-Note that you should normally create image views as part of
-`boiler.images.create(...)` or `boiler.images.createSimple(...)`
-to keep your code shorter.
+Note that `ImageBuilder` will also create image views by
+default, so you usually only need `createView` to create
+swapchain image views.
 
 ### Creating framebuffers
 You can use `boiler.images.createFramebuffer(...)` to create

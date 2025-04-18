@@ -2,6 +2,7 @@ package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
+import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
@@ -25,11 +26,7 @@ public class TestWriteImage {
 		var sourceBuffer = instance.buffers.createMapped(4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "SourceBuffer");
 		memPutInt(sourceBuffer.hostAddress(), 100);
 
-		var image = instance.images.createSimple(
-				1, 1, VK_FORMAT_R32_SINT,
-				VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-				VK_IMAGE_ASPECT_COLOR_BIT, "Image"
-		);
+		var image = new ImageBuilder("Image", 1, 1).texture().format(VK_FORMAT_R32_SINT).build(instance);
 
 		try (var stack = stackPush()) {
 			var layoutBindings = VkDescriptorSetLayoutBinding.calloc(2, stack);
