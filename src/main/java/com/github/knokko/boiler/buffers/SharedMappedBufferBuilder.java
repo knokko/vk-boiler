@@ -2,6 +2,8 @@ package com.github.knokko.boiler.buffers;
 
 import com.github.knokko.boiler.BoilerInstance;
 
+import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
+
 /**
  * A helper class that can be used to easily create 1 <i>MappedVkbBuffer</i> that is shared by multiple
  * non-overlapping <i>MappedVkbBufferRange</i>s. You can use this to, for instance, create multiple staging buffer
@@ -15,6 +17,9 @@ import com.github.knokko.boiler.BoilerInstance;
  */
 public class SharedMappedBufferBuilder extends SharedBufferBuilder<MappedVkbBuffer, MappedVkbBufferRange> {
 
+	/**
+	 * Creates a new {@link SharedMappedBufferBuilder}
+	 */
 	public SharedMappedBufferBuilder(BoilerInstance instance) {
 		super(instance);
 	}
@@ -27,5 +32,21 @@ public class SharedMappedBufferBuilder extends SharedBufferBuilder<MappedVkbBuff
 	@Override
 	protected MappedVkbBufferRange createRange(MappedVkbBuffer buffer, long offset, long size) {
 		return new MappedVkbBufferRange(buffer, offset, size);
+	}
+
+	/**
+	 * This method is needed by {@link com.github.knokko.boiler.memory.SharedMemoryBuilder} for internal use. I would
+	 * not recommend to call this yourself.
+	 */
+	public long buildRaw(int usage, String name) {
+		return instance.buffers.createRaw(totalSize, usage, name).vkBuffer();
+	}
+
+	/**
+	 * This method is needed by {@link com.github.knokko.boiler.memory.SharedMemoryBuilder} for internal use. I would
+	 * not recommend to call this yourself.
+	 */
+	public void setRaw(long vkBuffer, long hostAddress) {
+		this.buffer = new MappedVkbBuffer(vkBuffer, VK_NULL_HANDLE, totalSize, hostAddress);
 	}
 }

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import static com.github.knokko.boiler.utilities.CollectionHelper.createSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -28,6 +29,7 @@ public class TestSharedBufferBuilder {
 		var getRange0 = builder.add(1, 1234);
 		var getRange1 = builder.add(100, 13);
 		var getRange2 = builder.add(50, 57);
+		assertEquals(createSet(1234L, 13L, 57L), builder.getAlignments());
 		var buffer = builder.build(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "AlignmentBuffer");
 
 		var range0 = getRange0.get();

@@ -2,10 +2,12 @@ package com.github.knokko.boiler.commands;
 
 import com.github.knokko.boiler.buffers.MappedVkbBuffer;
 import com.github.knokko.boiler.buffers.MappedVkbBufferRange;
+import com.github.knokko.boiler.buffers.SharedMappedBufferBuilder;
 import com.github.knokko.boiler.buffers.VkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
+import com.github.knokko.boiler.memory.SharedMemoryBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
@@ -131,7 +133,7 @@ public class TestCommandRecorder {
 	}
 
 	@Test
-	public void testBlitImage() {
+	public void testBlitImageAndSharedMemoryBuilder() {
 		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TestCopyImage", 1
 		).validation().forbidValidationErrors().build();
@@ -144,57 +146,64 @@ public class TestCommandRecorder {
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 		var imageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-		var buffer = instance.buffers.createMapped(
-				4 * width1 * height1,
-				VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
-		);
+		for (boolean useVma : new boolean[] { false, true }) {
+			var sharedMemoryBuilder = new SharedMemoryBuilder(instance);
+			var sharedBufferBuilder = new SharedMappedBufferBuilder(instance);
+			var getBuffer = sharedBufferBuilder.add(4L * width1 * height1, 4L);
+			sharedMemoryBuilder.add(
+					sharedBufferBuilder,
+					VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+					"DestBuffer"
+			);
+			var getSourceImage = sharedMemoryBuilder.add(new ImageBuilder(
+					"SourceImage", width1, height1
+			).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
+			var getDestinationImage = sharedMemoryBuilder.add(new ImageBuilder(
+					"DestinationImage", width2, height2
+			).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
+			var sharedAllocation = sharedMemoryBuilder.allocate("SharedMemory", useVma);
 
-		var sourceImage = new ImageBuilder(
-				"SourceImage", width1, height1
-		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView().build(instance);
-		var destImage = new ImageBuilder(
-				"DestinationImage", width2, height2
-		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView().build(instance);
+			var hostBuffer = getBuffer.get().byteBuffer();
+			var sourceImage = getSourceImage.get();
+			var destinationImage = getDestinationImage.get();
 
-		var hostBuffer = memByteBuffer(buffer.hostAddress(), 4 * width1 * height1);
+			var commands = new SingleTimeCommands(instance);
+			commands.submit("Blitting", recorder -> {
+				recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_DEST);
+				recorder.copyBufferToImage(sourceImage, getBuffer.get().range());
+				recorder.transitionLayout(sourceImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+				recorder.transitionLayout(destinationImage, null, ResourceUsage.TRANSFER_DEST);
 
-		var commands = new SingleTimeCommands(instance);
-		commands.submit("Blitting", recorder -> {
-			recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_DEST);
-			recorder.copyBufferToImage(sourceImage, buffer.fullRange());
-			recorder.transitionLayout(sourceImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-			recorder.transitionLayout(destImage, null, ResourceUsage.TRANSFER_DEST);
+				recorder.blitImage(VK_FILTER_LINEAR, sourceImage, destinationImage);
 
-			recorder.blitImage(VK_FILTER_LINEAR, sourceImage, destImage);
+				recorder.transitionLayout(destinationImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+				recorder.copyImageToBuffer(destinationImage, getBuffer.get().range());
 
-			recorder.transitionLayout(destImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-			recorder.copyImageToBuffer(destImage, buffer.fullRange());
+				// First pixel is (R, G, B, A) = (100, 0, 200, 255)
+				hostBuffer.put(0, (byte) 100);
+				hostBuffer.put(1, (byte) 0);
+				hostBuffer.put(2, (byte) 200);
+				hostBuffer.put(3, (byte) 255);
 
-			// First pixel is (R, G, B, A) = (100, 0, 200, 255)
-			hostBuffer.put(0, (byte) 100);
-			hostBuffer.put(1, (byte) 0);
-			hostBuffer.put(2, (byte) 200);
-			hostBuffer.put(3, (byte) 255);
+				// The other 3 pixels are (0, 0, 0, 255)
+				for (int index = 4; index <= 12; index += 4) {
+					hostBuffer.put(index, (byte) 0);
+					hostBuffer.put(index + 1, (byte) 0);
+					hostBuffer.put(index + 2, (byte) 0);
+					hostBuffer.put(index + 3, (byte) 255);
+				}
+			}).awaitCompletion();
 
-			// The other 3 pixels are (0, 0, 0, 255)
-			for (int index = 4; index <= 12; index += 4) {
-				hostBuffer.put(index, (byte) 0);
-				hostBuffer.put(index + 1, (byte) 0);
-				hostBuffer.put(index + 2, (byte) 0);
-				hostBuffer.put(index + 3, (byte) 255);
-			}
-		}).awaitCompletion();
+			// So the blitted pixel should be (25, 0, 50, 255)
+			assertEquals((byte) 25, hostBuffer.get(0));
+			assertEquals((byte) 0, hostBuffer.get(1));
+			assertEquals((byte) 50, hostBuffer.get(2));
+			assertEquals((byte) 255, hostBuffer.get(3));
 
-		// So the blitted pixel should be (25, 0, 50, 255)
-		assertEquals((byte) 25, hostBuffer.get(0));
-		assertEquals((byte) 0, hostBuffer.get(1));
-		assertEquals((byte) 50, hostBuffer.get(2));
-		assertEquals((byte) 255, hostBuffer.get(3));
+			commands.destroy();
+			sharedAllocation.free(instance);
+		}
 
-		commands.destroy();
-		buffer.destroy(instance);
-		sourceImage.destroy(instance);
-		destImage.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 

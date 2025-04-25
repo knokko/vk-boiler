@@ -2,6 +2,8 @@ package com.github.knokko.boiler.buffers;
 
 import com.github.knokko.boiler.BoilerInstance;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.github.knokko.boiler.utilities.BoilerMath.nextMultipleOf;
@@ -14,8 +16,9 @@ import static com.github.knokko.boiler.utilities.BoilerMath.nextMultipleOf;
 public abstract class SharedBufferBuilder<B extends VkbBuffer, R> {
 
 	protected final BoilerInstance instance;
-	private long totalSize = 0L;
-	private B buffer;
+	protected final Set<Long> alignments = new HashSet<>();
+	protected long totalSize = 0L;
+	protected B buffer;
 
 	public SharedBufferBuilder(BoilerInstance instance) {
 		this.instance = instance;
@@ -31,7 +34,10 @@ public abstract class SharedBufferBuilder<B extends VkbBuffer, R> {
 	 */
 	public Supplier<R> add(long size, long alignment) {
 		if (buffer != null) throw new IllegalStateException("Buffer has already been built");
-		if (alignment > 0L) totalSize = nextMultipleOf(totalSize, alignment);
+		if (alignment > 0L) {
+			totalSize = nextMultipleOf(totalSize, alignment);
+			alignments.add(alignment);
+		}
 		long offset = totalSize;
 		totalSize += size;
 
@@ -54,6 +60,14 @@ public abstract class SharedBufferBuilder<B extends VkbBuffer, R> {
 		if (buffer != null) throw new IllegalStateException("Buffer has already been built");
 		this.buffer = buildBuffer(totalSize, usage, name);
 		return this.buffer;
+	}
+
+	/**
+	 * Modify this set is at your own risk!
+	 * @return a set containing the alignments of all sections
+	 */
+	public Set<Long> getAlignments() {
+		return alignments;
 	}
 
 	protected abstract B buildBuffer(long size, int usage, String name);

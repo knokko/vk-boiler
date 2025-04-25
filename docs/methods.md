@@ -43,6 +43,18 @@ one-time-only data that you use every frame, and whose memory space can be
 reused after `numberOfFramesInFlight` frames. You can use it to easily
 share such space with multiple independent renderers.
 
+### Buffer sub-allocation
+Sometimes, it is a good idea to split 1 `VkBuffer` into multiple
+regions/ranges, for instance 1 vertex buffer range per mesh.
+The `SharedDeviceBufferBuilder` and `SharedMappedBufferBuilder` classes
+make it easy to combine multiple buffer ranges into 1 `VkBuffer`.
+
+### Memory sub-allocation
+Sometimes, you know exactly how much memory your application needs upfront,
+or you want to bundle some buffers and images into a single `VkDeviceMemory`.
+In such cases, you can use `SharedMemoryBuilder` to put all your buffers and
+images into a single `VkDeviceMemory` or `VmaAllocation`.
+
 ### Encoding/decoding images
 You can use `boiler.buffers.encodeBufferedImageRGBA(...)` to encode/store a
 `BufferedImage` in a `MappedVkbBuffer` in RGBA8 format. You can use this to
@@ -511,7 +523,11 @@ but you are free to use it in applications as well.
 - You can use `BoilerMath.nextMultipleOf(value, alignment)`
 to find the smallest integer multiple of `alignment` that is
 greater than or equal to `value`. As the name suggests, this
-can be useful when working with buffer alignment requirements.
+can be useful when working with memory alignment requirements.
+- You can use `BoilerMath.greatestCommonDivisor(a, b)` to
+compute the greatest common divisor of two `long`s.
+- You can use `BoilerMath.leastCommonMultiple(numbers)` to
+compute the least common multiple of a set of `long`s.
 
 ### Set functions
 - You can use `CollectionHelper.createSet(a, b, c)` to create

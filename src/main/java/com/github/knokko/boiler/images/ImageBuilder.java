@@ -17,7 +17,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * <ol>
  *     <li>Create an ImageBuilder instance using the constructor (name, width, height)</li>
  *     <li>
- *         Chain a 'basic usage' method, like {@link #texture}, {@link #target} or {@link #depthAttachment}
+ *         Chain a 'basic usage' method, like {@link #texture} or {@link #depthAttachment}
  *         (optional, but recommended)
  *     </li>
  *     <li>
@@ -215,12 +215,12 @@ public class ImageBuilder {
 	}
 
 	/**
-	 * Sets {@link #shouldBindMemory} to false
+	 * Sets {@link #shouldBindMemory} (and {@link #shouldCreateView}) to false
 	 * @return this
 	 */
 	public ImageBuilder doNotBindMemory() {
 		this.shouldBindMemory = false;
-		return this;
+		return this.doNotCreateView();
 	}
 
 	/**

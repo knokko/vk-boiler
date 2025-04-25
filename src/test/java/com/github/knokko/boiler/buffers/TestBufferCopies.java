@@ -1,55 +1,66 @@
 package com.github.knokko.boiler.buffers;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.builders.device.SimpleDeviceSelector;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.images.ImageBuilder;
+import com.github.knokko.boiler.memory.SharedMemoryBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.lwjgl.system.MemoryUtil.memByteBuffer;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class TestBufferCopies {
 
 	@Test
-	public void testBufferCopies() {
-		var instance = new BoilerBuilder(
-				VK_API_VERSION_1_0, "Test buffer copies", VK_MAKE_VERSION(1, 0, 0)
-		).validation().forbidValidationErrors().build();
+	public void testBufferCopiesAndSharedMemoryBuilder() {
+		int[] deviceTypes = {
+				VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
+				VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
+				VK_PHYSICAL_DEVICE_TYPE_CPU
+		};
+		boolean[] vmaChoices = { false, true };
 
-		var sourceBuffer = instance.buffers.createMapped(
-				100, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "source"
-		);
-		var sourceHostBuffer = memByteBuffer(sourceBuffer.hostAddress(), 100);
-		var middleBuffer = instance.buffers.create(
-				100, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "middle"
-		);
-		var destinationBuffer = instance.buffers.createMapped(
-				100, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "destination"
-		);
-		var destinationHostBuffer = memByteBuffer(destinationBuffer.hostAddress(), 100);
+		for (int deviceType : deviceTypes) {
+			for (boolean useVma : vmaChoices) {
+				var instance = new BoilerBuilder(
+						VK_API_VERSION_1_0, "Test buffer copies", VK_MAKE_VERSION(1, 0, 0)
+				).physicalDeviceSelector(new SimpleDeviceSelector(deviceType)).validation().forbidValidationErrors().build();
+				var mappedBufferBuilder = new SharedMappedBufferBuilder(instance);
+				int bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-		for (int index = 0; index < 100; index++) {
-			sourceHostBuffer.put((byte) index);
+				var sourceBuffer = mappedBufferBuilder.add(100L, 1L);
+				var middleBuffer = instance.buffers.createRaw(100, bufferUsage, "middle");
+				var destinationBuffer = mappedBufferBuilder.add(100L, 1L);
+
+				var sharedMemoryBuilder = new SharedMemoryBuilder(instance);
+				sharedMemoryBuilder.add(middleBuffer);
+				sharedMemoryBuilder.add(mappedBufferBuilder, bufferUsage, "SharedMappedBuffer");
+				var sharedMemory = sharedMemoryBuilder.allocate("SharedMemory", useVma);
+
+				var sourceHostBuffer = sourceBuffer.get().byteBuffer();
+				for (int index = 0; index < 100; index++) {
+					sourceHostBuffer.put((byte) index);
+				}
+
+				var commands = new SingleTimeCommands(instance);
+				commands.submit("Copying", recorder -> {
+					recorder.copyBufferRanges(sourceBuffer.get().range(), middleBuffer.fullRange());
+					recorder.bufferBarrier(middleBuffer.fullRange(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+					recorder.copyBufferRanges(middleBuffer.fullRange(), destinationBuffer.get().range());
+				});
+				commands.destroy();
+
+				var destinationHostBuffer = destinationBuffer.get().byteBuffer();
+				for (int index = 0; index < 100; index++) {
+					assertEquals((byte) index, destinationHostBuffer.get());
+				}
+
+				sharedMemory.free(instance);
+				instance.destroyInitialObjects();
+			}
 		}
-
-		var commands = new SingleTimeCommands(instance);
-		commands.submit("Copying", recorder -> {
-			recorder.copyBuffer(sourceBuffer.fullRange(), middleBuffer.vkBuffer(), 0);
-			recorder.bufferBarrier(middleBuffer.fullRange(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-			recorder.copyBuffer(middleBuffer.fullRange(), destinationBuffer.vkBuffer(), 0);
-		}).awaitCompletion();
-
-		for (int index = 0; index < 100; index++) {
-			assertEquals((byte) index, destinationHostBuffer.get());
-		}
-
-		commands.destroy();
-		sourceBuffer.destroy(instance);
-		middleBuffer.destroy(instance);
-		destinationBuffer.destroy(instance);
-		instance.destroyInitialObjects();
 	}
 
 	@Test
