@@ -602,6 +602,31 @@ public class CommandRecorder {
 	}
 
 	/**
+	 * Calls <i>vkCmdBindVertexBuffers</i> using the given {@code firstBinding} such that {@code pBuffers} and
+	 * {@code pOffsets} get the vertex buffers and offsets of {@code vertexBuffers}
+	 * @param firstBinding Will be propagated to {@link VK10#vkCmdBindVertexBuffers}
+	 * @param vertexBuffers The vertex buffer ranges that should be propagated to {@code pBuffers} and {@code pOffsets}
+	 */
+	public void bindVertexBuffers(int firstBinding, VkbBufferRange... vertexBuffers) {
+		var pBuffers = stack.callocLong(vertexBuffers.length);
+		var pOffsets = stack.callocLong(vertexBuffers.length);
+		for (int index = 0; index < vertexBuffers.length; index++) {
+			pBuffers.put(index, vertexBuffers[index].buffer().vkBuffer());
+			pOffsets.put(index, vertexBuffers[index].offset());
+		}
+		vkCmdBindVertexBuffers(commandBuffer, firstBinding, pBuffers, pOffsets);
+	}
+
+	/**
+	 * Uses <i>vkCmdBindIndexBuffer</i> to bind the given index buffer range, with the given {@code indexType}
+	 * @param indexBuffer The index buffer range to be bound
+	 * @param indexType Will be propagated to {@link VK10#vkCmdBindIndexBuffer}
+	 */
+	public void bindIndexBuffer(VkbBufferRange indexBuffer, int indexType) {
+		vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer().vkBuffer(), indexBuffer.offset(), indexType);
+	}
+
+	/**
 	 * Calls <i>vkCmdEndRendering(KHR)</i>
 	 */
 	public void endDynamicRendering() {

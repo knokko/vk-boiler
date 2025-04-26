@@ -245,7 +245,7 @@ public class HelloTriangle {
 				recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-				vkCmdBindVertexBuffers(commandBuffer, 0, stack.longs(vertexBuffer.vkBuffer()), stack.longs(0));
+				recorder.bindVertexBuffers(0, vertexBuffer.fullRange());
 
 				vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 				vkCmdEndRenderPass(commandBuffer);
