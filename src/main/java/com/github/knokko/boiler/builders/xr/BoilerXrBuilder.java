@@ -232,10 +232,8 @@ public class BoilerXrBuilder {
 			}
 
 			if (maxMajorVersion < majorVersion || (maxMajorVersion == majorVersion && maxMinorVersion < minorVersion)) {
-				throw new XrVersionConflictException(
-						"The OpenXR runtime only supports Vulkan " + maxMajorVersion + "." + maxMinorVersion +
-								" and earlier, but you requested Vulkan " + majorVersion + "." + minorVersion
-				);
+				System.out.println("Warning: the OpenXR runtime was only tested up to Vulkan " + maxMajorVersion + "."
+						+ maxMinorVersion + ", but you are using Vulkan " + majorVersion + "." + minorVersion);
 			}
 		}
 

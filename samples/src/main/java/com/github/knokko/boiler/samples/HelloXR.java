@@ -32,11 +32,6 @@ import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertX
 import static com.github.knokko.boiler.utilities.ColorPacker.rgb;
 import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.EXTDescriptorIndexing.VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
-import static org.lwjgl.vulkan.KHRDynamicRendering.*;
-import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.vkGetPhysicalDeviceFeatures2KHR;
-import static org.lwjgl.vulkan.KHRMaintenance3.VK_KHR_MAINTENANCE3_EXTENSION_NAME;
-import static org.lwjgl.vulkan.KHRMultiview.VK_KHR_MULTIVIEW_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK13.*;
 
 public class HelloXR {
@@ -57,43 +52,15 @@ public class HelloXR {
 
 	public static void main(String[] args) throws InterruptedException {
 		var boiler = new BoilerBuilder(
-				VK_API_VERSION_1_0, "HelloXR", 1
+				VK_API_VERSION_1_3, "HelloXR", 1
 		)
 				.validation()
 				.enableDynamicRendering()
-				.requiredDeviceExtensions(
-						VK_KHR_MULTIVIEW_EXTENSION_NAME,
-						VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-						VK_KHR_MAINTENANCE3_EXTENSION_NAME
-				)
 				.printDeviceRejectionInfo()
-				.extraDeviceRequirements((physicalDevice, windowSurface, stack) -> {
-					var multiview = VkPhysicalDeviceMultiviewFeaturesKHR.calloc(stack);
-					multiview.sType$Default();
-
-					var descriptors = VkPhysicalDeviceDescriptorIndexingFeaturesEXT.calloc(stack);
-					descriptors.sType$Default();
-
-					var features2 = VkPhysicalDeviceFeatures2KHR.calloc(stack);
-					features2.sType$Default();
-					features2.pNext(multiview);
-					features2.pNext(descriptors);
-
-					vkGetPhysicalDeviceFeatures2KHR(physicalDevice, features2);
-					return multiview.multiview() && descriptors.shaderSampledImageArrayNonUniformIndexing();
-				})
-				.beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> {
-					var multiview = VkPhysicalDeviceMultiviewFeaturesKHR.calloc(stack);
-					multiview.sType$Default();
-					multiview.multiview(true);
-
-					var descriptors = VkPhysicalDeviceDescriptorIndexingFeaturesEXT.calloc(stack);
-					descriptors.sType$Default();
-					descriptors.shaderSampledImageArrayNonUniformIndexing(true);
-
-					ciDevice.pNext(multiview);
-					ciDevice.pNext(descriptors);
-				})
+				.requiredFeatures11(VkPhysicalDeviceVulkan11Features::multiview)
+				.requiredFeatures12(VkPhysicalDeviceVulkan12Features::shaderSampledImageArrayNonUniformIndexing)
+				.featurePicker11((stack, supported, enabled) -> enabled.multiview(true))
+				.featurePicker12((stack, supported, enabled) -> enabled.shaderSampledImageArrayNonUniformIndexing(true))
 				.xr(new BoilerXrBuilder())
 				.build();
 
@@ -555,7 +522,7 @@ public class HelloXR {
 				dynamicRenderingInfo.pColorAttachments(colorAttachments);
 				dynamicRenderingInfo.pDepthAttachment(depthAttachment);
 
-				vkCmdBeginRenderingKHR(commandBuffers[frameIndex], dynamicRenderingInfo);
+				vkCmdBeginRendering(commandBuffers[frameIndex], dynamicRenderingInfo);
 				vkCmdBindPipeline(commandBuffers[frameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipeline);
 				commands.bindGraphicsDescriptors(colorPipelineLayout, colorDescriptorSets[frameIndex]);
 				commands.bindVertexBuffers(0, colorVertexBuffer.range());

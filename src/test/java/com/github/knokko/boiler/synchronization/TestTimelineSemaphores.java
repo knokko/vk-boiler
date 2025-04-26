@@ -9,7 +9,6 @@ import org.lwjgl.vulkan.VkPhysicalDeviceFeatures2KHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceTimelineSemaphoreFeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceVulkan12Features;
 
-import static com.github.knokko.boiler.utilities.CollectionHelper.createSet;
 import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.lwjgl.system.MemoryStack.stackPush;

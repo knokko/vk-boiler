@@ -18,19 +18,13 @@ parameters are almost always ignored by the graphics driver
 (unless your game is very popular).
 Some considerations for the API version:
 - Pretty much any desktop device with Vulkan support will support
-at least Vulkan 1.2.
+at least Vulkan 1.2 (unless the drivers are horribly outdated).
 - Pretty much any *modern* desktop device also supports Vulkan 1.3,
 so picking 1.2 is better if you want more compatibility.
 - I have never tried LWJGL (nor vk-boiler) on mobile devices, so
 I would not consider those unless you have concrete plans.
-- Targeting Vulkan 1.0 is pretty much only useful if you intend
-to use virtual reality (OpenXR), where the OpenXR runtime can set
-`XrGraphicsRequirementsVulkanKHR.maxApiVersionSupported` to
-`VK_API_VERSION_1_0` during `xrGetVulkanGraphicsRequirementsKHR`,
-which will pin you on Vulkan 1.0, even if the device supports 1.3.
-The OpenXR runtime for PCVR for Oculus Quest 2 did this last time
-I checked (21-09-2024).
-- As far as I know, targeting Vulkan 1.1 is useless on desktop.
+- Targeting Vulkan 1.0 or 1.1 is only useful if you intend
+to support horribly outdated drivers
 
 ## Instance creation properties
 ### Validation
