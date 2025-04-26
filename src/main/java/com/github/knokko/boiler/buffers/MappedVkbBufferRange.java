@@ -36,6 +36,15 @@ public record MappedVkbBufferRange(MappedVkbBuffer buffer, long offset, long siz
 	}
 
 	/**
+	 * Creates and returns a child/sub range of this buffer range
+	 * @param childOffset The offset of the child range, relative to this buffer range, in bytes
+	 * @param childSize The size of the child range, in bytes
+	 */
+	public MappedVkbBufferRange childRange(long childOffset, long childSize) {
+		return new MappedVkbBufferRange(buffer, offset + childOffset, childSize);
+	}
+
+	/**
 	 * @return A direct byte buffer that starts at the start of this range, and has the same capacity
 	 */
 	public ByteBuffer byteBuffer() {
