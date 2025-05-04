@@ -28,14 +28,18 @@ public class TestBufferCopies {
 						VK_API_VERSION_1_0, "Test buffer copies", VK_MAKE_VERSION(1, 0, 0)
 				).physicalDeviceSelector(new SimpleDeviceSelector(deviceType)).validation().forbidValidationErrors().build();
 				var mappedBufferBuilder = new SharedMappedBufferBuilder(instance);
+				var deviceBufferBuilder = new SharedDeviceBufferBuilder(instance);
 				int bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
 				var sourceBuffer = mappedBufferBuilder.add(100L, 1L);
-				var middleBuffer = instance.buffers.createRaw(100, bufferUsage, "middle");
+				var middleBuffer1 = instance.buffers.createRaw(100, bufferUsage, "Middle1");
+				deviceBufferBuilder.add(100L, 1L);
+				var middleBuffer2 = deviceBufferBuilder.doNotBindMemory().build(bufferUsage, "Middle2");
 				var destinationBuffer = mappedBufferBuilder.add(100L, 1L);
 
 				var sharedMemoryBuilder = new SharedMemoryBuilder(instance);
-				sharedMemoryBuilder.add(middleBuffer);
+				sharedMemoryBuilder.add(middleBuffer1);
+				sharedMemoryBuilder.add(middleBuffer2);
 				sharedMemoryBuilder.add(mappedBufferBuilder, bufferUsage, "SharedMappedBuffer");
 				var sharedMemory = sharedMemoryBuilder.allocate("SharedMemory", useVma);
 
@@ -46,9 +50,11 @@ public class TestBufferCopies {
 
 				var commands = new SingleTimeCommands(instance);
 				commands.submit("Copying", recorder -> {
-					recorder.copyBufferRanges(sourceBuffer.get().range(), middleBuffer.fullRange());
-					recorder.bufferBarrier(middleBuffer.fullRange(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-					recorder.copyBufferRanges(middleBuffer.fullRange(), destinationBuffer.get().range());
+					recorder.copyBufferRanges(sourceBuffer.get().range(), middleBuffer1.fullRange());
+					recorder.bufferBarrier(middleBuffer1.fullRange(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+					recorder.copyBufferRanges(middleBuffer1.fullRange(), middleBuffer2.fullRange());
+					recorder.bufferBarrier(middleBuffer2.fullRange(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+					recorder.copyBufferRanges(middleBuffer2.fullRange(), destinationBuffer.get().range());
 				});
 				commands.destroy();
 

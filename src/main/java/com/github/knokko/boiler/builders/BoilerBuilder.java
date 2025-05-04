@@ -75,7 +75,7 @@ public class BoilerBuilder {
 	BoilerXrBuilder xrBuilder;
 
 	String engineName = "VkBoiler";
-	int engineVersion = 4;
+	int engineVersion = 5;
 
 	final Set<String> desiredVulkanLayers = new HashSet<>();
 	final Set<String> requiredVulkanLayers = new HashSet<>();
@@ -648,7 +648,6 @@ public class BoilerBuilder {
 				ciReporter.messageSeverity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT);
 				ciReporter.messageType(VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT);
 				ciReporter.pfnUserCallback((severity, types, data, userData) -> {
-					@SuppressWarnings("resource")
 					var error = VkDebugUtilsMessengerCallbackDataEXT.create(data);
 					var instance = propagateInstance[0];
 

@@ -15,17 +15,30 @@ import com.github.knokko.boiler.BoilerInstance;
  */
 public class SharedDeviceBufferBuilder extends SharedBufferBuilder<DeviceVkbBuffer, VkbBufferRange> {
 
+	private boolean bindMemory = true;
+
 	public SharedDeviceBufferBuilder(BoilerInstance instance) {
 		super(instance);
 	}
 
 	@Override
 	protected DeviceVkbBuffer buildBuffer(long size, int usage, String name) {
-		return instance.buffers.create(size, usage, name);
+		return bindMemory ? instance.buffers.create(size, usage, name) : instance.buffers.createRaw(size, usage, name);
 	}
 
 	@Override
 	protected VkbBufferRange createRange(DeviceVkbBuffer buffer, long offset, long size) {
 		return new VkbBufferRange(buffer, offset, size);
+	}
+
+	/**
+	 * By default, the {@link #build} method will use VMA to bind the memory of the created buffer. But, if you call
+	 * this method before calling {@link #build}, this will be skipped, allowing you to bind the buffer memory
+	 * yourself.
+	 * @return this
+	 */
+	public SharedDeviceBufferBuilder doNotBindMemory() {
+		bindMemory = false;
+		return this;
 	}
 }
