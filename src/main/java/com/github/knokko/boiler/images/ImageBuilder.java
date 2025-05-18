@@ -1,8 +1,10 @@
 package com.github.knokko.boiler.images;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.MemoryTypeSelector;
 import org.lwjgl.util.vma.VmaAllocationCreateInfo;
 import org.lwjgl.vulkan.VkImageCreateInfo;
+import org.lwjgl.vulkan.VkImageViewCreateInfo;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVmaSuccess;
@@ -11,6 +13,7 @@ import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_AUTO;
 import static org.lwjgl.util.vma.Vma.vmaCreateImage;
 import static org.lwjgl.vulkan.VK10.*;
 
+// TODO Rewrite docs
 /**
  * The ImageBuilder class can be used to create (and optionally bind) <i>VkImage</i>s with little code. It is a simple
  * builder class with common default values. The basic flow is:
@@ -96,7 +99,14 @@ public class ImageBuilder {
 	public int usage;
 
 	/**
-	 * Will be propagated to {@link VkbImage#aspectMask()}
+	 * This function will be invoked to choose a memory type from the memory types allowed by
+	 * <b>vkGetImageMemoryRequirements</b>
+	 */
+	public MemoryTypeSelector memoryTypeSelector = (instance, memoryTypeBits) ->
+			instance.memoryInfo.recommendedDeviceLocalMemoryType(memoryTypeBits);
+
+	/**
+	 * Will be propagated to {@link VkbImage#aspectMask}
 	 * The default value is <i>VK_IMAGE_ASPECT_COLOR_BIT</i>
 	 */
 	public int aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -215,6 +225,15 @@ public class ImageBuilder {
 	}
 
 	/**
+	 * Sets {@link #memoryTypeSelector}
+	 * @return this
+	 */
+	public ImageBuilder memoryTypeSelector(MemoryTypeSelector memoryTypeSelector) {
+		this.memoryTypeSelector = memoryTypeSelector;
+		return this;
+	}
+
+	/**
 	 * Sets {@link #shouldBindMemory} (and {@link #shouldCreateView}) to false
 	 * @return this
 	 */
@@ -259,14 +278,7 @@ public class ImageBuilder {
 		return this.format(VK_FORMAT_R8G8B8A8_SRGB).setUsage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 	}
 
-	/**
-	 * Builds the image.
-	 * <ul>
-	 *     <li>If {@link #shouldCreateView} is still true, also creates a corresponding image view</li>
-	 *     <li>If {@link #shouldBindMemory} is still true, also binds the image memory using VMA</li>
-	 * </ul>
-	 */
-	public VkbImage build(BoilerInstance instance) {
+	public VkbImage createRaw(BoilerInstance instance) {
 		try (var stack = stackPush()) {
 			var ciImage = VkImageCreateInfo.calloc(stack);
 			ciImage.sType$Default();
@@ -282,29 +294,40 @@ public class ImageBuilder {
 			ciImage.initialLayout(initialLayout);
 
 			var pImage = stack.callocLong(1);
-			long allocation = VK_NULL_HANDLE;
 
-			if (shouldBindMemory) {
-				var ciAllocation = VmaAllocationCreateInfo.calloc(stack);
-				ciAllocation.usage(VMA_MEMORY_USAGE_AUTO);
+			assertVkSuccess(vkCreateImage(
+					instance.vkDevice(), ciImage, null, pImage
+			), "CreateImage", name);
+			long vkImage = pImage.get(0);
 
-				var pAllocation = stack.callocPointer(1);
-				assertVmaSuccess(vmaCreateImage(
-						instance.vmaAllocator(), ciImage, ciAllocation, pImage, pAllocation, null
-				), "CreateImage", name);
-				allocation = pAllocation.get(0);
-			} else {
-				assertVkSuccess(vkCreateImage(
-						instance.vkDevice(), ciImage, null, pImage
-				), "CreateImage", name);
-			}
+			instance.debug.name(stack, vkImage, VK_OBJECT_TYPE_IMAGE, name);
+			return new VkbImage(vkImage, width, height, aspectMask);
+		}
+	}
 
-			long image = pImage.get(0);
+	public long createView(BoilerInstance instance, long vkImage) {
+		try (var stack = stackPush()) {
+			var ciImageView = VkImageViewCreateInfo.calloc(stack);
+			ciImageView.sType$Default();
+			ciImageView.image(vkImage);
+			if (arrayLayers > 1) ciImageView.viewType(VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+			else ciImageView.viewType(VK_IMAGE_VIEW_TYPE_2D);
+			ciImageView.format(format);
+			ciImageView.components().set(
+					VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+					VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY
+			);
+			instance.images.subresourceRange(stack, ciImageView.subresourceRange(), aspectMask);
+			ciImageView.subresourceRange().levelCount(mipLevels);
+			ciImageView.subresourceRange().layerCount(arrayLayers);
 
-			instance.debug.name(stack, image, VK_OBJECT_TYPE_IMAGE, name);
-
-			long view = shouldCreateView ? instance.images.createSimpleView(image, format, aspectMask, name) : 0L;
-			return new VkbImage(image, view, allocation, width, height, aspectMask);
+			var pImageView = stack.callocLong(1);
+			assertVkSuccess(vkCreateImageView(
+					instance.vkDevice(), ciImageView, null, pImageView
+			), "CreateImageView", name);
+			long imageView = pImageView.get(0);
+			instance.debug.name(stack, imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+			return imageView;
 		}
 	}
 }

@@ -1,11 +1,11 @@
 package com.github.knokko.boiler;
 
-import com.github.knokko.boiler.buffers.BoilerBuffers;
 import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.BoilerCommands;
 import com.github.knokko.boiler.debug.BoilerDebug;
 import com.github.knokko.boiler.descriptors.BoilerDescriptors;
 import com.github.knokko.boiler.images.BoilerImages;
+import com.github.knokko.boiler.memory.MemoryInfo;
 import com.github.knokko.boiler.pipelines.BoilerPipelines;
 import com.github.knokko.boiler.queues.QueueFamilies;
 import com.github.knokko.boiler.synchronization.BoilerSync;
@@ -47,7 +47,7 @@ public class BoilerInstance {
 	private final long vmaAllocator;
 	private final long validationErrorThrower;
 
-	public final BoilerBuffers buffers;
+	public final MemoryInfo memoryInfo;
 	public final BoilerImages images;
 	public final BoilerDescriptors descriptors;
 	public final BoilerPipelines pipelines;
@@ -84,7 +84,7 @@ public class BoilerInstance {
 		this.vmaAllocator = vmaAllocator;
 		this.validationErrorThrower = validationErrorThrower;
 
-		this.buffers = new BoilerBuffers(this);
+		this.memoryInfo = new MemoryInfo(this);
 		this.images = new BoilerImages(this);
 		this.descriptors = new BoilerDescriptors(this);
 		this.pipelines = new BoilerPipelines(this);

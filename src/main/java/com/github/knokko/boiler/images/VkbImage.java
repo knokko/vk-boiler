@@ -1,34 +1,34 @@
 package com.github.knokko.boiler.images;
 
-import com.github.knokko.boiler.BoilerInstance;
-
-import static org.lwjgl.util.vma.Vma.vmaDestroyImage;
-import static org.lwjgl.vulkan.VK10.*;
-
 /**
- * Wraps a <i>VkImage</i> and its size. Also stores an optional <i>VmaAllocation</i> and <i>VkImageView</i> + aspect
- * mask
- * @param vkImage The <i>VkImage</i> handle
- * @param vkImageView The optional <i>VkImageView</i> handle
- * @param vmaAllocation The optional <i>VmaAllocation</i> handle
- * @param width The width of the image, in pixels
- * @param height The height of the image, in pixels
- * @param aspectMask The optional aspect mask of the image view
+ * Wraps a <i>VkImage</i> and its size. Also stores an optional <i>VkImageView</i> + aspect mask
  */
-public record VkbImage(
-		long vkImage,
-		long vkImageView,
-		long vmaAllocation,
-		int width, int height,
-		int aspectMask
-) {
+public class VkbImage {
 
 	/**
-	 * Destroys the <i>VkImage</i> and the optional <i>VmaAllocation</i> and <i>VkImageView</i>
+	 * The <b>VkImage</b> handle
 	 */
-	public void destroy(BoilerInstance instance) {
-		if (vkImageView != VK_NULL_HANDLE) vkDestroyImageView(instance.vkDevice(), vkImageView, null);
-		if (vmaAllocation != VK_NULL_HANDLE) vmaDestroyImage(instance.vmaAllocator(), vkImage, vmaAllocation);
-		else vkDestroyImage(instance.vkDevice(), vkImage, null);
+	public final long vkImage;
+
+	/**
+	 * The optional <b>VkImageView</b> handle
+	 */
+	public long vkImageView;
+
+	/**
+	 * The size of the image, in pixels
+	 */
+	public final int width, height;
+
+	/**
+	 * The optional aspect mask of the image view
+	 */
+	public final int aspectMask;
+
+	public VkbImage(long vkImage, int width, int height, int aspectMask) {
+		this.vkImage = vkImage;
+		this.width = width;
+		this.height = height;
+		this.aspectMask = aspectMask;
 	}
 }
