@@ -1,38 +1,51 @@
 package com.github.knokko.boiler.buffers;
 
-import com.github.knokko.boiler.BoilerInstance;
-
-import static org.lwjgl.util.vma.Vma.vmaDestroyBuffer;
 import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
-import static org.lwjgl.vulkan.VK10.vkDestroyBuffer;
 
-public sealed interface VkbBuffer permits DeviceVkbBuffer, MappedVkbBuffer {
-	long vkBuffer();
-
-	long vmaAllocation();
-
-	long size();
+/**
+ * A {@link VkbBuffer} represents a segment of a <b>VkBuffer</b>. Every initialized instance claims bytes
+ * {@code offset} to {@code offset + size} of {@code vkBuffer}.
+ */
+public class VkbBuffer {
 
 	/**
-	 * Creates a <i>VkbBufferRange</i> that convert a part of the buffer
+	 * The <b>VkBuffer</b>, or <b>VK_NULL_HANDLE</b> when not yet initialized
 	 */
-	default VkbBufferRange range(long offset, long size) {
-		if (offset + size > size()) throw new IllegalArgumentException(offset + " + " + size + " > " + size());
-		return new VkbBufferRange(this, offset, size);
+	public long vkBuffer;
+
+	/**
+	 * The offset (in bytes) of this {@link VkbBuffer} into the <b>VkBuffer</b>. When this is not zero, the first byte
+	 * of the <b>VkBuffer</b> is claimed by another {@link VkbBuffer}.
+	 */
+	public long offset;
+
+	/**
+	 * The size of this {@link VkbBuffer}, in bytes. Note that {@code vkBuffer} can be larger.
+	 */
+	public final long size;
+
+	public VkbBuffer(long vkBuffer, long offset, long size) {
+		this.vkBuffer = vkBuffer;
+		this.offset = offset;
+		this.size = size;
 	}
 
 	/**
-	 * Creates a <i>VkbBufferRange</i> that covers the whole buffer
+	 * Creates an uninitialized {@link VkbBuffer} that will have the given size (in bytes)
 	 */
-	default VkbBufferRange fullRange() {
-		return new VkbBufferRange(this, 0, size());
+	public VkbBuffer(long size) {
+		this(VK_NULL_HANDLE, -1, size);
 	}
 
-	/**
-	 * Destroys this buffer, including its <i>VmaAllocation</i> (if applicable)
-	 */
-	default void destroy(BoilerInstance instance) {
-		if (vmaAllocation() != VK_NULL_HANDLE) vmaDestroyBuffer(instance.vmaAllocator(), vkBuffer(), vmaAllocation());
-		else vkDestroyBuffer(instance.vkDevice(), vkBuffer(), null);
+	protected void validateChildRange(long childOffset, long childSize) {
+		if (childOffset + childSize > size) throw new IllegalArgumentException(
+				"Child (offset=" + childOffset + ", size=" + childSize + ") out of range for parent (offset="
+						+ offset + ", size=" + size + ")"
+		);
+	}
+
+	public VkbBuffer child(long childOffset, long childSize) {
+		validateChildRange(childOffset, childSize);
+		return new VkbBuffer(vkBuffer, offset + childOffset, childSize);
 	}
 }

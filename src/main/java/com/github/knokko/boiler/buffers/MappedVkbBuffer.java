@@ -1,25 +1,84 @@
 package com.github.knokko.boiler.buffers;
 
-/**
- * Represents a <i>VkBuffer</i> with the given size and optional <i>VmaAllocation</i>. The buffer must be stored in
- * host-visible memory, and must be mapped at <i>hostAddress</i> during its lifetime.
- */
-public record MappedVkbBuffer(long vkBuffer, long vmaAllocation, long size, long hostAddress) implements VkbBuffer {
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.nio.ByteBuffer;
 
-	/**
-	 * @return a <i>MappedVkbBufferRange</i> that covers this whole buffer
-	 */
-	public MappedVkbBufferRange fullMappedRange() {
-		return new MappedVkbBufferRange(this, 0L, size);
+import static java.lang.Math.toIntExact;
+import static org.lwjgl.system.MemoryUtil.memByteBuffer;
+
+public class MappedVkbBuffer extends VkbBuffer {
+
+	public long hostAddress;
+
+	public MappedVkbBuffer(long vkBuffer, long offset, long size, long hostAddress) {
+		super(vkBuffer, offset, size);
+	}
+
+	public MappedVkbBuffer(long size) {
+		super(size);
+	}
+
+	@Override
+	public MappedVkbBuffer child(long childOffset, long childSize) {
+		validateChildRange(childOffset, childSize);
+		return new MappedVkbBuffer(vkBuffer, offset + childOffset, childSize, hostAddress + childOffset);
+	}
+
+	public ByteBuffer byteBuffer() {
+		return memByteBuffer(hostAddress, toIntExact(size));
 	}
 
 	/**
-	 * @param offset The offset, in bytes
-	 * @param rangeSize The size of the range, in bytes
-	 * @return a <i>MappedVkbBufferRange</i> that covers the bytes [offset, offset + rangeSize> from this buffer
+	 * Stores the given image in this buffer, using RGBA8 encoding. This is intended to be
+	 * used before <i>vkCmdCopyBufferToImage</i>.
+	 * @param image The image whose pixels should be stored in the buffer
 	 */
-	public MappedVkbBufferRange mappedRange(long offset, long rangeSize) {
-		if (offset + rangeSize > size) throw new IllegalArgumentException(offset + " + " + rangeSize + " > " + size);
-		return new MappedVkbBufferRange(this, offset, rangeSize);
+	public void encodeBufferedImage(BufferedImage image) {
+		long expectedSize = 4L * image.getWidth() * image.getHeight();
+		if (size != expectedSize) {
+			throw new IllegalArgumentException("Expected destination size to be " + expectedSize + ", but got " + size);
+		}
+
+		var byteBuffer = byteBuffer();
+		for (int y = 0; y < image.getHeight(); y++) {
+			for (int x = 0; x < image.getWidth(); x++) {
+				var pixel = new Color(image.getRGB(x, y), true);
+				byteBuffer.put((byte) pixel.getRed());
+				byteBuffer.put((byte) pixel.getGreen());
+				byteBuffer.put((byte) pixel.getBlue());
+				byteBuffer.put((byte) pixel.getAlpha());
+			}
+		}
+	}
+
+	/**
+	 * Decodes a <i>BufferedImage</i> with the given size from this buffer.
+	 * This method expects the image data to be in RGBA8 format.
+	 * @param width The width of the image
+	 * @param height The height of the image
+	 * @return The decoded image
+	 */
+	public BufferedImage decodeBufferedImage(int width, int height) {
+		long expectedSize = 4L * width * height;
+		if (size != expectedSize) {
+			throw new IllegalArgumentException("Expected source size to be " + expectedSize + ", but got " + size);
+		}
+
+		var image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+		var byteBuffer = byteBuffer();
+		for (int y = 0; y < image.getHeight(); y++) {
+			for (int x = 0; x < image.getWidth(); x++) {
+				var pixel = new Color(
+						byteBuffer.get() & 0xFF,
+						byteBuffer.get() & 0xFf,
+						byteBuffer.get() & 0xFF,
+						byteBuffer.get() & 0xFF
+				);
+				image.setRGB(x, y, pixel.getRGB());
+			}
+		}
+
+		return image;
 	}
 }

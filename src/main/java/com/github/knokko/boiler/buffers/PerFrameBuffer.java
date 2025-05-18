@@ -30,7 +30,7 @@ public class PerFrameBuffer {
 	 * The buffer/memory range that will be used by this per-frame buffer. Pieces of this range will be returned by
 	 * the {@link #allocate(long, long)} method.
 	 */
-	public final MappedVkbBufferRange range;
+	public final MappedVkbBuffer buffer;
 
 	private final Map<Integer, Long> limits = new HashMap<>();
 
@@ -38,10 +38,10 @@ public class PerFrameBuffer {
 
 	/**
 	 * Constructs a new per-frame buffer, which you should usually do only once.
-	 * @param range See {@link #range}
+	 * @param buffer See {@link #buffer}
 	 */
-	public PerFrameBuffer(MappedVkbBufferRange range) {
-		this.range = range;
+	public PerFrameBuffer(MappedVkbBuffer buffer) {
+		this.buffer = buffer;
 	}
 
 	/**
@@ -74,32 +74,32 @@ public class PerFrameBuffer {
 			nextLimit = currentOffset - 1;
 		}
 
-		if (nextLimit < 0) nextLimit = range.size();
+		if (nextLimit < 0) nextLimit = buffer.size;
 
 		currentLimit = nextLimit;
 		limits.put(frameIndex, currentOffset - 1);
 	}
 
 	private void align(long alignment) {
-		long fullOffset = range.offset() + currentOffset;
+		long fullOffset = buffer.offset + currentOffset;
 		if (fullOffset % alignment == 0L) return;
 
 		fullOffset = (1L + fullOffset / alignment) * alignment;
-		currentOffset = fullOffset - range.offset();
+		currentOffset = fullOffset - buffer.offset;
 	}
 
 	/**
-	 * Allocates {@code byteSize} bytes of memory, ensures that the {@link MappedVkbBufferRange#offset()} of the
+	 * Allocates {@code byteSize} bytes of memory, ensures that the {@link MappedVkbBuffer#offset} of the
 	 * returned buffer range will be a multiple of {@code alignment}
 	 * @param byteSize The size of the memory to claim, in bytes
 	 * @param alignment The alignment of the memory to claim, in bytes
 	 * @return The allocated buffer range
 	 */
-	public MappedVkbBufferRange allocate(long byteSize, long alignment) {
+	public MappedVkbBuffer allocate(long byteSize, long alignment) {
 		align(alignment);
 		long nextOffset = currentOffset + byteSize;
 
-		if (currentOffset > currentLimit && nextOffset > range.size()) {
+		if (currentOffset > currentLimit && nextOffset > buffer.size) {
 			currentOffset = 0L;
 			align(alignment);
 			if (currentOffset >= currentLimit) {
@@ -112,7 +112,8 @@ public class PerFrameBuffer {
 			throw new PerFrameOverflowException("PerFrameBuffer overflow case 1: byteSize is " + byteSize);
 		}
 
-		var result = range.buffer().mappedRange(range.offset() + currentOffset, byteSize);
+		// TODO double-check
+		var result = buffer.child(currentOffset, byteSize);
 		currentOffset = nextOffset;
 		return result;
 	}

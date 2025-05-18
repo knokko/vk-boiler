@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.BoilerInstance;
-import com.github.knokko.boiler.buffers.VkbBufferRange;
+import com.github.knokko.boiler.buffers.VkbBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
@@ -89,18 +89,18 @@ public class BoilerDescriptors {
 	}
 
 	/**
-	 * Creates an array of <i>VkDescriptorBufferInfo</i> structs that represent the given <i>bufferRanges</i>
+	 * Creates an array of <i>VkDescriptorBufferInfo</i> structs that represent the given {@code buffers}
 	 * @param stack The memory stack onto which the structs should be allocated
-	 * @param bufferRanges The buffer ranges that should be stored in the structs
+	 * @param buffers The buffer ranges that should be stored in the structs
 	 * @return The resulting <i>VkDescriptorBufferInfo</i>s
 	 */
 	@SuppressWarnings("resource")
-	public VkDescriptorBufferInfo.Buffer bufferInfo(MemoryStack stack, VkbBufferRange... bufferRanges) {
-		var descriptorBufferInfo = VkDescriptorBufferInfo.calloc(bufferRanges.length, stack);
-		for (int index = 0; index < bufferRanges.length; index++) {
-			descriptorBufferInfo.get(index).buffer(bufferRanges[index].buffer().vkBuffer());
-			descriptorBufferInfo.get(index).offset(bufferRanges[index].offset());
-			descriptorBufferInfo.get(index).range(bufferRanges[index].size());
+	public VkDescriptorBufferInfo.Buffer bufferInfo(MemoryStack stack, VkbBuffer... buffers) {
+		var descriptorBufferInfo = VkDescriptorBufferInfo.calloc(buffers.length, stack);
+		for (int index = 0; index < buffers.length; index++) {
+			descriptorBufferInfo.get(index).buffer(buffers[index].vkBuffer);
+			descriptorBufferInfo.get(index).offset(buffers[index].offset);
+			descriptorBufferInfo.get(index).range(buffers[index].size);
 		}
 
 		return descriptorBufferInfo;
@@ -113,11 +113,12 @@ public class BoilerDescriptors {
 	 * @param descriptorSet The descriptor set to which the buffer range should be written
 	 * @param binding The binding <b>and index</b> into <i>descriptorWrites</i>
 	 * @param type The <i>VkDescriptorType</i>
-	 * @param bufferRange The buffer (range) that should be written to the descriptor set
+	 * @param buffer The buffer that should be written to the descriptor set
 	 */
+	// TODO replace with writeUniformBuffer and writeStorageBuffer, and add index parameter
 	public void writeBuffer(
 			MemoryStack stack, VkWriteDescriptorSet.Buffer descriptorWrites,
-			long descriptorSet, int binding, int type, VkbBufferRange bufferRange
+			long descriptorSet, int binding, int type, VkbBuffer buffer
 	) {
 		var write = descriptorWrites.get(binding);
 		write.sType$Default();
@@ -126,7 +127,7 @@ public class BoilerDescriptors {
 		write.dstArrayElement(0);
 		write.descriptorCount(1);
 		write.descriptorType(type);
-		write.pBufferInfo(bufferInfo(stack, bufferRange));
+		write.pBufferInfo(bufferInfo(stack, buffer));
 	}
 
 	/**
@@ -137,6 +138,7 @@ public class BoilerDescriptors {
 	 * @param type The <i>VkDescriptorType</i>
 	 * @param image The value that should be assigned to the <i>pImageInfo</i> field
 	 */
+	// TODO create separate methods for samples, image, and sampled image
 	public void writeImage(
 			VkWriteDescriptorSet.Buffer descriptorWrites,
 			long descriptorSet, int binding, int type, VkDescriptorImageInfo.Buffer image

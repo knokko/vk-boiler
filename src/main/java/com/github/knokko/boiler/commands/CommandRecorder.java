@@ -1,9 +1,7 @@
 package com.github.knokko.boiler.commands;
 
 import com.github.knokko.boiler.BoilerInstance;
-import com.github.knokko.boiler.buffers.MappedVkbBufferRange;
 import com.github.knokko.boiler.buffers.VkbBuffer;
-import com.github.knokko.boiler.buffers.VkbBufferRange;
 import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.lwjgl.system.MemoryStack;
@@ -84,123 +82,57 @@ public class CommandRecorder {
 	}
 
 	/**
+	 * Calls <i>vkCmdCopyBuffer</i>, note that {@link #copyBuffer} should normally be more convenient.
+	 * @param source The source buffer
+	 * @param destination The destination buffer
+	 * @param copyStruct The struct that will be populated by this method, and passed to <b>vkCmdCopyBuffer</b>
+	 */
+	public void copyBufferWithStruct(VkbBuffer source, VkbBuffer destination, VkBufferCopy.Buffer copyStruct) {
+		if (source.size != destination.size) throw new IllegalArgumentException(
+				"Source size is " + source.size + ", but destination size is " + destination.size
+		);
+		copyStruct.srcOffset(source.offset);
+		copyStruct.dstOffset(destination.offset);
+		copyStruct.size(source.size);
+
+		vkCmdCopyBuffer(commandBuffer, source.vkBuffer, destination.vkBuffer, copyStruct);
+	}
+
+	/**
 	 * Calls <i>vkCmdCopyBuffer</i>
 	 * @param source The source buffer
-	 * @param vkDestBuffer The destination <i>VkBuffer</i>
-	 * @param destOffset The byte offset into the destination buffer
+	 * @param destination The destination buffer
 	 */
-	public void copyBuffer(VkbBufferRange source, long vkDestBuffer, long destOffset) {
-		var copyRegion = VkBufferCopy.calloc(1, stack);
-		copyRegion.srcOffset(source.offset());
-		copyRegion.dstOffset(destOffset);
-		copyRegion.size(source.size());
-
-		vkCmdCopyBuffer(commandBuffer, source.buffer().vkBuffer(), vkDestBuffer, copyRegion);
+	public void copyBuffer(VkbBuffer source, VkbBuffer destination) {
+		copyBufferWithStruct(source, destination, VkBufferCopy.calloc(1, stack));
 	}
 
 	/**
-	 * Repeatedly calls <i>vkCmdCopyBuffer</i> to copy between each pair in {@code sources} and {@code destinations}.
-	 * When convenient, you can use {@link #convert} if you want to copy an array of {@link VkbBuffer}s or
-	 * {@link MappedVkbBufferRange}s instead.
-	 * @param sources The source buffer ranges
-	 * @param destinations The destination buffer ranges
+	 * Calls <i>vkCmdCopyImage</i>, note that {@link #copyImage} should normally be more convenient
+	 * @param source The source image
+	 * @param destination The destination image
+	 * @param copyStruct The struct that will be populated by this method, and will be passed to <b>vkCmdCopyImage</b>
 	 */
-	public void bulkCopyBuffer(VkbBufferRange[] sources, VkbBufferRange[] destinations) {
-		if (sources.length != destinations.length) {
-			throw new IllegalArgumentException("Must have same #sources as #destinations");
-		}
-		var copyRegion = VkBufferCopy.calloc(1, stack);
+	public void copyImageWithStruct(VkbImage source, VkbImage destination, VkImageCopy.Buffer copyStruct) {
+		instance.images.subresourceLayers(copyStruct.srcSubresource(), source.aspectMask);
+		copyStruct.srcOffset().set(0, 0, 0);
+		instance.images.subresourceLayers(copyStruct.dstSubresource(), destination.aspectMask);
+		copyStruct.dstOffset().set(0, 0, 0);
+		copyStruct.extent().set(source.width, source.height, 1);
 
-		for (int index = 0; index < sources.length; index++) {
-			if (sources[index].size() > destinations[index].size()) {
-				throw new IllegalArgumentException("Each source must be at least as large as the corresponding destination");
-			}
-			copyRegion.srcOffset(sources[index].offset());
-			copyRegion.dstOffset(destinations[index].offset());
-			copyRegion.size(sources[index].size());
-			vkCmdCopyBuffer(commandBuffer, sources[index].buffer().vkBuffer(), destinations[index].buffer().vkBuffer(), copyRegion);
-		}
-	}
-
-	/**
-	 * Converts an array of {@link MappedVkbBufferRange}s to an array of {@link VkbBufferRange}s
-	 */
-	public VkbBufferRange[] convert(MappedVkbBufferRange[] ranges) {
-		VkbBufferRange[] result = new VkbBufferRange[ranges.length];
-		for (int index = 0; index < result.length; index++) result[index] = ranges[index].range();
-		return result;
-	}
-
-	/**
-	 * Converts an array of {@link VkbBuffer}s to an array of {@link VkbBufferRange}s
-	 */
-	public VkbBufferRange[] convert(VkbBuffer[] buffers) {
-		VkbBufferRange[] result = new VkbBufferRange[buffers.length];
-		for (int index = 0; index < result.length; index++) result[index] = buffers[index].fullRange();
-		return result;
-	}
-
-	/**
-	 * Calls <i>vkCmdCopyBuffer</i> to copy a <i>VkbBufferRange</i> to another <i>VkbBufferRange</i> with the same size.
-	 * @param source The source buffer range
-	 * @param destination The destination buffer range
-	 * @throws IllegalArgumentException When the buffer ranges don't have the same size
-	 */
-	public void copyBufferRanges(VkbBufferRange source, VkbBufferRange destination) {
-		if (destination.size() != source.size()) {
-			throw new IllegalArgumentException("Sizes differ: " + source.size() + " and " + destination.size());
-		}
-		copyBuffer(source, destination.buffer().vkBuffer(), destination.offset());
+		vkCmdCopyImage(
+				commandBuffer, source.vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				destination.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copyStruct
+		);
 	}
 
 	/**
 	 * Calls <i>vkCmdCopyImage</i>
 	 * @param source The source image
-	 * @param dest The destination image, must be at least as large as <i>source</i>
+	 * @param destination The destination image
 	 */
-	public void copyImage(VkbImage source, VkbImage dest) {
-		var imageCopyRegions = VkImageCopy.calloc(1, stack);
-		var copyRegion = imageCopyRegions.get(0);
-		instance.images.subresourceLayers(copyRegion.srcSubresource(), source.aspectMask());
-		copyRegion.srcOffset().set(0, 0, 0);
-		instance.images.subresourceLayers(copyRegion.dstSubresource(), dest.aspectMask());
-		copyRegion.dstOffset().set(0, 0, 0);
-		copyRegion.extent().set(source.width(), source.height(), 1);
-
-		vkCmdCopyImage(
-				commandBuffer, source.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				dest.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageCopyRegions
-		);
-	}
-
-	/**
-	 * Repeatedly calls <i>vkCmdCopyImage</i> to copy between each pair in {@code sources} and {@code destinations}
-	 * @param sources The source images
-	 * @param destinations The destination images
-	 */
-	public void bulkCopyImage(VkbImage[] sources, VkbImage[] destinations) {
-		if (sources.length != destinations.length) {
-			throw new IllegalArgumentException("Must have same #sources as #destinations");
-		}
-
-		var imageCopyRegions = VkImageCopy.calloc(1, stack);
-		var copyRegion = imageCopyRegions.get(0);
-		copyRegion.srcOffset().set(0, 0, 0);
-		copyRegion.dstOffset().set(0, 0, 0);
-
-		for (int index = 0; index < sources.length; index++) {
-			if (sources[index].width() > destinations[index].width() || sources[index].height() > destinations[index].height()) {
-				throw new IllegalArgumentException("Each source must be at least as large as the corresponding destination");
-			}
-			instance.images.subresourceLayers(copyRegion.srcSubresource(), sources[index].aspectMask());
-			instance.images.subresourceLayers(copyRegion.dstSubresource(), destinations[index].aspectMask());
-			copyRegion.extent().set(sources[index].width(), sources[index].height(), 1);
-
-			vkCmdCopyImage(
-					commandBuffer, sources[index].vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					destinations[index].vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageCopyRegions
-			);
-		}
+	public void copyImage(VkbImage source, VkbImage destination) {
+		copyImageWithStruct(source, destination, VkImageCopy.calloc(1, stack));
 	}
 
 	/**
