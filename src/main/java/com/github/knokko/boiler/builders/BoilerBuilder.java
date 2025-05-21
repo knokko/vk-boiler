@@ -75,7 +75,7 @@ public class BoilerBuilder {
 	BoilerXrBuilder xrBuilder;
 
 	String engineName = "VkBoiler";
-	int engineVersion = 5;
+	int engineVersion = 6;
 
 	final Set<String> desiredVulkanLayers = new HashSet<>();
 	final Set<String> requiredVulkanLayers = new HashSet<>();

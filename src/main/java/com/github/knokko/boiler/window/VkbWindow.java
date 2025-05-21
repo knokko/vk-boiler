@@ -229,6 +229,7 @@ public class VkbWindow {
 				assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilities2KHR(
 						instance.vkPhysicalDevice(), surfaceInfo, surfaceCapabilities2
 				), "GetPhysicalDeviceSurfaceCapabilities2KHR", "Present mode compatibility: modes");
+				ciSwapchain.minImageCount(max(desiredImageCount, surfaceCapabilities2.surfaceCapabilities().minImageCount()));
 
 				for (int index = 0; index < numCompatiblePresentModes; index++) {
 					int compatiblePresentMode = compatiblePresentModeBuffer.get(index);
