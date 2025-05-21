@@ -2,14 +2,10 @@ package com.github.knokko.boiler.images;
 
 import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.util.vma.VmaAllocationCreateInfo;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVmaSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_AUTO;
-import static org.lwjgl.util.vma.Vma.vmaCreateImage;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class BoilerImages {
@@ -21,124 +17,6 @@ public class BoilerImages {
 	 */
 	public BoilerImages(BoilerInstance instance) {
 		this.instance = instance;
-	}
-
-	/**
-	 * Creates an image and binds its memory using VMA. A corresponding image view is also created.
-	 * This method simply calls <i>create(...)</i> with some default values.
-	 * @param width The width of the image, in pixels
-	 * @param height The height of the image, in pixels
-	 * @param format The format of the image (e.g. <i>VK_FORMAT_R8G8B8A8_SRGB</i>)
-	 * @param usage The image usage flags (e.g. <i>VK_IMAGE_USAGE_COLOR_ATTACHMENT_OPTIMAL</i>)
-	 * @param aspectMask The image view aspect mask (usually <i>VK_IMAGE_ASPECT_COLOR_BIT</i>)
-	 * @param name The debug name of the image (when <i>VK_EXT_debug_utils</i> is enabled)
-	 * @return The wrapped image
-	 * @deprecated Use {@link ImageBuilder} instead
-	 */
-	@Deprecated
-	public VkbImage createSimple(int width, int height, int format, int usage, int aspectMask, String name) {
-		return create(
-				width, height, format, usage, aspectMask,
-				VK_SAMPLE_COUNT_1_BIT, 1, 1, true, name
-		);
-	}
-
-	/**
-	 * Creates a (raw) image with unbound memory and without image view
-	 * @param width The width of the image, in pixels
-	 * @param height The height of the image, in pixels
-	 * @param format The format of the image (e.g. <i>VK_FORMAT_R8G8B8A8_SRGB</i>)
-	 * @param usage The image usage flags (e.g. <i>VK_IMAGE_USAGE_COLOR_ATTACHMENT_OPTIMAL</i>)
-	 * @param aspectMask The image view aspect mask (usually <i>VK_IMAGE_ASPECT_COLOR_BIT</i>).
-	 *                   It will be passed to the <i>aspectMask</i> field of the resulting <i>VkbImage</i>,
-	 *                   but it won't be used in the actual image creation.
-	 * @param samples The sample count of the image (usually <i>VK_SAMPLE_COUNT_1_BIT</i>)
-	 * @param mipLevels The number of mip levels of the image (usually 1)
-	 * @param arrayLayers The number of array layers of the image (usually 1)
-	 * @param name The debug name of the image (when <i>VK_EXT_debug_utils</i> is enabled)
-	 * @return The wrapped image
-	 * @deprecated Use {@link ImageBuilder} instead
-	 */
-	@Deprecated
-	public VkbImage createRaw(
-			int width, int height, int format, int usage,
-			int samples, int mipLevels, int arrayLayers, int aspectMask, String name
-	) {
-		try (var stack = stackPush()) {
-			var ciImage = VkImageCreateInfo.calloc(stack);
-			ciImage.sType$Default();
-			ciImage.imageType(VK_IMAGE_TYPE_2D);
-			ciImage.format(format);
-			ciImage.extent().set(width, height, 1);
-			ciImage.mipLevels(mipLevels);
-			ciImage.arrayLayers(arrayLayers);
-			ciImage.samples(samples);
-			ciImage.tiling(VK_IMAGE_TILING_OPTIMAL);
-			ciImage.usage(usage);
-			ciImage.sharingMode(VK_SHARING_MODE_EXCLUSIVE);
-			ciImage.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
-
-			var pImage = stack.callocLong(1);
-			assertVkSuccess(vkCreateImage(
-					instance.vkDevice(), ciImage, null, pImage
-			), "CreateImage", name);
-			long image = pImage.get(0);
-			instance.debug.name(stack, image, VK_OBJECT_TYPE_IMAGE, name);
-
-			return new VkbImage(image, VK_NULL_HANDLE, VK_NULL_HANDLE, width, height, aspectMask);
-		}
-	}
-
-	/**
-	 * Creates an image using <i>vmaCreateImage</i>, and optionally an image view for the image.
-	 * @param width The width of the image, in pixels
-	 * @param height The height of the image, in pixels
-	 * @param format The format of the image (e.g. <i>VK_FORMAT_R8G8B8A8_SRGB</i>)
-	 * @param usage The image usage flags (e.g. <i>VK_IMAGE_USAGE_COLOR_ATTACHMENT_OPTIMAL</i>)
-	 * @param aspectMask The image view aspect mask (usually <i>VK_IMAGE_ASPECT_COLOR_BIT</i>).
-	 *                   It will be ignored when <i>createView</i> is false
-	 * @param samples The sample count of the image (usually <i>VK_SAMPLE_COUNT_1_BIT</i>)
-	 * @param mipLevels The number of mip levels of the image (usually 1)
-	 * @param arrayLayers The number of array layers of the image (usually 1)
-	 * @param createView Whether this method should also create a <i>VkImageView</i> for the image
-	 * @param name The debug name of the image (when <i>VK_EXT_debug_utils</i> is enabled)
-	 * @return The wrapped image
-	 * @deprecated Use {@link ImageBuilder} instead
-	 */
-	@Deprecated
-	public VkbImage create(
-			int width, int height, int format, int usage, int aspectMask,
-			int samples, int mipLevels, int arrayLayers, boolean createView, String name
-	) {
-		try (var stack = stackPush()) {
-			var ciImage = VkImageCreateInfo.calloc(stack);
-			ciImage.sType$Default();
-			ciImage.imageType(VK_IMAGE_TYPE_2D);
-			ciImage.format(format);
-			ciImage.extent().set(width, height, 1);
-			ciImage.mipLevels(mipLevels);
-			ciImage.arrayLayers(arrayLayers);
-			ciImage.samples(samples);
-			ciImage.tiling(VK_IMAGE_TILING_OPTIMAL);
-			ciImage.usage(usage);
-			ciImage.sharingMode(VK_SHARING_MODE_EXCLUSIVE);
-			ciImage.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
-
-			var ciAllocation = VmaAllocationCreateInfo.calloc(stack);
-			ciAllocation.usage(VMA_MEMORY_USAGE_AUTO);
-
-			var pImage = stack.callocLong(1);
-			var pAllocation = stack.callocPointer(1);
-			assertVmaSuccess(vmaCreateImage(
-					instance.vmaAllocator(), ciImage, ciAllocation, pImage, pAllocation, null
-			), "CreateImage", name);
-			long image = pImage.get(0);
-			long allocation = pAllocation.get(0);
-			instance.debug.name(stack, image, VK_OBJECT_TYPE_IMAGE, name);
-
-			long view = createView ? createView(image, format, aspectMask, mipLevels, arrayLayers, name) : 0L;
-			return new VkbImage(image, view, allocation, width, height, aspectMask);
-		}
 	}
 
 	/**
