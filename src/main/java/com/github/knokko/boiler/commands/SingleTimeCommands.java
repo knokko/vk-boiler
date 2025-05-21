@@ -100,7 +100,7 @@ public class SingleTimeCommands {
 	 * @return The command submission, which you can await.
 	 */
 	public synchronized FenceSubmission submit(String context, Consumer<CommandRecorder> recordCommands) {
-		try (var stack = stackPush()) {
+		try (var stack = stackPush()) { // TODO maybe return "this" instead?
 			if (lastSubmission != null) {
 				lastSubmission.awaitCompletion();
 				assertVkSuccess(vkResetCommandPool(

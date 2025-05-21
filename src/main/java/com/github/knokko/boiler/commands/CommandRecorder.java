@@ -21,6 +21,7 @@ import static org.lwjgl.vulkan.VK13.*;
  * This is a wrapper class for <i>VkCommandBuffer</i> that provides convenient methods to get rid of boilerplate code
  * for command buffer recording.
  */
+@SuppressWarnings("resource")
 public class CommandRecorder {
 
 	/**
@@ -82,15 +83,15 @@ public class CommandRecorder {
 	}
 
 	/**
-	 * Calls <i>vkCmdCopyBuffer</i>, note that {@link #copyBuffer} should normally be more convenient.
+	 * Calls <i>vkCmdCopyBuffer</i>
 	 * @param source The source buffer
 	 * @param destination The destination buffer
-	 * @param copyStruct The struct that will be populated by this method, and passed to <b>vkCmdCopyBuffer</b>
 	 */
-	public void copyBufferWithStruct(VkbBuffer source, VkbBuffer destination, VkBufferCopy.Buffer copyStruct) {
+	public void copyBuffer(VkbBuffer source, VkbBuffer destination) {
 		if (source.size != destination.size) throw new IllegalArgumentException(
 				"Source size is " + source.size + ", but destination size is " + destination.size
 		);
+		var copyStruct = VkBufferCopy.calloc(1, stack);
 		copyStruct.srcOffset(source.offset);
 		copyStruct.dstOffset(destination.offset);
 		copyStruct.size(source.size);
@@ -99,21 +100,58 @@ public class CommandRecorder {
 	}
 
 	/**
-	 * Calls <i>vkCmdCopyBuffer</i>
-	 * @param source The source buffer
-	 * @param destination The destination buffer
+	 * (Repeatedly) calls <b>vkCmdCopyBuffer</b> to copy {@code sources[i]} to {@code destinations[i]} for each
+	 * index {@code i} in {@code sources}. Up to 100 copies will be performed per call to <b>vkCmdCopyBuffer</b>.
+	 *
+	 * @param sources The source buffer (segments)
+	 * @param destinations The destination buffer (segments), must have the same length as {@code sources}
 	 */
-	public void copyBuffer(VkbBuffer source, VkbBuffer destination) {
-		copyBufferWithStruct(source, destination, VkBufferCopy.calloc(1, stack));
+	public void bulkCopyBuffers(VkbBuffer[] sources, VkbBuffer[] destinations) {
+		if (sources.length != destinations.length) throw new IllegalArgumentException(
+				"#sources (" + sources.length + ") must equal #destinations (" + destinations.length + ")"
+		);
+		if (sources.length == 0) return;
+
+		boolean useHeap = sources.length > 10;
+		int capacity = Math.min(sources.length, 100);
+
+		var copyStructs = useHeap ? VkBufferCopy.calloc(capacity) : VkBufferCopy.calloc(capacity, stack);
+		int structIndex = 0;
+		long sourceVkBuffer = sources[0].vkBuffer;
+		long destinationVkBuffer = destinations[0].vkBuffer;
+		for (int sourceIndex = 0; sourceIndex < sources.length; sourceIndex++) {
+			var source = sources[sourceIndex];
+			var destination = destinations[sourceIndex];
+
+			if (structIndex == capacity || source.vkBuffer != sourceVkBuffer || destination.vkBuffer != destinationVkBuffer) {
+				copyStructs.limit(structIndex);
+				vkCmdCopyBuffer(commandBuffer, sourceVkBuffer, destinationVkBuffer, copyStructs);
+				structIndex = 0;
+				sourceVkBuffer = source.vkBuffer;
+				destinationVkBuffer = destination.vkBuffer;
+			}
+
+			var copyStruct = copyStructs.get(structIndex);
+			copyStruct.srcOffset(source.offset);
+			copyStruct.dstOffset(destination.offset);
+			copyStruct.size(source.size);
+
+			structIndex += 1;
+		}
+
+		copyStructs.limit(structIndex);
+		vkCmdCopyBuffer(commandBuffer, sourceVkBuffer, destinationVkBuffer, copyStructs);
+
+		if (useHeap) copyStructs.free();
 	}
 
 	/**
-	 * Calls <i>vkCmdCopyImage</i>, note that {@link #copyImage} should normally be more convenient
+	 * Calls <i>vkCmdCopyImage</i>
 	 * @param source The source image
 	 * @param destination The destination image
-	 * @param copyStruct The struct that will be populated by this method, and will be passed to <b>vkCmdCopyImage</b>
 	 */
-	public void copyImageWithStruct(VkbImage source, VkbImage destination, VkImageCopy.Buffer copyStruct) {
+	public void copyImage(VkbImage source, VkbImage destination) {
+		var copyStruct = VkImageCopy.calloc(1, stack);
 		instance.images.subresourceLayers(copyStruct.srcSubresource(), source.aspectMask);
 		copyStruct.srcOffset().set(0, 0, 0);
 		instance.images.subresourceLayers(copyStruct.dstSubresource(), destination.aspectMask);
@@ -127,69 +165,99 @@ public class CommandRecorder {
 	}
 
 	/**
-	 * Calls <i>vkCmdCopyImage</i>
-	 * @param source The source image
-	 * @param destination The destination image
+	 * Repeatedly calls <b>vkCmdCopyImage</b> to copy {@code sources[i]} to {@code destinations[i]} for each index
+	 * {@code i}
+	 * @param sources The source images
+	 * @param destinations The destination images
 	 */
-	public void copyImage(VkbImage source, VkbImage destination) {
-		copyImageWithStruct(source, destination, VkImageCopy.calloc(1, stack));
+	public void bulkCopyImages(VkbImage[] sources, VkbImage[] destinations) {
+		var copyStruct = VkImageCopy.calloc(1, stack);
+		copyStruct.srcOffset().set(0, 0, 0);
+		copyStruct.dstOffset().set(0, 0, 0);
+
+		for (int index = 0; index < sources.length; index++) {
+			var source = sources[index];
+			instance.images.subresourceLayers(copyStruct.srcSubresource(), source.aspectMask);
+			instance.images.subresourceLayers(copyStruct.dstSubresource(), destinations[index].aspectMask);
+			copyStruct.extent().set(source.width, source.height, 1);
+			vkCmdCopyImage(
+					commandBuffer, source.vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					destinations[index].vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copyStruct
+			);
+		}
 	}
 
 	/**
 	 * Calls <i>vkCmdBlitImage</i>
 	 * @param filter The <i>VkFilter</i> that should be passed to <i>vkCmdBlitImage</i>
 	 * @param source The source image
-	 * @param dest The destination image
+	 * @param destination The destination image
 	 */
-	@SuppressWarnings("resource")
-	public void blitImage(int filter, VkbImage source, VkbImage dest) {
+	public void blitImage(int filter, VkbImage source, VkbImage destination) {
 		var imageBlitRegions = VkImageBlit.calloc(1, stack);
 		var blitRegion = imageBlitRegions.get(0);
-		instance.images.subresourceLayers(blitRegion.srcSubresource(), source.aspectMask());
+		instance.images.subresourceLayers(blitRegion.srcSubresource(), source.aspectMask);
 		blitRegion.srcOffsets().get(0).set(0, 0, 0);
-		blitRegion.srcOffsets().get(1).set(source.width(), source.height(), 1);
-		instance.images.subresourceLayers(blitRegion.dstSubresource(), dest.aspectMask());
+		blitRegion.srcOffsets().get(1).set(source.width, source.height, 1);
+		instance.images.subresourceLayers(blitRegion.dstSubresource(), destination.aspectMask);
 		blitRegion.dstOffsets().get(0).set(0, 0, 0);
-		blitRegion.dstOffsets().get(1).set(dest.width(), dest.height(), 1);
+		blitRegion.dstOffsets().get(1).set(destination.width, destination.height, 1);
 
 		vkCmdBlitImage(
-				commandBuffer, source.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				dest.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageBlitRegions, filter
+				commandBuffer, source.vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				destination.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageBlitRegions, filter
 		);
+	}
+
+	public void bulkBlitImages(int filter, VkbImage[] sources, VkbImage[] destinations) {
+		var imageBlitRegions = VkImageBlit.calloc(1, stack);
+		var blitRegion = imageBlitRegions.get(0);
+		blitRegion.srcOffsets().get(0).set(0, 0, 0);
+		blitRegion.dstOffsets().get(0).set(0, 0, 0);
+
+		for (int index = 0; index < sources.length; index++) {
+			var source = sources[index];
+			instance.images.subresourceLayers(blitRegion.srcSubresource(), source.aspectMask);
+			blitRegion.srcOffsets().get(1).set(source.width, source.height, 1);
+
+			var destination = destinations[index];
+			instance.images.subresourceLayers(blitRegion.dstSubresource(), destination.aspectMask);
+			blitRegion.dstOffsets().get(1).set(destination.width, destination.height, 1);
+
+			vkCmdBlitImage(
+					commandBuffer, source.vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					destination.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageBlitRegions, filter
+			);
+		}
 	}
 
 	/**
 	 * Calls <i>vkCmdCopyImageToBuffer</i>
 	 * @param image The source image
-	 * @param bufferRange The destination buffer range. The size of the buffer range is ignored because the used size is
-	 * 	 *                    implicitly determined by the image format and extent
+	 * @param buffer The destination buffer
 	 */
-	public void copyImageToBuffer(VkbImage image, VkbBufferRange bufferRange) {
+	public void copyImageToBuffer(VkbImage image, VkbBuffer buffer) {
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
 		var copyRegion = bufferCopyRegions.get(0);
-		copyRegion.bufferOffset(bufferRange.offset());
+		copyRegion.bufferOffset(buffer.offset);
 		copyRegion.bufferRowLength(0);
 		copyRegion.bufferImageHeight(0);
-		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask());
+		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask);
 		copyRegion.imageOffset().set(0, 0, 0);
-		copyRegion.imageExtent().set(image.width(), image.height(), 1);
+		copyRegion.imageExtent().set(image.width, image.height, 1);
 
 		vkCmdCopyImageToBuffer(
-				commandBuffer, image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, bufferRange.buffer().vkBuffer(), bufferCopyRegions
+				commandBuffer, image.vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer.vkBuffer, bufferCopyRegions
 		);
 	}
 
 	/**
-	 * Repeatedly calls <i>vkCmdCopyImageToBuffer</i> to copy each image in {@code images} to the corresponding buffer
+	 * (Repeatedly) calls <i>vkCmdCopyImageToBuffer</i> to copy each image in {@code images} to the corresponding buffer
 	 * in {@code buffers} with the same index.
-	 * When convenient, you can use {@link #convert} if you want to copy to an array of {@link VkbBuffer}s or
-	 * {@link MappedVkbBufferRange}s instead.
 	 * @param images The source images
 	 * @param buffers The destination buffers
 	 */
-	public void bulkCopyImageToBuffer(VkbImage[] images, VkbBufferRange[] buffers) {
-		if (images.length != buffers.length) throw new IllegalArgumentException("#images must be equal to #buffers");
-
+	public void bulkCopyImageToBuffers(VkbImage[] images, VkbBuffer[] buffers) {
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
 		var copyRegion = bufferCopyRegions.get(0);
 		copyRegion.bufferRowLength(0);
@@ -197,13 +265,13 @@ public class CommandRecorder {
 		copyRegion.imageOffset().set(0, 0, 0);
 
 		for (int index = 0; index < images.length; index++) {
-			copyRegion.bufferOffset(buffers[index].offset());
-			instance.images.subresourceLayers(copyRegion.imageSubresource(), images[index].aspectMask());
-			copyRegion.imageExtent().set(images[index].width(), images[index].height(), 1);
+			copyRegion.bufferOffset(buffers[index].offset);
+			instance.images.subresourceLayers(copyRegion.imageSubresource(), images[index].aspectMask);
+			copyRegion.imageExtent().set(images[index].width, images[index].height, 1);
 
 			vkCmdCopyImageToBuffer(
-					commandBuffer, images[index].vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					buffers[index].buffer().vkBuffer(), bufferCopyRegions
+					commandBuffer, images[index].vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					buffers[index].vkBuffer, bufferCopyRegions
 			);
 		}
 	}
@@ -211,33 +279,31 @@ public class CommandRecorder {
 	/**
 	 * Calls <i>vkCmdCopyBufferToImage</i>
 	 * @param image The destination image
-	 * @param bufferRange The source buffer range. The size of the buffer range is ignored because the used size is
-	 *                    implicitly determined by the image format and extent
+	 * @param buffer The source buffer (segment)
 	 */
-	public void copyBufferToImage(VkbImage image, VkbBufferRange bufferRange) {
+	public void copyBufferToImage(VkbImage image, VkbBuffer buffer) {
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
 		var copyRegion = bufferCopyRegions.get(0);
-		copyRegion.bufferOffset(bufferRange.offset());
+		copyRegion.bufferOffset(buffer.offset);
 		copyRegion.bufferRowLength(0);
 		copyRegion.bufferImageHeight(0);
-		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask());
+		instance.images.subresourceLayers(copyRegion.imageSubresource(), image.aspectMask);
 		copyRegion.imageOffset().set(0, 0, 0);
-		copyRegion.imageExtent().set(image.width(), image.height(), 1);
+		copyRegion.imageExtent().set(image.width, image.height, 1);
 
 		vkCmdCopyBufferToImage(
-				commandBuffer, bufferRange.buffer().vkBuffer(), image.vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferCopyRegions
+				commandBuffer, buffer.vkBuffer, image.vkImage,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferCopyRegions
 		);
 	}
 
 	/**
 	 * Repeatedly calls <i>vkCmdCopyBufferToImage</i> to copy each buffer in {@code buffers} to the corresponding image
 	 * in {@code images} with the same index.
-	 * When convenient, you can use {@link #convert} if you want to copy an array of {@link VkbBuffer}s or
-	 * {@link MappedVkbBufferRange}s instead.
 	 * @param images The destination images
 	 * @param buffers The source buffers
 	 */
-	public void bulkCopyBufferToImage(VkbImage[] images, VkbBufferRange[] buffers) {
+	public void bulkCopyBufferToImage(VkbImage[] images, VkbBuffer[] buffers) {
 		if (images.length != buffers.length) throw new IllegalArgumentException("#images must be equal to #buffers");
 
 		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
@@ -247,12 +313,12 @@ public class CommandRecorder {
 		copyRegion.imageOffset().set(0, 0, 0);
 
 		for (int index = 0; index < images.length; index++) {
-			copyRegion.bufferOffset(buffers[index].offset());
-			instance.images.subresourceLayers(copyRegion.imageSubresource(), images[index].aspectMask());
-			copyRegion.imageExtent().set(images[index].width(), images[index].height(), 1);
+			copyRegion.bufferOffset(buffers[index].offset);
+			instance.images.subresourceLayers(copyRegion.imageSubresource(), images[index].aspectMask);
+			copyRegion.imageExtent().set(images[index].width, images[index].height, 1);
 
 			vkCmdCopyBufferToImage(
-					commandBuffer, buffers[index].buffer().vkBuffer(), images[index].vkImage(),
+					commandBuffer, buffers[index].vkBuffer, images[index].vkImage,
 					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferCopyRegions
 			);
 		}
@@ -260,20 +326,20 @@ public class CommandRecorder {
 
 	/**
 	 * Uses <i>vkCmdPipelineBarrier</i> to record a buffer barrier.
-	 * @param bufferRange The buffer range that should be covered by the barrier
+	 * @param buffer The buffer (segment) that should be covered by the barrier
 	 * @param srcUsage The <i>srcAccessMask</i> and <i>srcStageMask</i>
 	 * @param dstUsage The <i>dstAccessMask</i> and <i>dstStageMask</i>
 	 */
-	public void bufferBarrier(VkbBufferRange bufferRange, ResourceUsage srcUsage, ResourceUsage dstUsage) {
+	public void bufferBarrier(VkbBuffer buffer, ResourceUsage srcUsage, ResourceUsage dstUsage) {
 		var bufferBarrier = VkBufferMemoryBarrier.calloc(1, stack);
 		bufferBarrier.sType$Default();
 		bufferBarrier.srcAccessMask(srcUsage.accessMask());
 		bufferBarrier.dstAccessMask(dstUsage.accessMask());
 		bufferBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
 		bufferBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-		bufferBarrier.buffer(bufferRange.buffer().vkBuffer());
-		bufferBarrier.offset(bufferRange.offset());
-		bufferBarrier.size(bufferRange.size());
+		bufferBarrier.buffer(buffer.vkBuffer);
+		bufferBarrier.offset(buffer.offset);
+		bufferBarrier.size(buffer.size);
 
 		vkCmdPipelineBarrier(
 				commandBuffer, srcUsage.stageMask(), dstUsage.stageMask(),
@@ -282,14 +348,13 @@ public class CommandRecorder {
 	}
 
 	/**
-	 * Repeatedly calls <i>vkCmdPipelineBarrier</i> to record a buffer barrier for each buffer in {@code buffers}.
-	 * When convenient, you can use {@link #convert} if you want to create barriers for an array of {@link VkbBuffer}s
-	 * or {@link MappedVkbBufferRange}s instead.
+	 * (Repeatedly) calls <b>vkCmdPipelineBarrier</b> to record a buffer barrier for each buffer in {@code buffers}.
+	 * Up to 100 buffers will be targeted per call to <b>vkCmdPipelineBarrier</b>.
 	 * @param srcUsage The <i>srcAccessMask</i> and <i>srcStageMask</i>
 	 * @param dstUsage The <i>dstAccessMask</i> and <i>dstStageMask</i>
-	 * @param buffers The buffer ranges for which a pipeline barrier should be recorded
+	 * @param buffers The buffer (segments) for which a pipeline barrier should be recorded
 	 */
-	public void bulkBufferBarrier(ResourceUsage srcUsage, ResourceUsage dstUsage, VkbBufferRange... buffers) {
+	public void bulkBufferBarrier(ResourceUsage srcUsage, ResourceUsage dstUsage, VkbBuffer... buffers) {
 		boolean useHeap = buffers.length > 10;
 		int capacity = Math.min(buffers.length, 100);
 		var pBufferBarriers = useHeap ? VkBufferMemoryBarrier.calloc(capacity) : VkBufferMemoryBarrier.calloc(capacity, stack);
@@ -305,11 +370,11 @@ public class CommandRecorder {
 
 		int index = 0;
 		int total = 0;
-		for (VkbBufferRange bufferRange : buffers) {
+		for (VkbBuffer buffer : buffers) {
 			var bufferBarrier = pBufferBarriers.get(index);
-			bufferBarrier.buffer(bufferRange.buffer().vkBuffer());
-			bufferBarrier.offset(bufferRange.offset());
-			bufferBarrier.size(bufferRange.size());
+			bufferBarrier.buffer(buffer.vkBuffer);
+			bufferBarrier.offset(buffer.offset);
+			bufferBarrier.size(buffer.size);
 
 			index += 1;
 			total += 1;
@@ -360,8 +425,8 @@ public class CommandRecorder {
 		pImageBarrier.newLayout(newUsage.imageLayout());
 		pImageBarrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
 		pImageBarrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-		pImageBarrier.image(image.vkImage());
-		instance.images.subresourceRange(stack, pImageBarrier.subresourceRange(), image.aspectMask());
+		pImageBarrier.image(image.vkImage);
+		instance.images.subresourceRange(stack, pImageBarrier.subresourceRange(), image.aspectMask);
 
 		vkCmdPipelineBarrier(
 				commandBuffer, oldUsage != null ? oldUsage.stageMask() : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -396,8 +461,8 @@ public class CommandRecorder {
 		int total = 0;
 		for (VkbImage image : images) {
 			var pImageBarrier = pImageBarriers.get(index);
-			pImageBarrier.image(image.vkImage());
-			instance.images.subresourceRange(stack, pImageBarrier.subresourceRange(), image.aspectMask());
+			pImageBarrier.image(image.vkImage);
+			instance.images.subresourceRange(stack, pImageBarrier.subresourceRange(), image.aspectMask);
 
 			index += 1;
 			total += 1;
@@ -537,25 +602,25 @@ public class CommandRecorder {
 	 * Calls <i>vkCmdBindVertexBuffers</i> using the given {@code firstBinding} such that {@code pBuffers} and
 	 * {@code pOffsets} get the vertex buffers and offsets of {@code vertexBuffers}
 	 * @param firstBinding Will be propagated to {@link VK10#vkCmdBindVertexBuffers}
-	 * @param vertexBuffers The vertex buffer ranges that should be propagated to {@code pBuffers} and {@code pOffsets}
+	 * @param vertexBuffers The vertex buffer (segments) that should be propagated to {@code pBuffers} and {@code pOffsets}
 	 */
-	public void bindVertexBuffers(int firstBinding, VkbBufferRange... vertexBuffers) {
+	public void bindVertexBuffers(int firstBinding, VkbBuffer... vertexBuffers) {
 		var pBuffers = stack.callocLong(vertexBuffers.length);
 		var pOffsets = stack.callocLong(vertexBuffers.length);
 		for (int index = 0; index < vertexBuffers.length; index++) {
-			pBuffers.put(index, vertexBuffers[index].buffer().vkBuffer());
-			pOffsets.put(index, vertexBuffers[index].offset());
+			pBuffers.put(index, vertexBuffers[index].vkBuffer);
+			pOffsets.put(index, vertexBuffers[index].offset);
 		}
 		vkCmdBindVertexBuffers(commandBuffer, firstBinding, pBuffers, pOffsets);
 	}
 
 	/**
 	 * Uses <i>vkCmdBindIndexBuffer</i> to bind the given index buffer range, with the given {@code indexType}
-	 * @param indexBuffer The index buffer range to be bound
+	 * @param indexBuffer The index buffer (segment) to be bound
 	 * @param indexType Will be propagated to {@link VK10#vkCmdBindIndexBuffer}
 	 */
-	public void bindIndexBuffer(VkbBufferRange indexBuffer, int indexType) {
-		vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer().vkBuffer(), indexBuffer.offset(), indexType);
+	public void bindIndexBuffer(VkbBuffer indexBuffer, int indexType) {
+		vkCmdBindIndexBuffer(commandBuffer, indexBuffer.vkBuffer, indexBuffer.offset, indexType);
 	}
 
 	/**

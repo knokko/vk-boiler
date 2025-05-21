@@ -54,10 +54,11 @@ public class AcquiredImage {
 	 * @return The wrapped swapchain image handle
 	 */
 	public VkbImage image() {
-		return new VkbImage(
-				swapchain.images[index], swapchain.imageViews[index], VK_NULL_HANDLE,
-				swapchain.width, swapchain.height, VK_IMAGE_ASPECT_COLOR_BIT
+		VkbImage image = new VkbImage(
+				swapchain.images[index], swapchain.width, swapchain.height, VK_IMAGE_ASPECT_COLOR_BIT
 		);
+		image.vkImageView = swapchain.imageViews[index];
+		return image;
 	}
 
 	/**
