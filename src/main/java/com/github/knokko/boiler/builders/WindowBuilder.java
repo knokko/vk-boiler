@@ -172,6 +172,13 @@ public class WindowBuilder {
 		if (title == null) throw new IllegalStateException("Missing .title(...)");
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+		// If I try this on Wayland, it will crash with:
+		// xdg_wm_base@33: error 4: wl_surface@26 already has a buffer committed
+		// hideUntilFirstFrame doesn't make much sense on Wayland anyway,
+		// since Wayland always hides windows until the first frame is presented
+		if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) hideUntilFirstFrame = false;
+
 		glfwWindowHint(GLFW_VISIBLE, hideUntilFirstFrame ? GLFW_FALSE : GLFW_TRUE);
 		glfwWindow = glfwCreateWindow(width, height, title, 0L, 0L);
 		if (glfwWindow == 0) {

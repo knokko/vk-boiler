@@ -278,7 +278,7 @@ public class VkbWindow {
 		cleaner.onChangeCurrentSwapchain(oldSwapchain, currentSwapchain);
 	}
 
-	private void maybeRecreateSwapchain(int presentMode) {
+	void maybeRecreateSwapchain(int presentMode) {
 		int oldWidth = width;
 		int oldHeight = height;
 

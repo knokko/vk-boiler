@@ -5,8 +5,7 @@ import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import org.lwjgl.system.MemoryStack;
 
 import static java.lang.Thread.sleep;
-import static org.lwjgl.glfw.GLFW.glfwPollEvents;
-import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
+import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 
 /**
@@ -22,6 +21,7 @@ public abstract class WindowRenderLoop {
 	protected int presentMode;
 	private volatile boolean didStart;
 	volatile Thread thread;
+	private boolean didResize;
 
 	/**
 	 * @param window The window
@@ -58,9 +58,13 @@ public abstract class WindowRenderLoop {
 
 				try (var stack = stackPush()) {
 					AcquiredImage acquiredImage;
-					if (acquireSwapchainImageWithFence)
+					if (didResize) {
+						window.maybeRecreateSwapchain(presentMode);
+						didResize = false;
+					}
+					if (acquireSwapchainImageWithFence) {
 						acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
-					else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);
+					} else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);
 					if (acquiredImage == null) {
 						//noinspection BusyWait
 						sleep(100);
@@ -105,7 +109,13 @@ public abstract class WindowRenderLoop {
 		if (didStart) throw new IllegalStateException("This loop already started");
 		didStart = true;
 
-		if (window.windowLoop == null) this.run();
+		if (window.windowLoop == null) {
+			//noinspection resource
+			glfwSetFramebufferSizeCallback(
+					window.glfwWindow, (glfwWindow, width, height) -> this.didResize = true
+			);
+			this.run();
+		}
 		else {
 			this.thread = new Thread(this::run);
 			thread.setDaemon(true); // Ensure that the render thread dies when the main thread dies (unexpectedly)
