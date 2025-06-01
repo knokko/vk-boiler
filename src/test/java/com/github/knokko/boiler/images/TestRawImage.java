@@ -18,15 +18,14 @@ public class TestRawImage {
 
 		var image = new ImageBuilder(
 				"RawImage", 12, 34
-		).texture().doNotBindMemory().doNotCreateView().build(instance);
-		assertNotEquals(VK_NULL_HANDLE, image.vkImage());
-		assertEquals(VK_NULL_HANDLE, image.vkImageView());
-		assertEquals(VK_NULL_HANDLE, image.vmaAllocation());
-		assertEquals(12, image.width());
-		assertEquals(34, image.height());
-		assertEquals(VK_IMAGE_ASPECT_COLOR_BIT, image.aspectMask());
+		).texture().doNotBindMemory().doNotCreateView().createRaw(instance);
+		assertNotEquals(VK_NULL_HANDLE, image.vkImage);
+		assertEquals(VK_NULL_HANDLE, image.vkImageView);
+		assertEquals(12, image.width);
+		assertEquals(34, image.height);
+		assertEquals(VK_IMAGE_ASPECT_COLOR_BIT, image.aspectMask);
 
-		image.destroy(instance);
+		vkDestroyImage(instance.vkDevice(), image.vkImage, null);
 		instance.destroyInitialObjects();
 	}
 }

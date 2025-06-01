@@ -14,6 +14,7 @@ import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkPhysicalDevice;
+import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -41,6 +42,7 @@ public class BoilerInstance {
 	public final int apiVersion;
 	private final VkInstance vkInstance;
 	private final VkPhysicalDevice vkPhysicalDevice;
+	public final VkPhysicalDeviceProperties deviceProperties;
 	private final VkDevice vkDevice;
 	public final Set<String> explicitLayers, instanceExtensions, deviceExtensions;
 	private final QueueFamilies queueFamilies;
@@ -93,6 +95,8 @@ public class BoilerInstance {
 		this.debug = new BoilerDebug(this);
 
 		for (var window : windows) window.setInstance(this);
+		this.deviceProperties = VkPhysicalDeviceProperties.calloc();
+		vkGetPhysicalDeviceProperties(vkPhysicalDevice, deviceProperties);
 	}
 
 	private void checkDestroyed() {
@@ -203,6 +207,7 @@ public class BoilerInstance {
 		vkDestroyInstance(vkInstance, null);
 		if (xr != null) xr.destroyInitialObjects();
 
+		deviceProperties.free();
 		destroyed = true;
 	}
 }

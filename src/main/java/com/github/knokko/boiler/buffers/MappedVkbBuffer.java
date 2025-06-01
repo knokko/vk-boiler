@@ -2,10 +2,10 @@ package com.github.knokko.boiler.buffers;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.nio.ByteBuffer;
+import java.nio.*;
 
 import static java.lang.Math.toIntExact;
-import static org.lwjgl.system.MemoryUtil.memByteBuffer;
+import static org.lwjgl.system.MemoryUtil.*;
 
 public class MappedVkbBuffer extends VkbBuffer {
 
@@ -13,6 +13,7 @@ public class MappedVkbBuffer extends VkbBuffer {
 
 	public MappedVkbBuffer(long vkBuffer, long offset, long size, long hostAddress) {
 		super(vkBuffer, offset, size);
+		this.hostAddress = hostAddress;
 	}
 
 	public MappedVkbBuffer(long size) {
@@ -27,6 +28,30 @@ public class MappedVkbBuffer extends VkbBuffer {
 
 	public ByteBuffer byteBuffer() {
 		return memByteBuffer(hostAddress, toIntExact(size));
+	}
+
+	public ShortBuffer shortBuffer() {
+		return memShortBuffer(hostAddress, toIntExact(size / Short.BYTES));
+	}
+
+	public CharBuffer charBuffer() {
+		return memCharBuffer(hostAddress, toIntExact(size / Character.BYTES));
+	}
+
+	public IntBuffer intBuffer() {
+		return memIntBuffer(hostAddress, toIntExact(size / Integer.BYTES));
+	}
+
+	public FloatBuffer floatBuffer() {
+		return memFloatBuffer(hostAddress, toIntExact(size / Float.BYTES));
+	}
+
+	public LongBuffer longBuffer() {
+		return memLongBuffer(hostAddress, toIntExact(size / Long.BYTES));
+	}
+
+	public DoubleBuffer doubleBuffer() {
+		return memDoubleBuffer(hostAddress, toIntExact(size / Double.BYTES));
 	}
 
 	/**

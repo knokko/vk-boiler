@@ -30,6 +30,19 @@ public class VkbBuffer {
 		this.size = size;
 	}
 
+	@Override
+	public boolean equals(Object other) {
+		if (other instanceof VkbBuffer) {
+			VkbBuffer buffer = (VkbBuffer) other;
+			return vkBuffer == buffer.vkBuffer && offset == buffer.offset && size == buffer.size;
+		} else return false;
+	}
+
+	@Override
+	public int hashCode() {
+		return (int) vkBuffer + 13 * (int) offset - 31 * (int) size;
+	}
+
 	/**
 	 * Creates an uninitialized {@link VkbBuffer} that will have the given size (in bytes)
 	 */

@@ -1,9 +1,9 @@
 package com.github.knokko.boiler.pipelines;
 
-import com.github.knokko.boiler.buffers.MappedVkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.images.ImageBuilder;
+import com.github.knokko.boiler.memory.MemoryBlockBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
@@ -30,12 +30,13 @@ public class TestDynamicRendering {
 		int height = 50;
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 
-		var image = new ImageBuilder("TestColorAttachment", width, height).format(format).setUsage(
+		var builder = new MemoryBlockBuilder(instance, "Memory");
+		var image = builder.addImage(new ImageBuilder("TestColorAttachment", width, height).format(format).setUsage(
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-		).build(instance);
-		MappedVkbBuffer destBuffer = instance.buffers.createMapped(
-				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
-		);
+		));
+		var destinationBuffer = builder.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var memory = builder.allocate(true);
+
 		long pipelineLayout;
 		long graphicsPipeline;
 		try (var stack = stackPush()) {
@@ -67,7 +68,7 @@ public class TestDynamicRendering {
 			recorder.transitionLayout(image, null, ResourceUsage.COLOR_ATTACHMENT_WRITE);
 
 			var colorAttachments = recorder.singleColorRenderingAttachment(
-					image.vkImageView(), VK_ATTACHMENT_LOAD_OP_CLEAR,
+					image.vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 					VK_ATTACHMENT_STORE_OP_STORE, rgb(255, 0, 255)
 			);
 			recorder.beginSimpleDynamicRendering(width, height, colorAttachments, null, null);
@@ -76,23 +77,22 @@ public class TestDynamicRendering {
 			recorder.endDynamicRendering();
 
 			recorder.transitionLayout(image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.TRANSFER_SOURCE);
-			recorder.copyImageToBuffer(image, destBuffer.fullRange());
+			recorder.copyImageToBuffer(image, destinationBuffer);
 		}).awaitCompletion();
 		commands.destroy();
 
-		assertEquals((byte) 255, memGetByte(destBuffer.hostAddress()));
-		assertEquals((byte) 0, memGetByte(destBuffer.hostAddress() + 1));
-		assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 2));
-		assertEquals((byte) 255, memGetByte(destBuffer.hostAddress() + 3));
+		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress));
+		assertEquals((byte) 0, memGetByte(destinationBuffer.hostAddress + 1));
+		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress + 2));
+		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress + 3));
 
-		long centerAddress = destBuffer.hostAddress() + 4 * (width / 2 + width * (height / 2));
+		long centerAddress = destinationBuffer.hostAddress + 4 * (width / 2 + width * (height / 2));
 		assertEquals((byte) 255, memGetByte(centerAddress));
 		assertEquals((byte) 0, memGetByte(centerAddress + 1));
 		assertEquals((byte) 0, memGetByte(centerAddress + 2));
 		assertEquals((byte) 255, memGetByte(centerAddress + 3));
 
-		image.destroy(instance);
-		destBuffer.destroy(instance);
+		memory.free(instance);
 		vkDestroyPipeline(instance.vkDevice(), graphicsPipeline, null);
 		vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
 
@@ -128,12 +128,12 @@ public class TestDynamicRendering {
 		int width = 20;
 		int height = 30;
 
-		var image = new ImageBuilder(
+		var builder = new MemoryBlockBuilder(instance, "Memory");
+		var image = builder.addImage(new ImageBuilder(
 				"DepthImage", width, height
-		).depthAttachment(VK_FORMAT_D32_SFLOAT).addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).build(instance);
-		var destBuffer = instance.buffers.createMapped(
-				4 * width * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "DestBuffer"
-		);
+		).depthAttachment(VK_FORMAT_D32_SFLOAT).addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
+		var destinationBuffer = builder.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var memory = builder.allocate(false);
 
 		var commands = new SingleTimeCommands(instance);
 		commands.submit("DepthCommands", recorder -> {
@@ -143,7 +143,7 @@ public class TestDynamicRendering {
 			);
 
 			var depthAttachment = recorder.simpleDepthRenderingAttachment(
-					image.vkImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+					image.vkImageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 					VK_ATTACHMENT_STORE_OP_STORE, 0.75f, 0
 			);
 			recorder.beginSimpleDynamicRendering(width, height, null, depthAttachment, null);
@@ -153,14 +153,13 @@ public class TestDynamicRendering {
 					image, ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL),
 					ResourceUsage.TRANSFER_SOURCE
 			);
-			recorder.copyImageToBuffer(image, destBuffer.fullRange());
+			recorder.copyImageToBuffer(image, destinationBuffer);
 		}).awaitCompletion();
 		commands.destroy();
 
-		assertEquals(0.75f, memGetFloat(destBuffer.hostAddress()));
+		assertEquals(0.75f, memGetFloat(destinationBuffer.hostAddress));
 
-		destBuffer.destroy(instance);
-		image.destroy(instance);
+		memory.free(instance);
 		instance.destroyInitialObjects();
 	}
 }

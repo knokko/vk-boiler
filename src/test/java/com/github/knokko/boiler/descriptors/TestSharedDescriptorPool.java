@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
+import com.github.knokko.boiler.memory.MemoryBlockBuilder;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkDescriptorSetLayoutBinding;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
@@ -38,8 +39,16 @@ public class TestSharedDescriptorPool {
 				VK_API_VERSION_1_0, "TestEmptySharedDescriptorPool", 1
 		).validation().forbidValidationErrors().build();
 
-		var uniformBuffer = instance.buffers.create(1234L, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "Uniform");
-		var storageBuffer = instance.buffers.create(456L, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Storage");
+		var memoryBuilder = new MemoryBlockBuilder(instance, "Memory");
+		var uniformBuffer = memoryBuilder.addBuffer(
+				1234L, instance.deviceProperties.limits().minUniformBufferOffsetAlignment(),
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+		);
+		var storageBuffer = memoryBuilder.addBuffer(
+				456L, instance.deviceProperties.limits().minStorageBufferOffsetAlignment(),
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+		);
+		var memory = memoryBuilder.allocate(false);
 
 		VkbDescriptorSetLayout uniformBufferLayout, combinedLayout;
 		try (var stack = stackPush()) {
@@ -73,7 +82,7 @@ public class TestSharedDescriptorPool {
 		try (var stack = stackPush()) {
 			var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
 			for (int index = 0; index < 2; index++) {
-				instance.descriptors.writeBuffer(stack, descriptorWrites, uniformSets[index], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer.fullRange());
+				instance.descriptors.writeBuffer(stack, descriptorWrites, uniformSets[index], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer);
 				vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
 			}
 
@@ -81,17 +90,16 @@ public class TestSharedDescriptorPool {
 			for (int index = 0; index < 6; index++) {
 				long combinedSet = index < 4 ? combinedSets1[index] : combinedSets2[index - 4];
 				for (int binding : new int[] { 0, 2, 3 }) {
-					instance.descriptors.writeBuffer(stack, descriptorWrites, combinedSet, binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, storageBuffer.fullRange());
+					instance.descriptors.writeBuffer(stack, descriptorWrites, combinedSet, binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, storageBuffer);
 				}
-				instance.descriptors.writeBuffer(stack, descriptorWrites, combinedSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer.fullRange());
+				instance.descriptors.writeBuffer(stack, descriptorWrites, combinedSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer);
 			}
 		}
 
 		pool.destroy(instance);
 		uniformBufferLayout.destroy();
 		combinedLayout.destroy();
-		uniformBuffer.destroy(instance);
-		storageBuffer.destroy(instance);
+		memory.free(instance);
 		instance.destroyInitialObjects();
 	}
 }
