@@ -4,7 +4,7 @@ import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.device.SimpleDeviceSelector;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.images.ImageBuilder;
-import com.github.knokko.boiler.memory.SharedMemoryBuilder;
+import com.github.knokko.boiler.memory.MemoryBlockBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 
@@ -27,43 +27,38 @@ public class TestBufferCopies {
 				var instance = new BoilerBuilder(
 						VK_API_VERSION_1_0, "Test buffer copies", VK_MAKE_VERSION(1, 0, 0)
 				).physicalDeviceSelector(new SimpleDeviceSelector(deviceType)).validation().forbidValidationErrors().build();
-				var mappedBufferBuilder = new SharedMappedBufferBuilder(instance);
-				var deviceBufferBuilder = new SharedDeviceBufferBuilder(instance);
-				int bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-				var sourceBuffer = mappedBufferBuilder.add(100L, 1L);
-				var middleBuffer1 = instance.buffers.createRaw(100, bufferUsage, "Middle1");
-				deviceBufferBuilder.add(100L, 1L);
-				var middleBuffer2 = deviceBufferBuilder.doNotBindMemory().build(bufferUsage, "Middle2");
-				var destinationBuffer = mappedBufferBuilder.add(100L, 1L);
+				var builder = new MemoryBlockBuilder(instance, "Memory" + deviceType + useVma);
 
-				var sharedMemoryBuilder = new SharedMemoryBuilder(instance);
-				sharedMemoryBuilder.add(middleBuffer1);
-				sharedMemoryBuilder.add(middleBuffer2);
-				sharedMemoryBuilder.add(mappedBufferBuilder, bufferUsage, "SharedMappedBuffer");
-				var sharedMemory = sharedMemoryBuilder.allocate("SharedMemory", useVma);
+				int sourceAndDestination = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+				var sourceBuffer = builder.addMappedBuffer(100, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+				var middleBuffer1 = builder.addBuffer(100, 1, sourceAndDestination);
+				var middleBuffer2 = builder.addBuffer(100, 1, sourceAndDestination);
+				var destinationBuffer = builder.addMappedBuffer(100L, 1L, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
-				var sourceHostBuffer = sourceBuffer.get().byteBuffer();
+				var memory = builder.allocate(useVma);
+
+				var sourceHostBuffer = sourceBuffer.byteBuffer();
 				for (int index = 0; index < 100; index++) {
 					sourceHostBuffer.put((byte) index);
 				}
 
 				var commands = new SingleTimeCommands(instance);
 				commands.submit("Copying", recorder -> {
-					recorder.copyBufferRanges(sourceBuffer.get().range(), middleBuffer1.fullRange());
-					recorder.bufferBarrier(middleBuffer1.fullRange(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-					recorder.copyBufferRanges(middleBuffer1.fullRange(), middleBuffer2.fullRange());
-					recorder.bufferBarrier(middleBuffer2.fullRange(), ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-					recorder.copyBufferRanges(middleBuffer2.fullRange(), destinationBuffer.get().range());
+					recorder.copyBuffer(sourceBuffer, middleBuffer1);
+					recorder.bufferBarrier(middleBuffer1, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+					recorder.copyBuffer(middleBuffer1, middleBuffer2);
+					recorder.bufferBarrier(middleBuffer2, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
+					recorder.copyBuffer(middleBuffer2, destinationBuffer);
 				});
 				commands.destroy();
 
-				var destinationHostBuffer = destinationBuffer.get().byteBuffer();
+				var destinationHostBuffer = destinationBuffer.byteBuffer();
 				for (int index = 0; index < 100; index++) {
 					assertEquals((byte) index, destinationHostBuffer.get());
 				}
 
-				sharedMemory.free(instance);
+				memory.free(instance);
 				instance.destroyInitialObjects();
 			}
 		}
@@ -75,25 +70,26 @@ public class TestBufferCopies {
 				VK_API_VERSION_1_0, "Test buffer-to-bc copy", VK_MAKE_VERSION(1, 0, 0)
 		).validation().forbidValidationErrors().build();
 
-		var sourceBuffer = instance.buffers.createMapped(
-				100, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, "source"
+		var builder = new MemoryBlockBuilder(instance, "Memory");
+		var sourceBuffer = builder.addMappedBuffer(
+				100, 8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
 		);
 
-		var destinationImage = new ImageBuilder(
+		var destinationImage = builder.addImage(new ImageBuilder(
 				"Destination", 1, 3
-		).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK).build(instance);
+		).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK));
+		var memory = builder.allocate(false);
 
 		var commands = new SingleTimeCommands(instance);
 		commands.submit("Copying", recorder -> {
 			recorder.transitionLayout(destinationImage, null, ResourceUsage.TRANSFER_DEST);
-			recorder.copyBufferToImage(destinationImage, sourceBuffer.fullRange());
+			recorder.copyBufferToImage(destinationImage, sourceBuffer);
 			recorder.transitionLayout(destinationImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
-			recorder.copyImageToBuffer(destinationImage, sourceBuffer.fullRange());
+			recorder.copyImageToBuffer(destinationImage, sourceBuffer);
 		}).awaitCompletion();
 
 		commands.destroy();
-		sourceBuffer.destroy(instance);
-		destinationImage.destroy(instance);
+		memory.free(instance);
 		instance.destroyInitialObjects();
 	}
 }

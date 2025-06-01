@@ -2,13 +2,12 @@ package com.github.knokko.boiler.compute;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
+import com.github.knokko.boiler.memory.MemoryBlockBuilder;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.*;
-import static org.lwjgl.util.vma.Vma.vmaDestroyBuffer;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 
@@ -25,11 +24,14 @@ public class TestComputePipelines {
 			int invocationsPerGroup = 128;
 			int groupCount = 1024 * 2;
 
-			var buffer = instance.buffers.createMapped(
+			var memoryBuilder = new MemoryBlockBuilder(instance, "Memory");
+			var buffer = memoryBuilder.addMappedBuffer(
 					4 * valuesPerInvocation * invocationsPerGroup * groupCount,
-					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Filled"
+					instance.deviceProperties.limits().minStorageBufferOffsetAlignment(),
+					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
-			var hostBuffer = memIntBuffer(buffer.hostAddress(), valuesPerInvocation * invocationsPerGroup * groupCount);
+			var memory = memoryBuilder.allocate(false);
+			var hostBuffer = buffer.intBuffer();
 
 			var fillLayoutBindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
 			instance.descriptors.binding(fillLayoutBindings, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -57,7 +59,7 @@ public class TestComputePipelines {
 			var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
 			instance.descriptors.writeBuffer(
 					stack, descriptorWrites, descriptorSet,
-					0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer.fullRange()
+					0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer
 			);
 
 			vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
@@ -82,7 +84,7 @@ public class TestComputePipelines {
 			vkDestroyPipeline(instance.vkDevice(), computePipeline, null);
 			descriptorSetLayout.destroy();
 			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
-			vmaDestroyBuffer(instance.vmaAllocator(), buffer.vkBuffer(), buffer.vmaAllocation());
+			memory.free(instance);
 		}
 
 		instance.destroyInitialObjects();

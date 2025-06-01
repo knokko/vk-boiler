@@ -2,6 +2,7 @@ package com.github.knokko.boiler.memory;
 
 import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.util.vma.VmaAllocationCreateInfo;
+import org.lwjgl.util.vma.VmaAllocationInfo;
 import org.lwjgl.vulkan.VkMemoryAllocateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
@@ -59,11 +60,13 @@ class MemoryTypeClaims {
 				ciVmaAllocation.flags(mapMemory ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0);
 				ciVmaAllocation.memoryTypeBits(vmaRequirements.memoryTypeBits());
 
+				var allocationInfo = VmaAllocationInfo.calloc(stack);
 				assertVmaSuccess(vmaAllocateMemory(
-						instance.vmaAllocator(), vmaRequirements, ciVmaAllocation, pAllocation, null
+						instance.vmaAllocator(), vmaRequirements, ciVmaAllocation, pAllocation, allocationInfo
 				), "AllocateMemory", name);
 				allocation = pAllocation.get(0);
 				block.vmaAllocations.add(allocation);
+				if (mapMemory) hostAddress = allocationInfo.pMappedData();
 			} else {
 				var aiMemory = VkMemoryAllocateInfo.calloc(stack);
 				aiMemory.sType$Default();
