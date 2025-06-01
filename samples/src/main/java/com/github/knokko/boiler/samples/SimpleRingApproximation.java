@@ -100,7 +100,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		);
 
 		var colorAttachments = recorder.singleColorRenderingAttachment(
-				swapchainImage.image().vkImageView(), VK_ATTACHMENT_LOAD_OP_CLEAR,
+				swapchainImage.image().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 				VK_ATTACHMENT_STORE_OP_STORE, rgb(20, 120, 180)
 		);
 
