@@ -1,16 +1,20 @@
 package com.github.knokko.boiler.samples;
 
 import com.github.knokko.boiler.buffers.MappedVkbBuffer;
+import com.github.knokko.boiler.buffers.VkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.builders.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
+import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.culling.FrustumCuller;
 import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
 import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.MemoryBlock;
+import com.github.knokko.boiler.memory.MemoryBlockBuilder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
@@ -35,10 +39,6 @@ import static java.lang.Math.*;
 import static java.lang.Thread.sleep;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.memByteBuffer;
-import static org.lwjgl.system.MemoryUtil.memShortBuffer;
-import static org.lwjgl.util.vma.Vma.vmaDestroyBuffer;
-import static org.lwjgl.util.vma.Vma.vmaDestroyImage;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
@@ -185,8 +185,8 @@ public class TerrainPlayground {
 		return pipelineBuilder.build("GroundPipeline");
 	}
 
-	private static VkbImage[] createHeightImages(BoilerInstance boiler) {
-		try (var stack = stackPush()) {
+	private static PersistentResources createHeightImages(BoilerInstance boiler, MemoryBlockBuilder persistentBuilder) {
+		try {
 			var input = TerrainPlayground.class.getClassLoader().getResourceAsStream("com/github/knokko/boiler/samples/height/N44E006.hgt");
 			assert input != null;
 			var content = input.readAllBytes();
@@ -200,36 +200,29 @@ public class TerrainPlayground {
 			ShortBuffer hostHeightBuffer = ByteBuffer.wrap(content).order(ByteOrder.BIG_ENDIAN).asShortBuffer();
 			ShortBuffer deltaHeightBuffer = ShortBuffer.allocate(hostHeightBuffer.capacity());
 
-			var image = new ImageBuilder("HeightImage", gridSize, gridSize).texture().format(VK_FORMAT_R16_SINT).build(boiler);
-			var normalImage = new ImageBuilder("NormalImage", gridSize, gridSize).texture().format(VK_FORMAT_R8G8B8A8_SNORM).build(boiler);
+			var heightImage = persistentBuilder.addImage(new ImageBuilder("HeightImage", gridSize, gridSize).texture().format(VK_FORMAT_R16_SINT));
+			var normalImage = persistentBuilder.addImage(new ImageBuilder("NormalImage", gridSize, gridSize).texture().format(VK_FORMAT_R8G8B8A8_SNORM));
+			var persistentMemory = persistentBuilder.allocate(false);
 
-			int normalBufferOffset = content.length;
-			if (normalBufferOffset % 4 != 0) normalBufferOffset = 4 * (1 + normalBufferOffset / 4);
-			int normalBufferSize = 4 * normalImage.width() * normalImage.height();
-			var stagingBuffer = boiler.buffers.createMapped(
-					normalBufferOffset + normalBufferSize,
-					VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "HeightImageStagingBuffer"
+			var stagingBuilder = new MemoryBlockBuilder(boiler, "StagingMemory");
+			var heightBuffer = stagingBuilder.addMappedBuffer(content.length, 2, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+			var normalBuffer = stagingBuilder.addMappedBuffer(
+					4L * normalImage.width * normalImage.height, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 			);
-			var stagingHostBuffer = memShortBuffer(stagingBuffer.hostAddress(), numValues);
-			var normalHostBuffer = memByteBuffer(stagingBuffer.hostAddress() + normalBufferOffset, normalBufferSize);
-			var commandPool = boiler.commands.createPool(
-					VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-					boiler.queueFamilies().graphics().index(),
-					"HeightImageCopyPool"
-			);
-			var commandBuffer = boiler.commands.createPrimaryBuffers(commandPool, 1, "HeightImageCopyCommands")[0];
-			var fence = boiler.sync.fenceBank.borrowFence(false, "WaitHeightImageCopy");
+			var stagingMemory = stagingBuilder.allocate(false);
 
+			var heightHostBuffer = heightBuffer.shortBuffer();
+			var normalHostBuffer = normalBuffer.byteBuffer();
 			short previousValue = 0;
 			for (int counter = 0; counter < numValues; counter++) {
 				short value = hostHeightBuffer.get(counter);
 				if (value != Short.MIN_VALUE) {
-					stagingHostBuffer.put(value);
+					heightHostBuffer.put(value);
 					previousValue = value;
 					if (value < minHeight) minHeight = value;
 					if (value > maxHeight) maxHeight = value;
 					if (counter == numValues / 2) System.out.println("middle value is " + value);
-				} else stagingHostBuffer.put(previousValue);
+				} else heightHostBuffer.put(previousValue);
 			}
 			System.out.println("lowest is " + minHeight + " and highest is " + maxHeight);
 			coarseHeightLookup = new HeightLookup(80, HEIGHT_IMAGE_NUM_PIXELS, hostHeightBuffer);
@@ -245,9 +238,9 @@ public class TerrainPlayground {
 						deltaHeightBuffer.put(index, (short) 0);
 					} else {
 						int heightIndex = u + v * gridSize;
-						int currentHeight = stagingHostBuffer.get(heightIndex);
-						int du = stagingHostBuffer.get(heightIndex + 1) - currentHeight;
-						int dv = stagingHostBuffer.get(heightIndex + gridSize) - currentHeight;
+						int currentHeight = heightHostBuffer.get(heightIndex);
+						int du = heightHostBuffer.get(heightIndex + 1) - currentHeight;
+						int dv = heightHostBuffer.get(heightIndex + gridSize) - currentHeight;
 
 						var vectorX = new Vector3f(30f, du, 0f);
 						var vectorZ = new Vector3f(0f, dv, 30f);
@@ -262,33 +255,23 @@ public class TerrainPlayground {
 
 			coarseDeltaHeightLookup = new HeightLookup(600, HEIGHT_IMAGE_NUM_PIXELS, deltaHeightBuffer);
 
-			var recorder = CommandRecorder.begin(
-					commandBuffer, boiler, stack,
-					VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-					"CopyHeightImage"
-			);
-			recorder.transitionLayout(image, null, ResourceUsage.TRANSFER_DEST);
-			recorder.transitionLayout(normalImage, null, ResourceUsage.TRANSFER_DEST);
-			recorder.copyBufferToImage(image, stagingBuffer.range(0, content.length));
-			recorder.copyBufferToImage(normalImage, stagingBuffer.range(normalBufferOffset, normalBufferSize));
-			recorder.transitionLayout(
-					image, ResourceUsage.TRANSFER_DEST,
-					ResourceUsage.shaderRead(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
-			);
-			recorder.transitionLayout(
-					normalImage, ResourceUsage.TRANSFER_DEST,
-					ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
-			);
-			recorder.end();
+			var commands = new SingleTimeCommands(boiler);
+			commands.submit("StagingCopies", recorder -> {
+				recorder.bulkTransitionLayout(null, ResourceUsage.TRANSFER_DEST, heightImage, normalImage);
+				recorder.bulkCopyBufferToImage(new VkbImage[] { heightImage, normalImage }, new VkbBuffer[]{ heightBuffer, normalBuffer });
+				recorder.transitionLayout(
+						heightImage, ResourceUsage.TRANSFER_DEST,
+						ResourceUsage.shaderRead(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
+				);
+				recorder.transitionLayout(
+						normalImage, ResourceUsage.TRANSFER_DEST,
+						ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+				);
+			});
+			commands.destroy();
 
-			boiler.queueFamilies().graphics().first().submit(
-					commandBuffer, "CopyHeightImage", new WaitSemaphore[0], fence
-			);
-			fence.awaitSignal();
-			boiler.sync.fenceBank.returnFence(fence);
-			vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-			vmaDestroyBuffer(boiler.vmaAllocator(), stagingBuffer.vkBuffer(), stagingBuffer.vmaAllocation());
-			return new VkbImage[]{image, normalImage};
+			stagingMemory.free(boiler);
+			return new PersistentResources(persistentMemory, heightImage, normalImage);
 		} catch (IOException shouldNotHappen) {
 			throw new RuntimeException(shouldNotHappen);
 		}
@@ -317,15 +300,17 @@ public class TerrainPlayground {
 
 		int numFramesInFlight = 3;
 
-		var heightImages = createHeightImages(boiler);
-		var heightImage = heightImages[0];
-		var normalImage = heightImages[1];
+		var persistentBuilder = new MemoryBlockBuilder(boiler, "PersistentMemory");
 		var uniformBuffers = new MappedVkbBuffer[numFramesInFlight];
 		for (int index = 0; index < numFramesInFlight; index++) {
-			uniformBuffers[index] = boiler.buffers.createMapped(
-					64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "UniformBuffer"
+			uniformBuffers[index] = persistentBuilder.addMappedBuffer(
+					64, boiler.deviceProperties.limits().minUniformBufferOffsetAlignment(),
+					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
 			);
 		}
+
+		var persistent = createHeightImages(boiler, persistentBuilder);
+
 		long renderPass;
 		VkbDescriptorSetLayout descriptorSetLayout;
 		long pipelineLayout;
@@ -359,18 +344,18 @@ public class TerrainPlayground {
 
 			var heightMapInfo = VkDescriptorImageInfo.calloc(1, stack);
 			heightMapInfo.sampler(heightSampler);
-			heightMapInfo.imageView(heightImage.vkImageView());
+			heightMapInfo.imageView(persistent.heightImage.vkImageView);
 			heightMapInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			var normalMapInfo = VkDescriptorImageInfo.calloc(1, stack);
 			normalMapInfo.sampler(normalSampler);
-			normalMapInfo.imageView(normalImage.vkImageView());
+			normalMapInfo.imageView(persistent.normalImage.vkImageView);
 			normalMapInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 			var descriptorWrites = VkWriteDescriptorSet.calloc(3, stack);
 			for (int index = 0; index < numFramesInFlight; index++) {
 				boiler.descriptors.writeBuffer(
 						stack, descriptorWrites, descriptorSets[index],
-						0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffers[index].fullRange()
+						0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffers[index]
 				);
 				boiler.descriptors.writeImage(
 						descriptorWrites, descriptorSets[index], 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, heightMapInfo
@@ -394,19 +379,21 @@ public class TerrainPlayground {
 
 		long frameCounter = 0;
 		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			var depthImage = new ImageBuilder(
+			var memoryBuilder = new MemoryBlockBuilder(boiler, "DepthMemory");
+			var depthImage = memoryBuilder.addImage(new ImageBuilder(
 					"DepthImage", swapchainImage.width(), swapchainImage.height()
-			).depthAttachment(depthFormat).build(boiler);
+			).depthAttachment(depthFormat));
+			var memory = memoryBuilder.allocate(true);
 
 			long framebuffer = boiler.images.createFramebuffer(
 					renderPass, swapchainImage.width(), swapchainImage.height(),
-					"TerrainFramebuffer", swapchainImage.image().vkImageView(), depthImage.vkImageView()
+					"TerrainFramebuffer", swapchainImage.image().vkImageView, depthImage.vkImageView
 			);
 
-			return new AssociatedSwapchainResources(framebuffer, depthImage);
+			return new AssociatedSwapchainResources(framebuffer, depthImage, memory);
 		}, resources -> {
 			vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
-			resources.depthImage().destroy(boiler);
+			resources.depthMemory().free(boiler);
 		});
 
 		long referenceTime = System.currentTimeMillis();
@@ -452,8 +439,8 @@ public class TerrainPlayground {
 			if (!Double.isNaN(cameraController.oldX) && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 				double dx = x - cameraController.oldX;
 				double dy = y - cameraController.oldY;
-				camera.yaw += 0.5 * dx;
-				camera.pitch -= 0.2 * dy;
+				camera.yaw += (float) (0.5 * dx);
+				camera.pitch -= (float) (0.2 * dy);
 				if (camera.pitch < -90) camera.pitch = -90;
 				if (camera.pitch > 90) camera.pitch = 90;
 				if (camera.yaw < 0) camera.yaw += 360;
@@ -528,7 +515,7 @@ public class TerrainPlayground {
 						)
 						.rotateX((float) toRadians(-camera.pitch))
 						.rotateY((float) toRadians(camera.yaw));
-				cameraMatrix.getToAddress(uniformBuffers[frameIndex].hostAddress());
+				cameraMatrix.get(uniformBuffers[frameIndex].floatBuffer());
 
 				var frustumCuller = new FrustumCuller(
 						new Vector3f(), camera.yaw, camera.pitch, aspectRatio, fieldOfView, nearPlane, farPlane
@@ -607,11 +594,7 @@ public class TerrainPlayground {
 		vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
 		descriptorSetLayout.destroy();
 		vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
-		for (var buffer : uniformBuffers) buffer.destroy(boiler);
-		vkDestroyImageView(boiler.vkDevice(), heightImage.vkImageView(), null);
-		vmaDestroyImage(boiler.vmaAllocator(), heightImage.vkImage(), heightImage.vmaAllocation());
-		vkDestroyImageView(boiler.vkDevice(), normalImage.vkImageView(), null);
-		vmaDestroyImage(boiler.vmaAllocator(), normalImage.vkImage(), normalImage.vmaAllocation());
+		persistent.memory().free(boiler);
 		vkDestroySampler(boiler.vkDevice(), heightSampler, null);
 		vkDestroySampler(boiler.vkDevice(), normalSampler, null);
 
@@ -621,7 +604,8 @@ public class TerrainPlayground {
 
 	private record AssociatedSwapchainResources(
 			long framebuffer,
-			VkbImage depthImage
+			VkbImage depthImage,
+			MemoryBlock depthMemory
 	) { }
 
 	private record TerrainFragment(
@@ -786,4 +770,6 @@ public class TerrainPlayground {
 			return new short[]{minHeight, maxHeight};
 		}
 	}
+
+	private record PersistentResources(MemoryBlock memory, VkbImage heightImage, VkbImage normalImage) {}
 }

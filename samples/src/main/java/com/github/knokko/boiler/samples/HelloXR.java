@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.samples;
 
-import com.github.knokko.boiler.buffers.MappedVkbBufferRange;
-import com.github.knokko.boiler.buffers.SharedMappedBufferBuilder;
+import com.github.knokko.boiler.buffers.MappedVkbBuffer;
+import com.github.knokko.boiler.buffers.VkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
@@ -11,7 +11,7 @@ import com.github.knokko.boiler.descriptors.SharedDescriptorPoolBuilder;
 import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
-import com.github.knokko.boiler.memory.SharedMemoryBuilder;
+import com.github.knokko.boiler.memory.MemoryBlockBuilder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.xr.SuggestedBindingsBuilder;
@@ -25,7 +25,6 @@ import org.lwjgl.vulkan.*;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.util.function.Supplier;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.exceptions.OpenXrFailureException.assertXrSuccess;
@@ -64,8 +63,6 @@ public class HelloXR {
 				.xr(new BoilerXrBuilder())
 				.build();
 
-		var sharedMemoryBuilder = new SharedMemoryBuilder(boiler);
-		var sharedBufferBuilder = new SharedMappedBufferBuilder(boiler);
 		long sampler = boiler.images.createSimpleSampler(
 				VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
 				VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, "ImageSampler"
@@ -74,29 +71,30 @@ public class HelloXR {
 		var bufferedGrass = resourceImage("grass");
 		var bufferedMountains1 = resourceImage("chocoMountains");
 		var bufferedMountains2 = resourceImage("rainbowMountains");
-		Supplier<VkbImage> getGrassImage, getMountainImage1, getMountainImage2;
-		Supplier<MappedVkbBufferRange> getGrassStagingBuffer, getMountainStagingBuffer1, getMountainStagingBuffer2;
-		{
-			getGrassImage = sharedMemoryBuilder.add(new ImageBuilder(
-					"GrassImage", bufferedGrass.getWidth(), bufferedGrass.getHeight()
-			).texture());
-			getMountainImage1 = sharedMemoryBuilder.add(new ImageBuilder(
-					"ChocoMountainsImage", bufferedMountains1.getWidth(), bufferedMountains1.getHeight()
-			).texture());
-			getMountainImage2 = sharedMemoryBuilder.add(new ImageBuilder(
-					"RainbowMountainsImage", bufferedMountains2.getWidth(), bufferedMountains2.getHeight()
-			).texture());
 
-			getGrassStagingBuffer = sharedBufferBuilder.add(
-					4L * bufferedGrass.getWidth() * bufferedGrass.getHeight(), 4L
-			);
-			getMountainStagingBuffer1 = sharedBufferBuilder.add(
-					4L * bufferedMountains1.getWidth() * bufferedMountains1.getHeight(), 4L
-			);
-			getMountainStagingBuffer2 = sharedBufferBuilder.add(
-					4L * bufferedMountains2.getWidth() * bufferedMountains2.getHeight(), 4L
-			);
-		}
+		var stagingBuilder = new MemoryBlockBuilder(boiler, "StagingMemory");
+		var persistentBuilder = new MemoryBlockBuilder(boiler, "PersistentMemory");
+		var grassImage = persistentBuilder.addImage(new ImageBuilder(
+				"GrassImage", bufferedGrass.getWidth(), bufferedGrass.getHeight()
+		).texture());
+		var mountainImage1 = persistentBuilder.addImage(new ImageBuilder(
+				"ChocoMountainsImage", bufferedMountains1.getWidth(), bufferedMountains1.getHeight()
+		).texture());
+		var mountainImage2 = persistentBuilder.addImage(new ImageBuilder(
+				"RainbowMountainsImage", bufferedMountains2.getWidth(), bufferedMountains2.getHeight()
+		).texture());
+		var grassStagingBuffer = stagingBuilder.addMappedBuffer(
+				4L * bufferedGrass.getWidth() * bufferedGrass.getHeight(),
+				4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+		);
+		var mountainStagingBuffer1 = stagingBuilder.addMappedBuffer(
+				4L * bufferedMountains1.getWidth() * bufferedMountains1.getHeight(),
+				4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+		);
+		var mountainStagingBuffer2 = stagingBuilder.addMappedBuffer(
+				4L * bufferedMountains2.getWidth() * bufferedMountains2.getHeight(),
+				4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+		);
 		var session = boiler.xr().createSession(0, null);
 
 		int swapchainFormat = session.chooseSwapchainFormat(
@@ -129,7 +127,7 @@ public class HelloXR {
 					VK_IMAGE_ASPECT_COLOR_BIT, 1, 2, "SwapchainView"
 			);
 		}
-		var getDepthImage = sharedMemoryBuilder.add(new ImageBuilder(
+		var depthImage = persistentBuilder.addImage(new ImageBuilder(
 				"DepthImage", width, height
 		).depthAttachment(depthFormat).arrayLayers(2));
 
@@ -140,40 +138,23 @@ public class HelloXR {
 		var commandBuffers = boiler.commands.createPrimaryBufferPerPool("Drawing", commandPools);
 		var fences = boiler.sync.fenceBank.borrowFences(NUM_FRAMES_IN_FLIGHT, false, "Drawing");
 
-		int colorVertexSize = (3 + 3) * 4;
-		int imageVertexSize = (3 + 2 + 1) * 4;
-		var getColorVertexBuffer = sharedBufferBuilder.add(4 * colorVertexSize, 12L);
-		var getImageVertexBuffer = sharedBufferBuilder.add(12 * imageVertexSize, 24L);
-		var getColorIndexBuffer = sharedBufferBuilder.add(5L * 3L * 4L, 4L);
-		var getImageIndexBuffer = sharedBufferBuilder.add(4L * 6L * 4L, 4L);
+		int colorVertexSize = (3 + 3) * Float.BYTES;
+		int imageVertexSize = (3 + 2 + 1) * Float.BYTES;
+		var colorVertexBuffer = persistentBuilder.addMappedBuffer(4 * colorVertexSize, 12L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var imageVertexBuffer = persistentBuilder.addMappedBuffer(12 * imageVertexSize, 24L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var colorIndexBuffer = persistentBuilder.addMappedBuffer(5L * 3L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		var imageIndexBuffer = persistentBuilder.addMappedBuffer(4L * 6L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-		var matrixBuffers = new MappedVkbBufferRange[NUM_FRAMES_IN_FLIGHT];
-		@SuppressWarnings("unchecked")
-		Supplier<MappedVkbBufferRange>[] getMatrixBuffers = new Supplier[NUM_FRAMES_IN_FLIGHT];
-		long minUniformBufferOffsetAlignment;
-		try (var stack = stackPush()) {
-			var properties = VkPhysicalDeviceProperties.calloc(stack);
-			vkGetPhysicalDeviceProperties(boiler.vkPhysicalDevice(), properties);
-			minUniformBufferOffsetAlignment = properties.limits().minUniformBufferOffsetAlignment();
-		}
+		var matrixBuffers = new MappedVkbBuffer[NUM_FRAMES_IN_FLIGHT];
 		for (int index = 0; index < NUM_FRAMES_IN_FLIGHT; index++) {
-			getMatrixBuffers[index] = sharedBufferBuilder.add(5L * 64L, minUniformBufferOffsetAlignment);
+			matrixBuffers[index] = persistentBuilder.addMappedBuffer(
+					5L * 64L, boiler.deviceProperties.limits().minUniformBufferOffsetAlignment(),
+					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+			);
 		}
 
-		sharedMemoryBuilder.add(
-				sharedBufferBuilder, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-						VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "SharedBuffer"
-		);
-		var sharedMemoryAllocation = sharedMemoryBuilder.allocate("SharedMemory", false);
-		for (int index = 0; index < NUM_FRAMES_IN_FLIGHT; index++) {
-			matrixBuffers[index] = getMatrixBuffers[index].get();
-		}
-
-		var colorVertexBuffer = getColorVertexBuffer.get();
-		var colorIndexBuffer = getColorIndexBuffer.get();
-		var imageVertexBuffer = getImageVertexBuffer.get();
-		var imageIndexBuffer = getImageIndexBuffer.get();
-		var depthImage = getDepthImage.get();
+		var persistentMemory = persistentBuilder.allocate(false);
+		var stagingMemory = stagingBuilder.allocate(false);
 
 		{
 			var hostVertexBuffer = colorVertexBuffer.floatBuffer();
@@ -235,23 +216,21 @@ public class HelloXR {
 			}
 		}
 
+		VkbImage[] textures = { grassImage, mountainImage1, mountainImage2 };
 		{
-			boiler.buffers.encodeBufferedImageIntoRangeRGBA(getGrassStagingBuffer.get(), bufferedGrass);
-			boiler.buffers.encodeBufferedImageIntoRangeRGBA(getMountainStagingBuffer1.get(), bufferedMountains1);
-			boiler.buffers.encodeBufferedImageIntoRangeRGBA(getMountainStagingBuffer2.get(), bufferedMountains2);
+			grassStagingBuffer.encodeBufferedImage(bufferedGrass);
+			mountainStagingBuffer1.encodeBufferedImage(bufferedMountains1);
+			mountainStagingBuffer2.encodeBufferedImage(bufferedMountains2);
 
 			var singleTime = new SingleTimeCommands(boiler);
 			singleTime.submit("StagingCopy", recorder -> {
-				VkbImage[] images = { getGrassImage.get(), getMountainImage1.get(), getMountainImage2.get() };
-				for (VkbImage image : images) recorder.transitionLayout(image, null, ResourceUsage.TRANSFER_DEST);
-				recorder.copyBufferToImage(getGrassImage.get(), getGrassStagingBuffer.get().range());
-				recorder.copyBufferToImage(getMountainImage1.get(), getMountainStagingBuffer1.get().range());
-				recorder.copyBufferToImage(getMountainImage2.get(), getMountainStagingBuffer2.get().range());
-				for (VkbImage image : images) recorder.transitionLayout(
-						image, ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
-				);
+				VkbBuffer[] buffers = { grassStagingBuffer, mountainStagingBuffer1, mountainStagingBuffer2 };
+				recorder.bulkTransitionLayout(null, ResourceUsage.TRANSFER_DEST, textures);
+				recorder.bulkCopyBufferToImage(textures, buffers);
+				recorder.bulkTransitionLayout(ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT), textures);
 			});
 			singleTime.destroy();
+			stagingMemory.free(boiler);
 		}
 
 		VkbDescriptorSetLayout colorDescriptorSetLayout, imageDescriptorSetLayout;
@@ -286,17 +265,16 @@ public class HelloXR {
 					boiler.descriptors.writeBuffer(
 							stack, descriptorWrites, descriptorSet,
 							0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-							descriptorSet == descriptorSets[0] ? matrixBuffers[index].range() :
-									matrixBuffers[index].childRange(0, 128).range()
+							descriptorSet == descriptorSets[0] ? matrixBuffers[index] :
+									matrixBuffers[index].child(0, 128)
 					);
 					vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
 				}
 				var imageInfo = VkDescriptorImageInfo.calloc(3, stack);
-				VkbImage[] images = { getGrassImage.get(), getMountainImage1.get(), getMountainImage2.get() };
 				for (int imageIndex = 0; imageIndex < 3; imageIndex++) {
 					imageInfo.get(imageIndex).sampler(sampler);
 					imageInfo.get(imageIndex).imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-					imageInfo.get(imageIndex).imageView(images[imageIndex].vkImageView());
+					imageInfo.get(imageIndex).imageView(textures[imageIndex].vkImageView);
 				}
 				boiler.descriptors.writeImage(
 						descriptorWrites, imageDescriptorSets[index], 0,
@@ -509,7 +487,7 @@ public class HelloXR {
 						VK_ATTACHMENT_STORE_OP_STORE, rgb(255, 0, 0)
 				);
 				var depthAttachment = commands.simpleDepthRenderingAttachment(
-						depthImage.vkImageView(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+						depthImage.vkImageView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 						VK_ATTACHMENT_STORE_OP_DONT_CARE, 1f, 0
 				);
 
@@ -525,8 +503,8 @@ public class HelloXR {
 				vkCmdBeginRendering(commandBuffers[frameIndex], dynamicRenderingInfo);
 				vkCmdBindPipeline(commandBuffers[frameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipeline);
 				commands.bindGraphicsDescriptors(colorPipelineLayout, colorDescriptorSets[frameIndex]);
-				commands.bindVertexBuffers(0, colorVertexBuffer.range());
-				commands.bindIndexBuffer(colorIndexBuffer.range(), VK_INDEX_TYPE_UINT32);
+				commands.bindVertexBuffers(0, colorVertexBuffer);
+				commands.bindIndexBuffer(colorIndexBuffer, VK_INDEX_TYPE_UINT32);
 
 				var hostMatrixBuffer = matrixBuffers[frameIndex].floatBuffer();
 				cameraMatrices[0].get(0, hostMatrixBuffer);
@@ -577,8 +555,8 @@ public class HelloXR {
 
 				vkCmdBindPipeline(commandBuffers[frameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipeline);
 				commands.bindGraphicsDescriptors(imagePipelineLayout, imageDescriptorSets[frameIndex]);
-				commands.bindVertexBuffers(0, imageVertexBuffer.range());
-				commands.bindIndexBuffer(imageIndexBuffer.range(), VK_INDEX_TYPE_UINT32);
+				commands.bindVertexBuffers(0, imageVertexBuffer);
+				commands.bindIndexBuffer(imageIndexBuffer, VK_INDEX_TYPE_UINT32);
 				vkCmdDrawIndexed(commandBuffers[frameIndex], 18, 1, 0, 0, 0);
 
 				commands.endDynamicRendering();
@@ -620,7 +598,7 @@ public class HelloXR {
 		assertXrSuccess(xrDestroySession(session.xrSession), "DestroySession", null);
 
 		vkDestroySampler(boiler.vkDevice(), sampler, null);
-		sharedMemoryAllocation.free(boiler);
+		persistentMemory.free(boiler);
 		boiler.destroyInitialObjects();
 	}
 }

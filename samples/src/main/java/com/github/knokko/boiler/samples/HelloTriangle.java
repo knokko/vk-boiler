@@ -3,6 +3,7 @@ package com.github.knokko.boiler.samples;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
+import com.github.knokko.boiler.memory.MemoryBlockBuilder;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
@@ -14,7 +15,6 @@ import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertV
 import static java.lang.Thread.sleep;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.memFloatBuffer;
 import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -143,10 +143,12 @@ public class HelloTriangle {
 			vkDestroyShaderModule(boiler.vkDevice(), fragmentModule, null);
 		}
 
-		var vertexBuffer = boiler.buffers.createMapped(
-				3 * 4 * (2 + 3), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "TriangleVertices"
+		var memoryBuilder = new MemoryBlockBuilder(boiler, "VertexMemory");
+		var vertexBuffer = memoryBuilder.addMappedBuffer(
+				3 * Float.BYTES * (2 + 3), 24, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
 		);
-		var vertices = memFloatBuffer(vertexBuffer.hostAddress(), 3 * (2 + 3));
+		var memory = memoryBuilder.allocate(false);
+		var vertices = vertexBuffer.floatBuffer();
 		// Put color (1, 0, 0) at position (-1, 1)
 		vertices.put(-1f);
 		vertices.put(1f);
@@ -170,7 +172,7 @@ public class HelloTriangle {
 		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
 			long framebuffer = boiler.images.createFramebuffer(
 					renderPass, swapchainImage.width(), swapchainImage.height(),
-					"TriangleFramebuffer", swapchainImage.image().vkImageView()
+					"TriangleFramebuffer", swapchainImage.image().vkImageView
 			);
 
 			return new AssociatedSwapchainResources(framebuffer);
@@ -245,7 +247,7 @@ public class HelloTriangle {
 				recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-				recorder.bindVertexBuffers(0, vertexBuffer.fullRange());
+				recorder.bindVertexBuffers(0, vertexBuffer);
 
 				vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 				vkCmdEndRenderPass(commandBuffer);
@@ -267,7 +269,8 @@ public class HelloTriangle {
 		vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
 		vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
 		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-		vertexBuffer.destroy(boiler);
+		memory.free(boiler);
+
 		boiler.destroyInitialObjects();
 	}
 
@@ -276,4 +279,3 @@ public class HelloTriangle {
 	) {
 	}
 }
-
