@@ -282,7 +282,7 @@ public class TerrainPlayground {
 				.validation(new ValidationFeatures(true, true, false, true, true))
 				.forbidValidationErrors()
 				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).hideUntilFirstFrame())
-				.requiredFeatures12(VkPhysicalDeviceVulkan12Features::timelineSemaphore)
+				.requiredFeatures12("timeline semaphore", VkPhysicalDeviceVulkan12Features::timelineSemaphore)
 				.featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
 				.build();
 

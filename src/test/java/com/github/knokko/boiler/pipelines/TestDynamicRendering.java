@@ -2,6 +2,7 @@ package com.github.knokko.boiler.pipelines;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
+import com.github.knokko.boiler.exceptions.NoVkPhysicalDeviceException;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.memory.MemoryBlockBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
@@ -18,6 +19,7 @@ import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 import static org.lwjgl.vulkan.VK12.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 import static org.lwjgl.vulkan.VK13.VK_API_VERSION_1_3;
+import static org.lwjgl.vulkan.VK14.VK_API_VERSION_1_4;
 
 public class TestDynamicRendering {
 
@@ -119,6 +121,15 @@ public class TestDynamicRendering {
 	@Test
 	public void testOnVk13() {
 		testDynamicColorRendering(VK_API_VERSION_1_3);
+	}
+
+	@Test
+	public void testOnVk14() {
+		try {
+			testDynamicColorRendering(VK_API_VERSION_1_4);
+		} catch (NoVkPhysicalDeviceException noVulkan14) {
+			System.out.println("WARNING: skipped testOnVk14 because Vulkan 1.4 is not supported on this machine!");
+		}
 	}
 
 	@Test

@@ -48,6 +48,7 @@ import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
 import static org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceFeatures2;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 import static org.lwjgl.vulkan.VK13.VK_API_VERSION_1_3;
+import static org.lwjgl.vulkan.VK14.VK_API_VERSION_1_4;
 
 public class BoilerBuilder {
 
@@ -104,15 +105,17 @@ public class BoilerBuilder {
 	Collection<FeaturePicker11> vkDeviceFeaturePicker11 = new ArrayList<>();
 	Collection<FeaturePicker12> vkDeviceFeaturePicker12 = new ArrayList<>();
 	Collection<FeaturePicker13> vkDeviceFeaturePicker13 = new ArrayList<>();
+	Collection<FeaturePicker14> vkDeviceFeaturePicker14 = new ArrayList<>();
 
-	Collection<Predicate<VkPhysicalDeviceFeatures>> vkRequiredFeatures10 = new ArrayList<>();
-	Collection<Predicate<VkPhysicalDeviceVulkan11Features>> vkRequiredFeatures11 = new ArrayList<>();
-	Collection<Predicate<VkPhysicalDeviceVulkan12Features>> vkRequiredFeatures12 = new ArrayList<>();
-	Collection<Predicate<VkPhysicalDeviceVulkan13Features>> vkRequiredFeatures13 = new ArrayList<>();
+	Collection<RequiredFeatures10> vkRequiredFeatures10 = new ArrayList<>();
+	Collection<RequiredFeatures11> vkRequiredFeatures11 = new ArrayList<>();
+	Collection<RequiredFeatures12> vkRequiredFeatures12 = new ArrayList<>();
+	Collection<RequiredFeatures13> vkRequiredFeatures13 = new ArrayList<>();
+	Collection<RequiredFeatures14> vkRequiredFeatures14 = new ArrayList<>();
 
-	Collection<ExtraDeviceRequirements> extraDeviceRequirements = new ArrayList<>();
+	Collection<NamedExtraDeviceRequirements> extraDeviceRequirements = new ArrayList<>();
 
-	boolean printDeviceRejectionInfo = false;
+	boolean printDeviceSelectionInfo = true;
 
 	QueueFamilyMapper queueFamilyMapper = new MinimalQueueFamilyMapper();
 
@@ -162,11 +165,11 @@ public class BoilerBuilder {
 
 	/**
 	 * Enables the validation layer with basic validation, synchronization validation, and best practices. If the
-	 * API version is at least 1.1, GPU-assisted validation will also be enabled.<br>
+	 * API version is at least 1.2, GPU-assisted validation will also be enabled.<br>
 	 * A <i>MissingVulkanLayerException</i> will be thrown if the validation layer is not supported.
 	 */
 	public BoilerBuilder validation() {
-		if (this.apiVersion == VK_API_VERSION_1_0) {
+		if (this.apiVersion == VK_API_VERSION_1_0 || this.apiVersion == VK_API_VERSION_1_1) {
 			return this.validation(new ValidationFeatures(
 					false, false, false, true, true
 			));
@@ -268,14 +271,24 @@ public class BoilerBuilder {
 	// -----------------------------------------------------------------------------------------------------------------
 
 	/**
-	 * During device selection, there are many reasons why physical device could be filtered out. If all physical
-	 * devices are filtered out (or the target computer doesn't have any device that supports Vulkan), a
-	 * <i>NoVkPhysicalDeviceException</i> will be thrown.<br>
+	 * <p>
+	 *   During device selection, there are many reasons why physical device could be filtered out. If all physical
+	 *   devices are filtered out (or the target computer doesn't have any device that supports Vulkan), a
+	 *   <i>NoVkPhysicalDeviceException</i> will be thrown.<br>
+	 * </p>
 	 *
-	 * If you chain this method, the builder will tell you (via standard output) <b>why</b> it filtered out each device.
+	 * <p>
+	 *   By default, the builder will tell you (via standard output) which devices it rejected,
+	 *   Furthermore, it will tell you which physical device it chose.
+	 * </p>
+	 *
+	 * <p>
+	 *   If you chain this method, the builder will <b>not</b> print this information.
+	 * </p>
+	 *
 	 */
-	public BoilerBuilder printDeviceRejectionInfo() {
-		this.printDeviceRejectionInfo = true;
+	public BoilerBuilder hideDeviceSelectionInfo() {
+		this.printDeviceSelectionInfo = false;
 		return this;
 	}
 
@@ -290,30 +303,30 @@ public class BoilerBuilder {
 
 	/**
 	 * Adds a required features callback to the device selection procedure. When the features of a device fail the
-	 * predicate, the corresponding device will be filtered out.
+	 * predicate, the corresponding device will be filtered out, and description will be printed
 	 */
-	public BoilerBuilder requiredFeatures10(Predicate<VkPhysicalDeviceFeatures> requiredFeatures) {
-		this.vkRequiredFeatures10.add(requiredFeatures);
+	public BoilerBuilder requiredFeatures10(String description, Predicate<VkPhysicalDeviceFeatures> requiredFeatures) {
+		this.vkRequiredFeatures10.add(new RequiredFeatures10(description, requiredFeatures));
 		return this;
 	}
 
 	/**
 	 * Adds a required VK 1.1 features callback to the device selection procedure. When the features of a device fail
-	 * the predicate, the corresponding device will be filtered out.
+	 * the predicate, the corresponding device will be filtered out, and description will be printed.
 	 */
-	public BoilerBuilder requiredFeatures11(Predicate<VkPhysicalDeviceVulkan11Features> requiredFeatures) {
+	public BoilerBuilder requiredFeatures11(String description, Predicate<VkPhysicalDeviceVulkan11Features> requiredFeatures) {
 		checkApiVersion(VK_API_VERSION_1_1);
-		this.vkRequiredFeatures11.add(requiredFeatures);
+		this.vkRequiredFeatures11.add(new RequiredFeatures11(description, requiredFeatures));
 		return this;
 	}
 
 	/**
 	 * Adds a required VK 1.2 features callback to the device selection procedure. When the features of a device fail
-	 * the predicate, the corresponding device will be filtered out.
+	 * the predicate, the corresponding device will be filtered out, and description will be printed.
 	 */
-	public BoilerBuilder requiredFeatures12(Predicate<VkPhysicalDeviceVulkan12Features> requiredFeatures) {
+	public BoilerBuilder requiredFeatures12(String description, Predicate<VkPhysicalDeviceVulkan12Features> requiredFeatures) {
 		checkApiVersion(VK_API_VERSION_1_2);
-		this.vkRequiredFeatures12.add(requiredFeatures);
+		this.vkRequiredFeatures12.add(new RequiredFeatures12(description, requiredFeatures));
 		return this;
 	}
 
@@ -321,18 +334,29 @@ public class BoilerBuilder {
 	 * Adds a required VK 1.3 features callback to the device selection procedure. When the features of a device fail
 	 * the predicate, the corresponding device will be filtered out.
 	 */
-	public BoilerBuilder requiredFeatures13(Predicate<VkPhysicalDeviceVulkan13Features> requiredFeatures) {
+	public BoilerBuilder requiredFeatures13(String description, Predicate<VkPhysicalDeviceVulkan13Features> requiredFeatures) {
 		checkApiVersion(VK_API_VERSION_1_3);
-		this.vkRequiredFeatures13.add(requiredFeatures);
+		this.vkRequiredFeatures13.add(new RequiredFeatures13(description, requiredFeatures));
+		return this;
+	}
+
+	/**
+	 * Adds a required VK 1.4 features callback to the device selection procedure. When the features of a device fail
+	 * the predicate, the corresponding device will be filtered out.
+	 */
+	public BoilerBuilder requiredFeatures14(String description, Predicate<VkPhysicalDeviceVulkan14Features> requiredFeatures) {
+		checkApiVersion(VK_API_VERSION_1_4);
+		this.vkRequiredFeatures14.add(new RequiredFeatures14(description, requiredFeatures));
 		return this;
 	}
 
 	/**
 	 * Adds custom device requirements to the device selection procedure. Given the physical device and window surfaces,
-	 * the callback should return true to allow the device, or false to filter it out.
+	 * the callback should return true to allow the device, or false to filter it out. In the latter case, the
+	 * provided description will be printed.
 	 */
-	public BoilerBuilder extraDeviceRequirements(ExtraDeviceRequirements requirements) {
-		this.extraDeviceRequirements.add(requirements);
+	public BoilerBuilder extraDeviceRequirements(String description, ExtraDeviceRequirements requirements) {
+		this.extraDeviceRequirements.add(new NamedExtraDeviceRequirements(description, requirements));
 		return this;
 	}
 
@@ -396,6 +420,16 @@ public class BoilerBuilder {
 	public BoilerBuilder featurePicker13(FeaturePicker13 picker) {
 		checkApiVersion(VK_API_VERSION_1_3);
 		this.vkDeviceFeaturePicker13.add(picker);
+		return this;
+	}
+
+	/**
+	 * Adds a callback that can enable Vulkan 1.4 features. Given a memory stack and the <i>supportedFeatures</i>,
+	 * the callback can enable features in the <i>toEnable</i> features.
+	 */
+	public BoilerBuilder featurePicker14(FeaturePicker14 picker) {
+		checkApiVersion(VK_API_VERSION_1_4);
+		this.vkDeviceFeaturePicker14.add(picker);
 		return this;
 	}
 
@@ -607,7 +641,7 @@ public class BoilerBuilder {
 			}
 			if (apiVersion < VK_API_VERSION_1_3) {
 				this.requiredVulkanDeviceExtensions.add(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
-				this.extraDeviceRequirements.add((physicalDevice, x, stack) -> {
+				this.extraDeviceRequirements.add(new NamedExtraDeviceRequirements("dynamic rendering", (physicalDevice, x, stack) -> {
 					var dynamicRendering = VkPhysicalDeviceDynamicRenderingFeaturesKHR.calloc(stack);
 					dynamicRendering.sType$Default();
 
@@ -619,7 +653,7 @@ public class BoilerBuilder {
 					else vkGetPhysicalDeviceFeatures2KHR(physicalDevice, features2);
 
 					return dynamicRendering.dynamicRendering();
-				});
+				}));
 				this.preDeviceCreators.add((ciDevice, instanceExtensions, physicalDevice, stack) -> {
 					var dynamicRendering = VkPhysicalDeviceDynamicRenderingFeatures.calloc(stack);
 					dynamicRendering.sType$Default();
@@ -628,7 +662,7 @@ public class BoilerBuilder {
 					ciDevice.pNext(dynamicRendering);
 				});
 			} else {
-				this.vkRequiredFeatures13.add(VkPhysicalDeviceVulkan13Features::dynamicRendering);
+				this.vkRequiredFeatures13.add(new RequiredFeatures13("dynamic rendering", VkPhysicalDeviceVulkan13Features::dynamicRendering));
 				this.vkDeviceFeaturePicker13.add((stack, supported, toEnable) -> toEnable.dynamicRendering(true));
 			}
 		}

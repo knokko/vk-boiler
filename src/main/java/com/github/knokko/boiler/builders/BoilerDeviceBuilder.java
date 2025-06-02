@@ -45,7 +45,7 @@ class BoilerDeviceBuilder {
 			}).toArray();
 
 			VkPhysicalDevice[] candidateDevices = BasicDeviceFilter.getCandidates(
-					builder, instanceResult.vkInstance(), windowSurfaces, builder.printDeviceRejectionInfo
+					builder, instanceResult.vkInstance(), windowSurfaces, builder.printDeviceSelectionInfo
 			);
 			if (candidateDevices.length == 0) throw new NoVkPhysicalDeviceException();
 
@@ -53,6 +53,7 @@ class BoilerDeviceBuilder {
 					stack, candidateDevices, instanceResult.vkInstance()
 			);
 			if (vkPhysicalDevice == null) throw new NoVkPhysicalDeviceException();
+			if (builder.printDeviceSelectionInfo) System.out.println("Chose physical device " + vkPhysicalDevice.address());
 		}
 
 		try (var stack = stackPush()) {
@@ -94,7 +95,8 @@ class BoilerDeviceBuilder {
 			var supportedFeatures = SupportedFeatures.query(
 					stack, vkPhysicalDevice, builder.apiVersion,
 					!builder.vkDeviceFeaturePicker10.isEmpty(), !builder.vkDeviceFeaturePicker11.isEmpty(),
-					!builder.vkDeviceFeaturePicker12.isEmpty(), !builder.vkDeviceFeaturePicker13.isEmpty()
+					!builder.vkDeviceFeaturePicker12.isEmpty(), !builder.vkDeviceFeaturePicker13.isEmpty(),
+					!builder.vkDeviceFeaturePicker14.isEmpty()
 			);
 
 			int minorVersion = VK_API_VERSION_MINOR(builder.apiVersion);
@@ -136,6 +138,14 @@ class BoilerDeviceBuilder {
 						picker.enableFeatures(stack, supportedFeatures.features13(), enabledFeatures13);
 					}
 					enabledFeatures2.pNext(enabledFeatures13);
+				}
+				if (!builder.vkDeviceFeaturePicker14.isEmpty()) {
+					var enabledFeatures14 = VkPhysicalDeviceVulkan14Features.calloc(stack);
+					enabledFeatures14.sType$Default();
+					for (var picker : builder.vkDeviceFeaturePicker14) {
+						picker.enableFeatures(stack, supportedFeatures.features14(), enabledFeatures14);
+					}
+					enabledFeatures2.pNext(enabledFeatures14);
 				}
 			}
 

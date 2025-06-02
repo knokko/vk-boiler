@@ -122,9 +122,10 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 
 	public static void main(String[] args) {
 		var boiler = new BoilerBuilder(
-				VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
+				VK_API_VERSION_1_0, "MiniTriangle", VK_MAKE_VERSION(0, 1, 0)
 		)
 				.validation().forbidValidationErrors()
+				.requiredFeatures10("lalala", features -> features.textureCompressionASTC_LDR())
 				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
 				.enableDynamicRendering()
 				.build();

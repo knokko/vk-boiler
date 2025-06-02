@@ -3,9 +3,7 @@ package com.github.knokko.boiler.builders;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -39,29 +37,36 @@ class BasicDeviceFilter {
 		}
 	}
 
-	private static boolean supportsRequiredFeatures(VkPhysicalDevice device, BoilerBuilder builder) {
+	private static String supportsRequiredFeatures(VkPhysicalDevice device, BoilerBuilder builder) {
 		try (var stack = stackPush()) {
 			var supportedFeatures = SupportedFeatures.query(
 					stack, device, builder.apiVersion,
 					!builder.vkRequiredFeatures10.isEmpty(), !builder.vkRequiredFeatures11.isEmpty(),
-					!builder.vkRequiredFeatures12.isEmpty(), !builder.vkRequiredFeatures13.isEmpty()
+					!builder.vkRequiredFeatures12.isEmpty(), !builder.vkRequiredFeatures13.isEmpty(),
+					!builder.vkRequiredFeatures14.isEmpty()
 			);
-			if (!builder.vkRequiredFeatures10.stream().allMatch(required -> required.test(supportedFeatures.features10()))) {
-				return false;
+			for (var requirement : builder.vkRequiredFeatures10) {
+				if (!requirement.predicate().test(supportedFeatures.features10())) return requirement.description();
 			}
-			if (!builder.vkRequiredFeatures11.stream().allMatch(required -> required.test(supportedFeatures.features11()))) {
-				return false;
+			for (var requirement : builder.vkRequiredFeatures11) {
+				if (!requirement.predicate().test(supportedFeatures.features11())) return requirement.description();
 			}
-			if (!builder.vkRequiredFeatures12.stream().allMatch(required -> required.test(supportedFeatures.features12()))) {
-				return false;
+			for (var requirement : builder.vkRequiredFeatures12) {
+				if (!requirement.predicate().test(supportedFeatures.features12())) return requirement.description();
 			}
-			return builder.vkRequiredFeatures13.stream().allMatch(required -> required.test(supportedFeatures.features13()));
+			for (var requirement : builder.vkRequiredFeatures13) {
+				if (!requirement.predicate().test(supportedFeatures.features13())) return requirement.description();
+			}
+			for (var requirement : builder.vkRequiredFeatures14) {
+				if (!requirement.predicate().test(supportedFeatures.features14())) return requirement.description();
+			}
+			return null;
 		}
 	}
 
 	static VkPhysicalDevice[] getCandidates(
 			BoilerBuilder builder, VkInstance vkInstance,
-			long[] windowSurfaces, boolean printRejectionInfo
+			long[] windowSurfaces, boolean printSelectionInfo
 	) {
 		try (var stack = stackPush()) {
 			var pNumDevices = stack.callocInt(1);
@@ -91,7 +96,7 @@ class BasicDeviceFilter {
 				if (supportedMajorVersion < desiredMajorVersion ||
 						(supportedMajorVersion == desiredMajorVersion && supportedMinorVersion < desiredMinorVersion)
 				) {
-					if (printRejectionInfo) {
+					if (printSelectionInfo) {
 						System.out.println(
 								"BasicDeviceFilter: rejected " + properties.deviceNameString() +
 										" because it doesn't support Vulkan " + desiredMajorVersion +
@@ -101,10 +106,11 @@ class BasicDeviceFilter {
 					continue;
 				}
 
-				if (!supportsRequiredFeatures(device, builder)) {
-					if (printRejectionInfo) {
+				String missingFeature = supportsRequiredFeatures(device, builder);
+				if (missingFeature != null) {
+					if (printSelectionInfo) {
 						System.out.println("BasicDeviceFilter: rejected " + properties.deviceNameString() +
-								" because it doesn't support the required features");
+								" because it doesn't support the required feature " + missingFeature);
 					}
 					continue;
 				}
@@ -112,7 +118,7 @@ class BasicDeviceFilter {
 				var supportedExtensions = getSupportedDeviceExtensions(device);
 				for (String extension : builder.requiredVulkanDeviceExtensions) {
 					if (!supportedExtensions.contains(extension)) {
-						if (printRejectionInfo) {
+						if (printSelectionInfo) {
 							System.out.println("BasicDeviceFilter: rejected " + properties.deviceNameString() +
 									" because it doesn't support the extension " + extension);
 						}
@@ -154,7 +160,7 @@ class BasicDeviceFilter {
 				}
 
 				if (!hasPresentQueueFamily || !hasGraphicsQueueFamily) {
-					if (printRejectionInfo) {
+					if (printSelectionInfo) {
 						System.out.println("BasicDeviceFilter: rejected " + properties.deviceNameString()
 								+ " because it doesn't have all required queue families: present = "
 								+ hasPresentQueueFamily + ", graphics = " + hasGraphicsQueueFamily);
@@ -162,17 +168,19 @@ class BasicDeviceFilter {
 					continue;
 				}
 
-				if (!builder.extraDeviceRequirements.stream().allMatch(
-						requirements -> requirements.satisfiesRequirements(device, windowSurfaces, stack)
-				)) {
-					if (printRejectionInfo) {
+				List<String> missedExtraRequirements = builder.extraDeviceRequirements.stream().map(requirements -> {
+					if (requirements.requirements().satisfiesRequirements(device, windowSurfaces, stack)) return null;
+					else return requirements.description();
+				}).filter(Objects::nonNull).toList();
+				if (!missedExtraRequirements.isEmpty()) {
+					if (printSelectionInfo) {
 						System.out.println("BasicDeviceFilter: rejected " + properties.deviceNameString()
-								+ " because it didn't satisfy the extra device requirements");
+								+ " because it didn't satisfy the extra device requirements " + missedExtraRequirements);
 					}
 					continue;
 				}
 
-				System.out.println("BasicDeviceFilter: accepted " + properties.deviceNameString());
+				if (printSelectionInfo) System.out.println("BasicDeviceFilter: accepted " + properties.deviceNameString() + " (" + device.address() + ")");
 				devices.add(device);
 			}
 

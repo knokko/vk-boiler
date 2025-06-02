@@ -26,6 +26,7 @@ public class HelloTriangle {
 				VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
 		)
 				.validation().forbidValidationErrors()
+				.hideDeviceSelectionInfo()
 				.addWindow(new WindowBuilder(
 						1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 				).presentModes(VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR))

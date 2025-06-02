@@ -30,6 +30,8 @@ import static org.lwjgl.vulkan.VK10.VK_MAKE_VERSION;
 import static org.lwjgl.vulkan.VK12.*;
 import static org.lwjgl.vulkan.VK13.VK_API_VERSION_1_3;
 import static org.lwjgl.vulkan.VK13.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+import static org.lwjgl.vulkan.VK14.VK_API_VERSION_1_4;
+import static org.lwjgl.vulkan.VK14.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES;
 
 public class TestBoilerBuilder {
 
@@ -57,13 +59,22 @@ public class TestBoilerBuilder {
 	}
 
 	@Test
-	@SuppressWarnings("resource")
 	public void testComplexInstanceBuilder() {
+		try {
+			// SwiftShader doesn't support VK 1.4, which is all we have in GitHub Actions
+			testComplexInstanceBuilder(VK_API_VERSION_1_4);
+		} catch (NoVkPhysicalDeviceException notSupported) {
+			testComplexInstanceBuilder(VK_API_VERSION_1_3);
+		}
+	}
+
+	@SuppressWarnings("resource")
+	private void testComplexInstanceBuilder(int apiVersion) {
 		boolean[] pDidCallInstanceCreator = {false};
 		boolean[] pDidCallDeviceCreator = {false};
 
-		var instance = new BoilerBuilder(
-				VK_API_VERSION_1_3, "TestComplexVulkan1.2", VK_MAKE_VERSION(1, 1, 1)
+		var builder = new BoilerBuilder(
+				apiVersion, "TestComplexVulkan1.4", VK_MAKE_VERSION(1, 1, 1)
 		)
 				.engine("TestEngine", VK_MAKE_VERSION(0, 8, 4))
 				.featurePicker12((stack, supported, toEnable) -> {
@@ -100,8 +111,8 @@ public class TestBoilerBuilder {
 					}
 
 					var appInfo = Objects.requireNonNull(ciInstance.pApplicationInfo());
-					assertEquals("TestComplexVulkan1.2", appInfo.pApplicationNameString());
-					assertEquals(VK_API_VERSION_1_3, appInfo.apiVersion());
+					assertEquals("TestComplexVulkan1.4", appInfo.pApplicationNameString());
+					assertEquals(apiVersion, appInfo.apiVersion());
 					assertEquals("TestEngine", appInfo.pEngineNameString());
 					assertEquals(VK_MAKE_VERSION(0, 8, 4), appInfo.engineVersion());
 
@@ -137,6 +148,7 @@ public class TestBoilerBuilder {
 					VkPhysicalDeviceVulkan11Features enabledFeatures11 = null;
 					VkPhysicalDeviceVulkan12Features enabledFeatures12 = null;
 					VkPhysicalDeviceVulkan13Features enabledFeatures13 = null;
+					VkPhysicalDeviceVulkan14Features enabledFeatures14 = null;
 
 					var nextStruct = VkBaseInStructure.createSafe(ciDevice.pNext());
 					while (nextStruct != null) {
@@ -149,6 +161,9 @@ public class TestBoilerBuilder {
 						if (nextStruct.sType() == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES) {
 							enabledFeatures13 = VkPhysicalDeviceVulkan13Features.create(nextStruct.address());
 						}
+						if (nextStruct.sType() == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES) {
+							enabledFeatures14 = VkPhysicalDeviceVulkan14Features.create(nextStruct.address());
+						}
 						nextStruct = nextStruct.pNext();
 					}
 
@@ -157,14 +172,25 @@ public class TestBoilerBuilder {
 					assertTrue(enabledFeatures12.imagelessFramebuffer());
 					assertNotNull(enabledFeatures13);
 					assertTrue(enabledFeatures13.dynamicRendering());
+					if (apiVersion == VK_API_VERSION_1_4) {
+						assertNotNull(enabledFeatures14);
+						assertTrue(enabledFeatures14.indexTypeUint8());
+					}
 
 					pDidCallDeviceCreator[0] = true;
 					return BoilerBuilder.DEFAULT_VK_DEVICE_CREATOR.vkCreateDevice(
 							ciDevice, instanceExtensions, physicalDevice, stack
 					);
 				})
-				.forbidValidationErrors()
-				.build();
+				.forbidValidationErrors();
+		if (apiVersion == VK_API_VERSION_1_4) {
+			builder.featurePicker14((stack, supported, toEnable) -> {
+				// This feature has almost 100% coverage according to Vulkan hardware database
+				assertTrue(supported.indexTypeUint8());
+				toEnable.indexTypeUint8(true);
+			});
+		}
+		var instance = builder.build();
 
 		instance.destroyInitialObjects();
 		assertTrue(pDidCallInstanceCreator[0]);
@@ -186,7 +212,7 @@ public class TestBoilerBuilder {
 	private void testRequiredFeatures10(int apiVersion) {
 		var builder = new BoilerBuilder(apiVersion, "TestRequiredFeatures", 1)
 				.featurePicker10((stack, supported, enable) -> fail())
-				.requiredFeatures10(supportedFeatures -> {
+				.requiredFeatures10("robust buffer access", supportedFeatures -> {
 					assertTrue(supportedFeatures.robustBufferAccess());
 					return false;
 				});
@@ -196,7 +222,7 @@ public class TestBoilerBuilder {
 	private void testRequiredFeatures11(int apiVersion) {
 		var builder = new BoilerBuilder(apiVersion, "TestRequiredFeatures", 1)
 				.featurePicker11((stack, supported, enable) -> fail())
-				.requiredFeatures11(supportedFeatures -> {
+				.requiredFeatures11("multiview", supportedFeatures -> {
 					assertTrue(supportedFeatures.multiview());
 					return false;
 				});
@@ -206,19 +232,28 @@ public class TestBoilerBuilder {
 	private void testRequiredFeatures12(int apiVersion) {
 		var builder = new BoilerBuilder(apiVersion, "TestRequiredFeatures", 1)
 				.featurePicker12((stack, supported, enable) -> fail())
-				.requiredFeatures12(supportedFeatures -> {
+				.requiredFeatures12("hostQueryReset", supportedFeatures -> {
 					assertTrue(supportedFeatures.hostQueryReset());
 					return false;
 				});
 		assertThrows(NoVkPhysicalDeviceException.class, builder::build);
 	}
 
-	@Test
-	public void testRequiredFeatures13() {
-		var builder = new BoilerBuilder(VK_API_VERSION_1_3, "TestRequiredFeatures", 1)
+	private void testRequiredFeatures13(int apiVersion) {
+		var builder = new BoilerBuilder(apiVersion, "TestRequiredFeatures", 1)
 				.featurePicker13((stack, supported, enable) -> fail())
-				.requiredFeatures13(supportedFeatures -> {
+				.requiredFeatures13("dynamic rendering", supportedFeatures -> {
 					assertTrue(supportedFeatures.dynamicRendering());
+					return false;
+				});
+		assertThrows(NoVkPhysicalDeviceException.class, builder::build);
+	}
+
+	private void testRequiredFeatures14(int apiVersion) {
+		var builder = new BoilerBuilder(apiVersion, "TestRequiredFeatures", 1)
+				.featurePicker14((stack, supported, enable) -> fail())
+				.requiredFeatures14("indexTypeUint8", supportedFeatures -> {
+					assertTrue(supportedFeatures.indexTypeUint8());
 					return false;
 				});
 		assertThrows(NoVkPhysicalDeviceException.class, builder::build);
@@ -232,7 +267,7 @@ public class TestBoilerBuilder {
 
 	@Test
 	public void testRequiredFeatures11() {
-		int[] versions = {VK_API_VERSION_1_1, VK_API_VERSION_1_2, VK_API_VERSION_1_3};
+		int[] versions = {VK_API_VERSION_1_1, VK_API_VERSION_1_2, VK_API_VERSION_1_3, VK_API_VERSION_1_4};
 		for (int version : versions) testRequiredFeatures11(version);
 	}
 
@@ -240,6 +275,18 @@ public class TestBoilerBuilder {
 	public void testRequiredFeatures12() {
 		testRequiredFeatures12(VK_API_VERSION_1_2);
 		testRequiredFeatures12(VK_API_VERSION_1_3);
+		testRequiredFeatures12(VK_API_VERSION_1_4);
+	}
+
+	@Test
+	public void testRequiredFeatures13() {
+		testRequiredFeatures13(VK_API_VERSION_1_3);
+		testRequiredFeatures13(VK_API_VERSION_1_4);
+	}
+
+	@Test
+	public void testRequiredFeatures14() {
+		testRequiredFeatures14(VK_API_VERSION_1_4);
 	}
 
 	@Test
@@ -284,18 +331,18 @@ public class TestBoilerBuilder {
 	public void testExtraDeviceRequirements() {
 		assertThrows(NoVkPhysicalDeviceException.class, () ->
 				new BoilerBuilder(VK_API_VERSION_1_0, "TestExtraDeviceRequirements", 1)
-						.extraDeviceRequirements((device, windowSurface, stack) -> false)
+						.extraDeviceRequirements("false", (device, windowSurface, stack) -> false)
 						.build()
 		);
 		assertThrows(NoVkPhysicalDeviceException.class, () ->
 				new BoilerBuilder(VK_API_VERSION_1_0, "TestExtraDeviceRequirements", 1)
-						.extraDeviceRequirements((device, windowSurface, stack) -> false)
-						.extraDeviceRequirements((device, windowSurface, stack) -> true)
+						.extraDeviceRequirements("false", (device, windowSurface, stack) -> false)
+						.extraDeviceRequirements("true", (device, windowSurface, stack) -> true)
 						.build()
 		);
 		new BoilerBuilder(VK_API_VERSION_1_0, "TestExtraDeviceRequirements", 1)
-				.extraDeviceRequirements((device, windowSurface, stack) -> true)
-				.extraDeviceRequirements((device, windowSurface, stack) -> true)
+				.extraDeviceRequirements("true", (device, windowSurface, stack) -> true)
+				.extraDeviceRequirements("true", (device, windowSurface, stack) -> true)
 				.build().destroyInitialObjects();
 	}
 
