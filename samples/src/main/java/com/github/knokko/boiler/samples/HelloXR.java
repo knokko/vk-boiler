@@ -321,8 +321,8 @@ public class HelloXR {
 
 				var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
 				pipelineBuilder.simpleShaderStages(
-						"Xr", "com/github/knokko/boiler/samples/graphics/xr-color.vert.spv",
-						"com/github/knokko/boiler/samples/graphics/xr-color.frag.spv"
+						"xr-color", "com/github/knokko/boiler/samples/graphics/",
+						"xr-color.vert.spv", "xr-color.frag.spv"
 				);
 				pipelineBuilder.ciPipeline.pVertexInputState(ciVertexInput);
 				pipelineBuilder.simpleInputAssembly();
@@ -333,7 +333,6 @@ public class HelloXR {
 				pipelineBuilder.ciPipeline.layout(colorPipelineLayout);
 				pipelineBuilder.noColorBlending(1);
 				pipelineBuilder.dynamicRendering(3, depthFormat, VK_FORMAT_UNDEFINED, swapchainFormat);
-
 				colorPipeline = pipelineBuilder.build("ColorPipeline");
 			}
 			{
@@ -366,8 +365,8 @@ public class HelloXR {
 
 				var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
 				pipelineBuilder.simpleShaderStages(
-						"Xr", "com/github/knokko/boiler/samples/graphics/xr-image.vert.spv",
-						"com/github/knokko/boiler/samples/graphics/xr-image.frag.spv"
+						"Xr", "com/github/knokko/boiler/samples/graphics/",
+						"xr-image.vert.spv", "xr-image.frag.spv"
 				);
 				pipelineBuilder.ciPipeline.pVertexInputState(ciVertexInput);
 				pipelineBuilder.simpleInputAssembly();

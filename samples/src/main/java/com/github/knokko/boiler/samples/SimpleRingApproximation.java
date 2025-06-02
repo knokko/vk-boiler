@@ -62,8 +62,8 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 
 		var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
 		pipelineBuilder.simpleShaderStages(
-				"Ring", "com/github/knokko/boiler/samples/graphics/ring.vert.spv",
-				"com/github/knokko/boiler/samples/graphics/ring.frag.spv"
+				"Ring", "com/github/knokko/boiler/samples/graphics/",
+				"ring.vert.spv", "ring.frag.spv"
 		);
 		pipelineBuilder.noVertexInput();
 		pipelineBuilder.simpleInputAssembly();
@@ -75,7 +75,6 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
 		pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, boiler.window().surfaceFormat);
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
-
 		graphicsPipeline = pipelineBuilder.build("RingApproximation");
 	}
 

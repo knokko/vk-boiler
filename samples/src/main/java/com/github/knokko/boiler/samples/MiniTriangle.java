@@ -78,8 +78,8 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 
 		var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
 		pipelineBuilder.simpleShaderStages(
-				"Triangle", "com/github/knokko/boiler/samples/graphics/triangle.vert.spv",
-				"com/github/knokko/boiler/samples/graphics/triangle.frag.spv"
+				"Triangle", "com/github/knokko/boiler/samples/graphics/",
+				"triangle.vert.spv", "triangle.frag.spv"
 		);
 		pipelineBuilder.ciPipeline.pVertexInputState(ciVertexInput);
 		pipelineBuilder.simpleInputAssembly();
@@ -89,10 +89,8 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 		pipelineBuilder.noDepthStencil();
 		pipelineBuilder.noColorBlending(1);
 		pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-
 		pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
-
 		this.graphicsPipeline = pipelineBuilder.build("TrianglePipeline");
 	}
 

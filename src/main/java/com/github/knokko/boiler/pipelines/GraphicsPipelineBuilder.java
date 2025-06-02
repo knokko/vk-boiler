@@ -79,11 +79,15 @@ public class GraphicsPipelineBuilder {
 	/**
 	 * Populates the <i>stageCount</i> and <i>pStages</i> properties such that the graphics pipeline will get a
 	 * vertex shader and a fragment shader, whose SPIR-V code can be found using
-	 * <i>classLoader.getResourceAsStream(vertex/fragmentPath)</i>
+	 * <i>classLoader.getResourceAsStream(shaderPath + vertex/fragmentFileName)</i>
 	 */
-	public void simpleShaderStages(String description, String vertexPath, String fragmentPath) {
-		long vertexModule = instance.pipelines.createShaderModule(vertexPath, description + "-VertexShader");
-		long fragmentModule = instance.pipelines.createShaderModule(fragmentPath, description + "-FragmentShader");
+	public void simpleShaderStages(String description, String shaderPath, String vertexFileName, String fragmentFileName) {
+		long vertexModule = instance.pipelines.createShaderModule(
+				shaderPath + vertexFileName, description + "-VertexShader"
+		);
+		long fragmentModule = instance.pipelines.createShaderModule(
+				shaderPath + fragmentFileName, description + "-FragmentShader"
+		);
 		shaderStages(
 				new ShaderInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexModule, null),
 				new ShaderInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentModule, null)
