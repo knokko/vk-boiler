@@ -47,7 +47,9 @@ public class TestDynamicRendering {
 			ciPipeline.layout(pipelineLayout);
 
 			var pipeline = new GraphicsPipelineBuilder(ciPipeline, instance, stack);
-			pipeline.simpleShaderStages("Red", "shaders/center.vert.spv", "shaders/red.frag.spv");
+			pipeline.simpleShaderStages(
+					"Red", "shaders/", "center.vert.spv", "red.frag.spv"
+			);
 			pipeline.noVertexInput();
 			pipeline.simpleInputAssembly();
 			ciPipeline.pTessellationState(null);

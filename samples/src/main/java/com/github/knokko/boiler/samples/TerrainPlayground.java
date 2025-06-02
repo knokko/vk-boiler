@@ -166,10 +166,9 @@ public class TerrainPlayground {
 
 		var pipelineBuilder = new GraphicsPipelineBuilder(boiler, stack);
 		pipelineBuilder.simpleShaderStages(
-				"Ground", "com/github/knokko/boiler/samples/graphics/ground.vert.spv",
-				"com/github/knokko/boiler/samples/graphics/ground.frag.spv"
+				"Ground", "com/github/knokko/boiler/samples/graphics/",
+				"ground.vert.spv", "ground.frag.spv"
 		);
-
 		pipelineBuilder.ciPipeline.pVertexInputState(vertexInput);
 		pipelineBuilder.simpleInputAssembly();
 		pipelineBuilder.dynamicViewports(1);
@@ -181,7 +180,6 @@ public class TerrainPlayground {
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
 		pipelineBuilder.ciPipeline.renderPass(renderPass);
 		pipelineBuilder.ciPipeline.subpass(0);
-
 		return pipelineBuilder.build("GroundPipeline");
 	}
 

@@ -111,10 +111,9 @@ public class MultipleWindows {
 			pipelineLayout = boiler.pipelines.createLayout(pushConstants, "SpinLayout");
 
 			var builder = new GraphicsPipelineBuilder(boiler, stack);
-
 			builder.simpleShaderStages(
-					"SpinShader", "com/github/knokko/boiler/samples/graphics/spin.vert.spv",
-					"com/github/knokko/boiler/samples/graphics/spin.frag.spv"
+					"SpinShader", "com/github/knokko/boiler/samples/graphics/",
+					"spin.vert.spv", "spin.frag.spv"
 			);
 			builder.noVertexInput();
 			builder.simpleInputAssembly();
@@ -126,7 +125,6 @@ public class MultipleWindows {
 			builder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
 			builder.ciPipeline.layout(pipelineLayout);
 			builder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
-
 			pipeline = builder.build("SpinPipeline");
 		}
 
