@@ -1,7 +1,8 @@
 package com.github.knokko.boiler.images;
 
 /**
- * Wraps a <i>VkImage</i> and its size. Also stores an optional <i>VkImageView</i> + aspect mask
+ * Wraps a <i>VkImage</i> and its size. Also stores an optional <i>VkImageView</i> + aspect mask.
+ * {@link com.github.knokko.boiler.memory.MemoryCombiner} is the recommended way to create {@link VkbImage}s.
  */
 public class VkbImage {
 

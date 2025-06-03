@@ -11,7 +11,7 @@ import com.github.knokko.boiler.descriptors.SharedDescriptorPoolBuilder;
 import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.xr.SuggestedBindingsBuilder;
@@ -71,26 +71,26 @@ public class HelloXR {
 		var bufferedMountains1 = resourceImage("chocoMountains");
 		var bufferedMountains2 = resourceImage("rainbowMountains");
 
-		var stagingBuilder = new MemoryBlockBuilder(boiler, "StagingMemory");
-		var persistentBuilder = new MemoryBlockBuilder(boiler, "PersistentMemory");
-		var grassImage = persistentBuilder.addImage(new ImageBuilder(
+		var stagingCombiner = new MemoryCombiner(boiler, "StagingMemory");
+		var persistentCombiner = new MemoryCombiner(boiler, "PersistentMemory");
+		var grassImage = persistentCombiner.addImage(new ImageBuilder(
 				"GrassImage", bufferedGrass.getWidth(), bufferedGrass.getHeight()
 		).texture());
-		var mountainImage1 = persistentBuilder.addImage(new ImageBuilder(
+		var mountainImage1 = persistentCombiner.addImage(new ImageBuilder(
 				"ChocoMountainsImage", bufferedMountains1.getWidth(), bufferedMountains1.getHeight()
 		).texture());
-		var mountainImage2 = persistentBuilder.addImage(new ImageBuilder(
+		var mountainImage2 = persistentCombiner.addImage(new ImageBuilder(
 				"RainbowMountainsImage", bufferedMountains2.getWidth(), bufferedMountains2.getHeight()
 		).texture());
-		var grassStagingBuffer = stagingBuilder.addMappedBuffer(
+		var grassStagingBuffer = stagingCombiner.addMappedBuffer(
 				4L * bufferedGrass.getWidth() * bufferedGrass.getHeight(),
 				4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 		);
-		var mountainStagingBuffer1 = stagingBuilder.addMappedBuffer(
+		var mountainStagingBuffer1 = stagingCombiner.addMappedBuffer(
 				4L * bufferedMountains1.getWidth() * bufferedMountains1.getHeight(),
 				4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 		);
-		var mountainStagingBuffer2 = stagingBuilder.addMappedBuffer(
+		var mountainStagingBuffer2 = stagingCombiner.addMappedBuffer(
 				4L * bufferedMountains2.getWidth() * bufferedMountains2.getHeight(),
 				4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 		);
@@ -126,7 +126,7 @@ public class HelloXR {
 					VK_IMAGE_ASPECT_COLOR_BIT, 1, 2, "SwapchainView"
 			);
 		}
-		var depthImage = persistentBuilder.addImage(new ImageBuilder(
+		var depthImage = persistentCombiner.addImage(new ImageBuilder(
 				"DepthImage", width, height
 		).depthAttachment(depthFormat).arrayLayers(2));
 
@@ -139,21 +139,21 @@ public class HelloXR {
 
 		int colorVertexSize = (3 + 3) * Float.BYTES;
 		int imageVertexSize = (3 + 2 + 1) * Float.BYTES;
-		var colorVertexBuffer = persistentBuilder.addMappedBuffer(4 * colorVertexSize, 12L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var imageVertexBuffer = persistentBuilder.addMappedBuffer(12 * imageVertexSize, 24L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var colorIndexBuffer = persistentBuilder.addMappedBuffer(5L * 3L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-		var imageIndexBuffer = persistentBuilder.addMappedBuffer(4L * 6L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		var colorVertexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(4 * colorVertexSize, 12L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var imageVertexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(12 * imageVertexSize, 24L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var colorIndexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(5L * 3L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		var imageIndexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(4L * 6L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
 		var matrixBuffers = new MappedVkbBuffer[NUM_FRAMES_IN_FLIGHT];
 		for (int index = 0; index < NUM_FRAMES_IN_FLIGHT; index++) {
-			matrixBuffers[index] = persistentBuilder.addMappedBuffer(
+			matrixBuffers[index] = persistentCombiner.addMappedDeviceLocalBuffer(
 					5L * 64L, boiler.deviceProperties.limits().minUniformBufferOffsetAlignment(),
 					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
 			);
 		}
 
-		var persistentMemory = persistentBuilder.allocate(false);
-		var stagingMemory = stagingBuilder.allocate(false);
+		var persistentMemory = persistentCombiner.build(false);
+		var stagingMemory = stagingCombiner.build(false);
 
 		{
 			var hostVertexBuffer = colorVertexBuffer.floatBuffer();
@@ -226,7 +226,7 @@ public class HelloXR {
 				recorder.bulkCopyBufferToImage(textures, new VkbBuffer[] { grassStagingBuffer, mountainStagingBuffer1, mountainStagingBuffer2 });
 				recorder.bulkTransitionLayout(ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT), textures);
 			}).destroy();
-			stagingMemory.free(boiler);
+			stagingMemory.destroy(boiler);
 		}
 
 		VkbDescriptorSetLayout colorDescriptorSetLayout, imageDescriptorSetLayout;
@@ -593,7 +593,7 @@ public class HelloXR {
 		assertXrSuccess(xrDestroySession(session.xrSession), "DestroySession", null);
 
 		vkDestroySampler(boiler.vkDevice(), sampler, null);
-		persistentMemory.free(boiler);
+		persistentMemory.destroy(boiler);
 		boiler.destroyInitialObjects();
 	}
 }

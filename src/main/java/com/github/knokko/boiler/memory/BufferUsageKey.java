@@ -1,4 +1,4 @@
 package com.github.knokko.boiler.memory;
 
-public record BufferUsageKey(int usage, boolean hostVisible) {
+record BufferUsageKey(int usage, boolean hostVisible, boolean preferablyDeviceLocal) {
 }

@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.buffers;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -16,10 +16,10 @@ public class TestChildBufferRanges {
 				VK_API_VERSION_1_0, "TestChildBufferRanges", 1
 		).validation().forbidValidationErrors().build();
 
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var hostBuffer = builder.addMappedBuffer(100, 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-		var deviceBuffer = builder.addMappedBuffer(100, 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-		var memory = builder.allocate(false);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var hostBuffer = combiner.addMappedBuffer(100, 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		var deviceBuffer = combiner.addMappedBuffer(100, 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		var memory = combiner.build(false);
 
 		{
 			var parentRange = hostBuffer.child(10L, 50L);
@@ -33,7 +33,7 @@ public class TestChildBufferRanges {
 			assertEquals(new VkbBuffer(deviceBuffer.vkBuffer, deviceBuffer.offset + 35L, 20L), childRange);
 		}
 
-		memory.free(instance);
+		memory.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 }

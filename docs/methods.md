@@ -6,70 +6,52 @@ code in projects, as well as some potentially useful classes.
 Creating buffers and allocating their memory in raw Vulkan is a lot of
 work. VMA significantly improves the situation, but it remains rather
 verbose.
-TODO rewrite this section
 
-### DeviceVkbBuffer
-The `DeviceVkbBuffer` class is a tuple of a `VkBuffer`, its `VmaAllocation`
-(optional), and its size. It represents a buffer that is probably **not**
-host-visible. To create one, you should use
-`boiler.buffers.create(size, usage, name)` or 
-`boiler.buffers.createRaw(size, usage, name)`. The first option will use VMA
-to allocate/bind memory for the buffer, whereas the second option won't
-allocate/bind anything.
+### VkbBuffer
+Many Vulkan functions that take a `VkBuffer` as input, also take an
+`offset` as input. This essentially makes it possible to put multiple
+'logical' buffers into a single `VkBuffer`. For instance, you can use
+this to put the vertices of multiple meshes into a single `VkBuffer`,
+which is convenient for reducing the number of vertex buffer switching.
+
+To make it easier to work with this, `vk-boiler` provides the `VkbBuffer`
+class, which is a tuple (`VkBuffer`, `offset`, `size`).
 
 ### MappedVkbBuffer
-The `MappedVkbBuffer` class is a tuple of a `VkBuffer`, its `VmaAllocation`,
-(optional), its size, and its mapped memory address. It represents a
-host-visible buffer whose memory is always mapped. To create one, use
-`boiler.buffers.createMapped(size, usage, name)`.
+The `MappedVkbBuffer` is a subclass of `VkbBuffer` that also contains
+a `hostAddress` field, which tracks at which host address the buffer memory
+is mapped. It also contains some convenience methods like `byteBuffer()`,
+which creates a direct `ByteBuffer` that 'wraps' its mapped memory.
 
-### VkbBufferRange
-The `VkbBufferRange` represents a range of a `VkbBuffer`, which is just a
-tuple `(buffer, byteOffset, byteSize)`. You can obtain an instance by
-calling the `range(...)` or `fullRange()` method of a `DeviceVkbBuffer` or
-a `MappedVkbBuffer`.
+### MemoryCombiner
+The `MemoryCombiner` class is the recommended way to create and allocate
+`VkbBuffer`s and `VkbImage`s. For each group of buffers and images that
+you want to create and destroy at the same time, you should create a
+`MemoryCombiner` instance, call its `.add...(...)` methods, and finally
+its `build(useVma)` method.
 
-### MappedVkbBufferRange
-The `MappedVkbBufferRange` represents a range of a `MappedVkbBuffer`,
-which is a tuple `(mappedBuffer, byteOffset, byteSize)`. You can obtain
-an instance by calling the `mappedRange(...)` or `mappedFullRange()`
-method of a `MappedVkbBuffer`. It provides `byteBuffer()`,
-`shortBuffer()`, etc... methods to create Java NIO buffers whose memory
-is backed by the buffer range. It also provides a `range(...)` method to
-create a corresponding `VkbBufferRange`.
+The `MemoryCombiner` will put all `VkbBuffer`s with the same memory type
+and usage flags in the same `VkBuffer`, and will create at most 1 memory
+allocation per memory type to bind the memory of all its buffer and
+images.
 
 ### PerFrameBuffer
-The `PerFrameBuffer` wraps a `MappedVkbBufferRange`, and uses it to manage
+The `PerFrameBuffer` wraps a `MappedVkbBuffer`, and uses it to manage
 one-time-only data that you use every frame, and whose memory space can be
 reused after `numberOfFramesInFlight` frames. You can use it to easily
 share such space with multiple independent renderers.
 
-### Buffer sub-allocation
-Sometimes, it is a good idea to split 1 `VkBuffer` into multiple
-regions/ranges, for instance 1 vertex buffer range per mesh.
-The `SharedDeviceBufferBuilder` and `SharedMappedBufferBuilder` classes
-make it easy to combine multiple buffer ranges into 1 `VkBuffer`.
-
-### Memory sub-allocation
-Sometimes, you know exactly how much memory your application needs upfront,
-or you want to bundle some buffers and images into a single `VkDeviceMemory`.
-In such cases, you can use `SharedMemoryBuilder` to put all your buffers and
-images into a single `VkDeviceMemory` or `VmaAllocation`.
-
 ### Encoding/decoding images
-You can use `boiler.buffers.encodeBufferedImageRGBA(...)` to encode/store a
-`BufferedImage` in a `MappedVkbBuffer` in RGBA8 format. You can use this to
+You can use the `encodeBufferedImage` method of a `MappedVkbBuffer`
+to encode/store a `BufferedImage` in RGBA8 format. You can use this to
 fill a staging buffer with image data such that it can be used in
-`vkCmdCopyBufferToImage(...)`.
+`vkCmdCopyBufferToImage(...)` (or `.copyBufferToImage(...)` of a
+`CommandRecorder`).
 
-Likewise, you can use `boiler.buffers.decodeBufferedImageRGBA(...)` to
+Likewise, you can use its `decodeBufferedImage(...)` method to
 decode/load a `BufferedImage` from a `MappedVkbBuffer`. You can use this
 after `vkCmdCopyImageToBuffer(...)` to read the contents of a `VkImage`.
 I find this very convenient for debugging.
-
-There is also `encodeBufferedIntoRangeRGBA` and
-`decodeBufferedImageFromRangeRGBA`, which use a `MappedVkbBufferRange`
-instead of a `MappedVkbBuffer` and offset.
 
 ## Commands
 Pretty much any Vulkan application needs command buffers, but using them
@@ -237,20 +219,26 @@ yourself though.
 Almost all applications need to use images, but creating them
 in raw Vulkan can be quite verbose. Therefor, several methods
 are provided to create them using less code.
-TODO rewrite this section
 
 ### VkbImage
 The `VkbImage` class is a simple wrapper around a `VkImage`
 that stores some additional information, such as the size.
-It also has an optional `VkImageView` and `VmaAllocation`.
+It also has an optional `VkImageView`.
 Many methods of `vk-boiler` take `VkbImage`s as parameter
 rather than raw `VkImage`s because this additional information
 allows such methods to be implemented with fewer parameters.
 
 ### Creating images
-You can use the `ImageBuilder` class to easily create
-`VkImage`s. By default, it will also create a
-corresponding `VkImageView` and VMA allocation.
+The `MemoryCombiner` class is the recommended way to create images
+with `vk-boiler`. To use it, create an instance of `MemoryCombiner`,
+call its `addImage(ImageBuilder)` method for each image to be created,
+and finally call its `build()` method.
+
+To get the `ImageBuilder`, you should use its public constructor, and
+configure the image properties by chaining methods on the `ImageBuilder`.
+
+Alternatively, you can use the `createRaw` method of `ImageBuilder`
+to create an image without bound memory.
 
 ### Creating image views
 To create an image view for an existing image, you can use
@@ -259,7 +247,7 @@ To create an image view for an existing image, you can use
 simply calls the former method, but assumes some default
 parameters.
 
-Note that `ImageBuilder` will also create image views by
+Note that `MemoryCombiner` will also create image views by
 default, so you usually only need `createView` to create
 swapchain image views.
 

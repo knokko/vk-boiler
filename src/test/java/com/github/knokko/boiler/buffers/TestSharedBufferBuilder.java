@@ -3,7 +3,7 @@ package com.github.knokko.boiler.buffers;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -25,11 +25,11 @@ public class TestSharedBufferBuilder {
 
 	@Test
 	public void testAlignment() {
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer0 = builder.addBuffer(1, 1234, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		var buffer1 = builder.addBuffer(100, 13, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		var buffer2 = builder.addBuffer(50, 57, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		var memory = builder.allocate(false);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer0 = combiner.addBuffer(1, 1234, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		var buffer1 = combiner.addBuffer(100, 13, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		var buffer2 = combiner.addBuffer(50, 57, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		var memory = combiner.build(false);
 
 		assertEquals(1, buffer0.size);
 		assertEquals(0, buffer0.offset);
@@ -38,24 +38,24 @@ public class TestSharedBufferBuilder {
 		assertEquals(50, buffer2.size);
 		assertEquals(114, buffer2.offset);
 
-		memory.free(instance);
+		memory.destroy(instance);
 	}
 
 	@Test
 	public void testBufferCopyShuffle() {
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var source0 = builder.addMappedBuffer(7, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-		var source1 = builder.addMappedBuffer(8, 8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-		var source2 = builder.addMappedBuffer(1, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var source0 = combiner.addMappedBuffer(7, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+		var source1 = combiner.addMappedDeviceLocalBuffer(8, 8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+		var source2 = combiner.addMappedBuffer(1, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
-		var middle2 = builder.addBuffer(1, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var middle0 = builder.addBuffer(7, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var middle1 = builder.addBuffer(8, 8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var middle2 = combiner.addBuffer(1, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var middle0 = combiner.addBuffer(7, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var middle1 = combiner.addBuffer(8, 8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
-		var destination1 = builder.addMappedBuffer(8, 8, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var destination2 = builder.addMappedBuffer(1, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var destination0 = builder.addMappedBuffer(7, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var memory = builder.allocate(false);
+		var destination1 = combiner.addMappedDeviceLocalBuffer(8, 8, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var destination2 = combiner.addMappedBuffer(1, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var destination0 = combiner.addMappedBuffer(7, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var memory = combiner.build(false);
 
 		source0.intBuffer().put(1234);
 		source1.doubleBuffer().put(1.25);
@@ -71,15 +71,15 @@ public class TestSharedBufferBuilder {
 		assertEquals(1.25, destination1.doubleBuffer().get());
 		assertEquals(123, destination2.byteBuffer().get());
 
-		memory.free(instance);
+		memory.destroy(instance);
 	}
 
 	@Test
 	public void testMappedBufferBuilder() {
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer0 = builder.addMappedBuffer(3, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var buffer1 = builder.addMappedBuffer(8, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var memory = builder.allocate(false);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer0 = combiner.addMappedBuffer(3, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var buffer1 = combiner.addMappedBuffer(8, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var memory = combiner.build(false);
 
 		assertEquals(0, buffer0.offset);
 		assertEquals(3, buffer0.size);
@@ -92,7 +92,7 @@ public class TestSharedBufferBuilder {
 		assertEquals(3, buffer0.byteBuffer().get(2));
 		assertEquals(12345, buffer1.intBuffer().get());
 
-		memory.free(instance);
+		memory.destroy(instance);
 	}
 
 	@AfterAll

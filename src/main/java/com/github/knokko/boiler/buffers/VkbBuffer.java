@@ -4,7 +4,8 @@ import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 
 /**
  * A {@link VkbBuffer} represents a segment of a <b>VkBuffer</b>. Every initialized instance claims bytes
- * {@code offset} to {@code offset + size} of {@code vkBuffer}.
+ * {@code offset} to {@code offset + size} of {@code vkBuffer}. {@link com.github.knokko.boiler.memory.MemoryCombiner}
+ * is the recommended way to create {@link VkbBuffer}s.
  */
 public class VkbBuffer {
 

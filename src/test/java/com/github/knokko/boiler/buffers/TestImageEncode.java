@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.buffers;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import org.junit.jupiter.api.Test;
 
 import java.awt.*;
@@ -22,10 +22,10 @@ public class TestImageEncode {
 				VK_API_VERSION_1_0, "TestEncodeBufferedImageRGBA", 1
 		).validation().forbidValidationErrors().build();
 
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer = builder.addMappedBuffer(10, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		var buffer2 = builder.addMappedBuffer(50, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-		var memory = builder.allocate(false);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer = combiner.addMappedBuffer(10, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		var buffer2 = combiner.addMappedDeviceLocalBuffer(50, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+		var memory = combiner.build(false);
 
 		var image = new BufferedImage(1, 2, BufferedImage.TYPE_INT_ARGB);
 		image.setRGB(0, 0, Color.RED.getRGB());
@@ -46,7 +46,7 @@ public class TestImageEncode {
 		assertEquals((byte) 50, memGetByte(buffer2.hostAddress + 44));
 		assertEquals((byte) 100, memGetByte(buffer2.hostAddress + 45));
 
-		memory.free(instance);
+		memory.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 
@@ -56,9 +56,9 @@ public class TestImageEncode {
 				VK_API_VERSION_1_1, "TestDecodeBufferedImageRGBA", 1
 		).validation().forbidValidationErrors().build();
 
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer = builder.addMappedBuffer(10, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		var memory = builder.allocate(false);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer = combiner.addMappedBuffer(10, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		var memory = combiner.build(false);
 
 		memPutByte(buffer.hostAddress + 1, (byte) 255);
 		memPutByte(buffer.hostAddress + 2, (byte) 0);
@@ -77,7 +77,7 @@ public class TestImageEncode {
 		var image2 = buffer.child(5, 4).decodeBufferedImage(1, 1);
 		assertEquals(new Color(50, 100, 150, 200), new Color(image2.getRGB(0, 0), true));
 
-		memory.free(instance);
+		memory.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 
@@ -87,9 +87,9 @@ public class TestImageEncode {
 				VK_API_VERSION_1_2, "TestBufferedImageCodingWithoutAlpha", 1
 		).validation().forbidValidationErrors().build();
 
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer = builder.addMappedBuffer(10, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		var memory = builder.allocate(true);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer = combiner.addMappedBuffer(10, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		var memory = combiner.build(true);
 
 		var image = new BufferedImage(1, 2, BufferedImage.TYPE_INT_RGB);
 		image.setRGB(0, 0, Color.RED.getRGB());
@@ -111,7 +111,7 @@ public class TestImageEncode {
 		assertEquals(image.getRGB(0, 1), copied.getRGB(0, 1));
 		assertEquals(255, new Color(copied.getRGB(0, 0), true).getAlpha());
 
-		memory.free(instance);
+		memory.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 }

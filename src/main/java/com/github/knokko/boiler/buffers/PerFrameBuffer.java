@@ -5,6 +5,8 @@ import com.github.knokko.boiler.exceptions.PerFrameOverflowException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.github.knokko.boiler.utilities.BoilerMath.nextMultipleOf;
+
 /**
  * Utility class to facilitate the sharing of one-time-use per-frame buffer storage between different renderers.
  *
@@ -81,10 +83,7 @@ public class PerFrameBuffer {
 	}
 
 	private void align(long alignment) {
-		long fullOffset = buffer.offset + currentOffset;
-		if (fullOffset % alignment == 0L) return;
-
-		fullOffset = (1L + fullOffset / alignment) * alignment;
+		long fullOffset = nextMultipleOf(buffer.offset + currentOffset, alignment);
 		currentOffset = fullOffset - buffer.offset;
 	}
 
@@ -112,7 +111,6 @@ public class PerFrameBuffer {
 			throw new PerFrameOverflowException("PerFrameBuffer overflow case 1: byteSize is " + byteSize);
 		}
 
-		// TODO double-check
 		var result = buffer.child(currentOffset, byteSize);
 		currentOffset = nextOffset;
 		return result;

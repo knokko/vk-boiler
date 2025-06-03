@@ -2,7 +2,7 @@ package com.github.knokko.boiler.compute;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
 
@@ -24,13 +24,13 @@ public class TestComputePipelines {
 			int invocationsPerGroup = 128;
 			int groupCount = 1024 * 2;
 
-			var memoryBuilder = new MemoryBlockBuilder(instance, "Memory");
-			var buffer = memoryBuilder.addMappedBuffer(
+			var combiner = new MemoryCombiner(instance, "Memory");
+			var buffer = combiner.addMappedDeviceLocalBuffer(
 					4 * valuesPerInvocation * invocationsPerGroup * groupCount,
 					instance.deviceProperties.limits().minStorageBufferOffsetAlignment(),
 					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
-			var memory = memoryBuilder.allocate(false);
+			var memory = combiner.build(false);
 			var hostBuffer = buffer.intBuffer();
 
 			var fillLayoutBindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
@@ -82,7 +82,7 @@ public class TestComputePipelines {
 			vkDestroyPipeline(instance.vkDevice(), computePipeline, null);
 			descriptorSetLayout.destroy();
 			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
-			memory.free(instance);
+			memory.destroy(instance);
 		}
 
 		instance.destroyInitialObjects();

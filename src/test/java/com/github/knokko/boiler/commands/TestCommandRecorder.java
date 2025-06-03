@@ -5,7 +5,7 @@ import com.github.knokko.boiler.buffers.VkbBuffer;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
@@ -25,11 +25,11 @@ public class TestCommandRecorder {
 				VK_API_VERSION_1_0, "TestAlreadyRecording", 1
 		).validation().forbidValidationErrors().build();
 
-		var builder = new MemoryBlockBuilder(instance, "TestMemory");
-		var buffer = builder.addMappedBuffer(
+		var combiner = new MemoryCombiner(instance, "TestMemory");
+		var buffer = combiner.addMappedBuffer(
 				8, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
 		);
-		var memory = builder.allocate(false);
+		var memory = combiner.build(false);
 
 		memPutInt(buffer.hostAddress, 1234);
 		var commandPool = instance.commands.createPool(0, instance.queueFamilies().graphics().index(), "CopyPool");
@@ -56,7 +56,7 @@ public class TestCommandRecorder {
 
 		instance.sync.fenceBank.returnFence(fence);
 		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
-		memory.free(instance);
+		memory.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 
@@ -71,15 +71,15 @@ public class TestCommandRecorder {
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 		var imageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-		var builder = new MemoryBlockBuilder(instance, "TestMemory");
-		var destinationBuffer = builder.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var sourceImage = builder.addImage(new ImageBuilder(
+		var combiner = new MemoryCombiner(instance, "TestMemory");
+		var destinationBuffer = combiner.addMappedDeviceLocalBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var sourceImage = combiner.addImage(new ImageBuilder(
 				"SourceImage", width, height
 		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
-		var destinationImage = builder.addImage(new ImageBuilder(
+		var destinationImage = combiner.addImage(new ImageBuilder(
 				"DestinationImage", width, height
 		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
-		var memory = builder.allocate(false);
+		var memory = combiner.build(false);
 
 		SingleTimeCommands.submit(instance, "Copying", recorder -> {
 			recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_DEST);
@@ -97,7 +97,7 @@ public class TestCommandRecorder {
 		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress + 2));
 		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress + 3));
 
-		memory.free(instance);
+		memory.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 
@@ -107,14 +107,14 @@ public class TestCommandRecorder {
 				VK_API_VERSION_1_0, "Test bc image copy", VK_MAKE_VERSION(1, 0, 0)
 		).validation().forbidValidationErrors().build();
 
-		var builder = new MemoryBlockBuilder(instance, "TestMemory");
-		var sourceImage = builder.addImage(new ImageBuilder(
+		var combiner = new MemoryCombiner(instance, "TestMemory");
+		var sourceImage = combiner.addImage(new ImageBuilder(
 				"Source", 1, 3
 		).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK).setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
-		var destinationImage = builder.addImage(new ImageBuilder(
+		var destinationImage = combiner.addImage(new ImageBuilder(
 				"Destination", 1, 3
 		).texture().format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK));
-		var memory = builder.allocate(true);
+		var memory = combiner.build(true);
 
 		SingleTimeCommands.submit(instance, "Copying", recorder -> {
 			recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_SOURCE);
@@ -122,7 +122,7 @@ public class TestCommandRecorder {
 			recorder.copyImage(sourceImage, destinationImage);
 		}).destroy();
 
-		memory.free(instance);
+		memory.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 
@@ -141,18 +141,18 @@ public class TestCommandRecorder {
 		var imageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 		for (boolean useVma : new boolean[] { false, true }) {
-			var builder = new MemoryBlockBuilder(instance, "TestMemory" + useVma);
-			var hostBuffer = builder.addMappedBuffer(
+			var combiner = new MemoryCombiner(instance, "TestMemory" + useVma);
+			var hostBuffer = combiner.addMappedBuffer(
 					4 * width1 * height1, 4,
 					VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
 			);
-			var sourceImage = builder.addImage(new ImageBuilder(
+			var sourceImage = combiner.addImage(new ImageBuilder(
 					"SourceImage", width1, height1
 			).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
-			var destinationImage = builder.addImage(new ImageBuilder(
+			var destinationImage = combiner.addImage(new ImageBuilder(
 					"DestinationImage", width2, height2
 			).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
-			var memory = builder.allocate(useVma);
+			var memory = combiner.build(useVma);
 
 			var hostByteBuffer = hostBuffer.byteBuffer();
 			SingleTimeCommands.submit(instance, "Blitting", recorder -> {
@@ -187,7 +187,7 @@ public class TestCommandRecorder {
 			assertEquals((byte) 50, hostByteBuffer.get(2));
 			assertEquals((byte) 255, hostByteBuffer.get(3));
 
-			memory.free(instance);
+			memory.destroy(instance);
 		}
 
 		instance.destroyInitialObjects();
@@ -200,7 +200,7 @@ public class TestCommandRecorder {
 		).validation().forbidValidationErrors().build();
 
 		for (int amount : new int[] { 0, 1, 200, 2002 }) {
-			var builder = new MemoryBlockBuilder(instance, "Memory" + amount);
+			var combiner = new MemoryCombiner(instance, "Memory" + amount);
 			var sourceBuffers = new MappedVkbBuffer[amount];
 			var middleBuffers = new VkbBuffer[amount];
 			var images1 = new VkbImage[amount];
@@ -208,19 +208,19 @@ public class TestCommandRecorder {
 			var destinationBuffers = new MappedVkbBuffer[amount];
 
 			for (int index = 0; index < amount; index++) {
-				sourceBuffers[index] = builder.addMappedBuffer(4L, 4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-				middleBuffers[index] = builder.addBuffer(
+				sourceBuffers[index] = combiner.addMappedBuffer(4L, 4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+				middleBuffers[index] = combiner.addBuffer(
 						4L, 4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
 				);
-				images1[index] = builder.addImage(new ImageBuilder(
+				images1[index] = combiner.addImage(new ImageBuilder(
 						"Test1Image" + index, 1, 1
 				).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_R8G8B8A8_UNORM));
-				images2[index] = builder.addImage(new ImageBuilder(
+				images2[index] = combiner.addImage(new ImageBuilder(
 						"Test2Image" + index, 1, 1
 				).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_R8G8B8A8_UNORM));
-				destinationBuffers[index] = builder.addMappedBuffer(4L, 4L, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+				destinationBuffers[index] = combiner.addMappedBuffer(4L, 4L, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 			}
-			var memory = builder.allocate(true);
+			var memory = combiner.build(true);
 			for (int index = 0; index < amount; index++) sourceBuffers[index].intBuffer().put(index);
 
 			SingleTimeCommands.submit(instance, "Bulk", recorder -> {
@@ -236,7 +236,7 @@ public class TestCommandRecorder {
 			}).destroy();
 
 			for (int index = 0; index < amount; index++) assertEquals(index, destinationBuffers[index].intBuffer().get());
-			memory.free(instance);
+			memory.destroy(instance);
 		}
 
 		instance.destroyInitialObjects();

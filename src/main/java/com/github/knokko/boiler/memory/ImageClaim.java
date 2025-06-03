@@ -3,7 +3,7 @@ package com.github.knokko.boiler.memory;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
 
-public class ImageClaim {
+class ImageClaim {
 
 	final VkbImage image;
 	final ImageBuilder builder;
