@@ -6,7 +6,7 @@ import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.memory.MemoryBlock;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.window.AcquiredImage;
@@ -38,9 +38,9 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 	@Override
 	protected void setup(BoilerInstance boiler, MemoryStack stack) {
 		super.setup(boiler, stack);
-		var builder = new MemoryBlockBuilder(boiler, "VertexMemory");
-		this.vertexBuffer = builder.addMappedBuffer(3 * Float.BYTES * (2 + 3), 24, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		this.memory = builder.allocate(false);
+		var combiner = new MemoryCombiner(boiler, "VertexMemory");
+		this.vertexBuffer = combiner.addMappedDeviceLocalBuffer(3 * Float.BYTES * (2 + 3), 24, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		this.memory = combiner.build(false);
 
 		var vertices = vertexBuffer.floatBuffer();
 		// Put color (1, 0, 0) at position (-1, 1)
@@ -115,7 +115,7 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 	@Override
 	protected void cleanUp(BoilerInstance boiler) {
 		super.cleanUp(boiler);
-		memory.free(boiler);
+		memory.destroy(boiler);
 		vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
 		vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
 	}

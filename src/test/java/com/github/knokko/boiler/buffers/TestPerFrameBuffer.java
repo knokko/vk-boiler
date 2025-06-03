@@ -3,7 +3,7 @@ package com.github.knokko.boiler.buffers;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.exceptions.PerFrameOverflowException;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -22,9 +22,9 @@ public class TestPerFrameBuffer {
 
 	@Test
 	public void testBasic() {
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer = builder.addMappedBuffer(10, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var memory = builder.allocate(false);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer = combiner.addMappedBuffer(10, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var memory = combiner.build(false);
 
 		var perFrame = new PerFrameBuffer(buffer);
 
@@ -40,14 +40,14 @@ public class TestPerFrameBuffer {
 		perFrame.startFrame(0);
 		assertEquals(0L, perFrame.allocate(3, 1).offset);
 
-		memory.free(instance);
+		memory.destroy(instance);
 	}
 
 	@Test
 	public void testOverflowFirstFrame() {
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer = builder.addMappedBuffer(10, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var memory = builder.allocate(true);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer = combiner.addMappedDeviceLocalBuffer(10, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var memory = combiner.build(true);
 
 		var perFrame = new PerFrameBuffer(buffer);
 
@@ -55,14 +55,14 @@ public class TestPerFrameBuffer {
 		assertEquals(0L, perFrame.allocate(6, 3).offset);
 		assertThrows(PerFrameOverflowException.class, () -> perFrame.allocate(6, 1));
 
-		memory.free(instance);
+		memory.destroy(instance);
 	}
 
 	@Test
 	public void testOverflowSecondFrame() {
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer = builder.addMappedBuffer(10, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var memory = builder.allocate(false);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer = combiner.addMappedBuffer(10, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var memory = combiner.build(false);
 		var perFrame = new PerFrameBuffer(buffer);
 
 		perFrame.startFrame(0);
@@ -70,14 +70,14 @@ public class TestPerFrameBuffer {
 		perFrame.startFrame(1);
 		assertThrows(PerFrameOverflowException.class, () -> perFrame.allocate(6, 1));
 
-		memory.free(instance);
+		memory.destroy(instance);
 	}
 
 	@Test
 	public void testRespectAlignmentWithRangeOffset() {
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer = builder.addMappedBuffer(15, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var memory = builder.allocate(true);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer = combiner.addMappedDeviceLocalBuffer(15, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var memory = combiner.build(true);
 		var perFrame = new PerFrameBuffer(buffer.child(3, 8));
 
 		perFrame.startFrame(1);
@@ -87,14 +87,14 @@ public class TestPerFrameBuffer {
 		perFrame.startFrame(1);
 		assertEquals(5L, perFrame.allocate(3, 5).offset);
 
-		memory.free(instance);
+		memory.destroy(instance);
 	}
 
 	@Test
 	public void testWrapAlignmentOverflow1() {
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer = builder.addMappedBuffer(15, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var memory = builder.allocate(true);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer = combiner.addMappedBuffer(15, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var memory = combiner.build(true);
 		var perFrame = new PerFrameBuffer(buffer.child(1, 10));
 
 		perFrame.startFrame(0);
@@ -104,14 +104,14 @@ public class TestPerFrameBuffer {
 		assertEquals(5L, perFrame.allocate(3, 5).offset);
 		assertThrows(PerFrameOverflowException.class, () -> perFrame.allocate(3, 5));
 
-		memory.free(instance);
+		memory.destroy(instance);
 	}
 
 	@Test
 	public void testWrapAlignmentOverflow2() {
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var buffer = builder.addMappedBuffer(15, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var memory = builder.allocate(false);
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var buffer = combiner.addMappedBuffer(15, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var memory = combiner.build(false);
 		var perFrame = new PerFrameBuffer(buffer.child(1, 10));
 
 		perFrame.startFrame(0);
@@ -126,7 +126,7 @@ public class TestPerFrameBuffer {
 		perFrame.startFrame(1);
 		assertThrows(PerFrameOverflowException.class, () -> perFrame.allocate(5, 5));
 
-		memory.free(instance);
+		memory.destroy(instance);
 	}
 
 	@AfterAll

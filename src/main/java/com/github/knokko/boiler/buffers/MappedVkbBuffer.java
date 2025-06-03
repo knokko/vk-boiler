@@ -7,8 +7,15 @@ import java.nio.*;
 import static java.lang.Math.toIntExact;
 import static org.lwjgl.system.MemoryUtil.*;
 
+/**
+ * A host-visible {@link VkbBuffer} whose memory has been mapped. {@link com.github.knokko.boiler.memory.MemoryCombiner}
+ * is the recommended method to create (Mapped)VkbBuffer's.
+ */
 public class MappedVkbBuffer extends VkbBuffer {
 
+	/**
+	 * The memory address where the first byte of this MappedVkbBuffer is mapped
+	 */
 	public long hostAddress;
 
 	public MappedVkbBuffer(long vkBuffer, long offset, long size, long hostAddress) {
@@ -16,6 +23,9 @@ public class MappedVkbBuffer extends VkbBuffer {
 		this.hostAddress = hostAddress;
 	}
 
+	/**
+	 * Creates a MappedVkbBuffer with the given size. All other fields will be uninitialized
+	 */
 	public MappedVkbBuffer(long size) {
 		super(size);
 	}
@@ -26,30 +36,51 @@ public class MappedVkbBuffer extends VkbBuffer {
 		return new MappedVkbBuffer(vkBuffer, offset + childOffset, childSize, hostAddress + childOffset);
 	}
 
+	/**
+	 * @return a ByteBuffer view of the memory that is mapped by this buffer
+	 */
 	public ByteBuffer byteBuffer() {
 		return memByteBuffer(hostAddress, toIntExact(size));
 	}
 
+	/**
+	 * @return a ShortBuffer view of the memory that is mapped by this buffer
+	 */
 	public ShortBuffer shortBuffer() {
 		return memShortBuffer(hostAddress, toIntExact(size / Short.BYTES));
 	}
 
+	/**
+	 * @return a CharBuffer view of the memory that is mapped by this buffer
+	 */
 	public CharBuffer charBuffer() {
 		return memCharBuffer(hostAddress, toIntExact(size / Character.BYTES));
 	}
 
+	/**
+	 * @return an IntBuffer view of the memory that is mapped by this buffer
+	 */
 	public IntBuffer intBuffer() {
 		return memIntBuffer(hostAddress, toIntExact(size / Integer.BYTES));
 	}
 
+	/**
+	 * @return a FloatBuffer view of the memory that is mapped by this buffer
+	 */
 	public FloatBuffer floatBuffer() {
 		return memFloatBuffer(hostAddress, toIntExact(size / Float.BYTES));
 	}
 
+	/**
+	 * @return a LongBuffer view of the memory that is mapped by this buffer
+	 */
 	public LongBuffer longBuffer() {
 		return memLongBuffer(hostAddress, toIntExact(size / Long.BYTES));
 	}
 
+	/**
+	 * @return a DoubleBuffer view of the memory that is mapped by this buffer
+	 */
 	public DoubleBuffer doubleBuffer() {
 		return memDoubleBuffer(hostAddress, toIntExact(size / Double.BYTES));
 	}

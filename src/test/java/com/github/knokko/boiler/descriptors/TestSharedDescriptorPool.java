@@ -1,7 +1,7 @@
 package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkDescriptorSetLayoutBinding;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
@@ -39,16 +39,16 @@ public class TestSharedDescriptorPool {
 				VK_API_VERSION_1_0, "TestEmptySharedDescriptorPool", 1
 		).validation().forbidValidationErrors().build();
 
-		var memoryBuilder = new MemoryBlockBuilder(instance, "Memory");
-		var uniformBuffer = memoryBuilder.addBuffer(
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var uniformBuffer = combiner.addBuffer(
 				1234L, instance.deviceProperties.limits().minUniformBufferOffsetAlignment(),
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
 		);
-		var storageBuffer = memoryBuilder.addBuffer(
+		var storageBuffer = combiner.addBuffer(
 				456L, instance.deviceProperties.limits().minStorageBufferOffsetAlignment(),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 		);
-		var memory = memoryBuilder.allocate(false);
+		var memory = combiner.build(false);
 
 		VkbDescriptorSetLayout uniformBufferLayout, combinedLayout;
 		try (var stack = stackPush()) {
@@ -99,7 +99,7 @@ public class TestSharedDescriptorPool {
 		pool.destroy(instance);
 		uniformBufferLayout.destroy();
 		combinedLayout.destroy();
-		memory.free(instance);
+		memory.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 }

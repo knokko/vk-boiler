@@ -18,7 +18,7 @@ public class TestRawImage {
 
 		var image = new ImageBuilder(
 				"RawImage", 12, 34
-		).texture().doNotBindMemory().doNotCreateView().createRaw(instance);
+		).texture().createRaw(instance);
 		assertNotEquals(VK_NULL_HANDLE, image.vkImage);
 		assertEquals(VK_NULL_HANDLE, image.vkImageView);
 		assertEquals(12, image.width);

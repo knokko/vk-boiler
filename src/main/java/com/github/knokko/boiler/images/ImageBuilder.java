@@ -2,21 +2,16 @@ package com.github.knokko.boiler.images;
 
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.MemoryTypeSelector;
-import org.lwjgl.util.vma.VmaAllocationCreateInfo;
 import org.lwjgl.vulkan.VkImageCreateInfo;
 import org.lwjgl.vulkan.VkImageViewCreateInfo;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVmaSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_AUTO;
-import static org.lwjgl.util.vma.Vma.vmaCreateImage;
 import static org.lwjgl.vulkan.VK10.*;
 
-// TODO Rewrite docs
 /**
- * The ImageBuilder class can be used to create (and optionally bind) <i>VkImage</i>s with little code. It is a simple
- * builder class with common default values. The basic flow is:
+ * The ImageBuilder class can be used to configure the parameters for the creation of a {@link VkbImage}.
+ * The basic flow is:
  * <ol>
  *     <li>Create an ImageBuilder instance using the constructor (name, width, height)</li>
  *     <li>
@@ -28,12 +23,10 @@ import static org.lwjgl.vulkan.VK10.*;
  *         (for instance {@link #format} if you want a {@link #texture}, but not VK_FORMAT_R8G8B8A8_SRGB).
  *         This step is also optional, and often not needed.
  *     </li>
- *     <li>
- *         Call the {@link #build} image to create the <i>VkImage</i>.
- *     </li>
  * </ol>
- * By default, the {@link #build} image will also create an image view, and bind the image memory
- * using VMA. You can use {@link #doNotCreateView()} and {@link #doNotBindMemory()} to override this.
+ * After following these steps, it's time to actually create the image. The recommended approach is to use the
+ * {@link com.github.knokko.boiler.memory.MemoryCombiner#addImage(ImageBuilder)} method. Alternatively, you can use
+ * the {@link #createRaw} method.
  */
 public class ImageBuilder {
 
@@ -112,14 +105,8 @@ public class ImageBuilder {
 	public int aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
 	/**
-	 * Whether the {@link #build} method should use VMA to bind the memory of the created image.
-	 * This is true by default. If you change it to false, the image memory will be unbound.
-	 */
-	public boolean shouldBindMemory = true;
-
-	/**
-	 * Whether the {@link #build} method should create a corresponding <i>VkImageView</i>
-	 * for the created image. This is true by default.
+	 * When the image is being created using {@link com.github.knokko.boiler.memory.MemoryCombiner}, this field
+	 * determines whether a corresponding <b>VkImageView</b> will also be created. This is <b>true</b> by default.
 	 */
 	public boolean shouldCreateView = true;
 
@@ -234,16 +221,7 @@ public class ImageBuilder {
 	}
 
 	/**
-	 * Sets {@link #shouldBindMemory} (and {@link #shouldCreateView}) to false
-	 * @return this
-	 */
-	public ImageBuilder doNotBindMemory() {
-		this.shouldBindMemory = false;
-		return this.doNotCreateView();
-	}
-
-	/**
-	 * Sets {@link #shouldCreateView} to false
+	 * Sets {@link #shouldCreateView} (which is <b>true</b> by default) to <b>false</b>
 	 * @return this
 	 */
 	public ImageBuilder doNotCreateView() {
@@ -278,6 +256,13 @@ public class ImageBuilder {
 		return this.format(VK_FORMAT_R8G8B8A8_SRGB).setUsage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 	}
 
+	/**
+	 * Creates a <b>VkImage</b> using the parameters of this ImageBuilder, without binding its memory, or creating a
+	 * corresponding <b>VkImageView</b>. Note that using this method is possible, but not the recommended approach to
+	 * create {@link VkbImage}s. Consider using {@link com.github.knokko.boiler.memory.MemoryCombiner} instead.
+	 * @return a {@link VkbImage} whose fields contain the created <b>VkImage</b>, as well as the width, height, and
+	 * aspect mask
+	 */
 	public VkbImage createRaw(BoilerInstance instance) {
 		try (var stack = stackPush()) {
 			var ciImage = VkImageCreateInfo.calloc(stack);
@@ -305,6 +290,10 @@ public class ImageBuilder {
 		}
 	}
 
+	/**
+	 * Creates a <b>VkImageView</b> using the given <i>VkImage</i> handle and the parameters of this
+	 * ImageBuilder.
+	 */
 	public long createView(BoilerInstance instance, long vkImage) {
 		try (var stack = stackPush()) {
 			var ciImageView = VkImageViewCreateInfo.calloc(stack);

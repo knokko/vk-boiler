@@ -3,7 +3,7 @@ package com.github.knokko.boiler.samples;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
@@ -144,11 +144,11 @@ public class HelloTriangle {
 			vkDestroyShaderModule(boiler.vkDevice(), fragmentModule, null);
 		}
 
-		var memoryBuilder = new MemoryBlockBuilder(boiler, "VertexMemory");
-		var vertexBuffer = memoryBuilder.addMappedBuffer(
+		var combiner = new MemoryCombiner(boiler, "VertexMemory");
+		var vertexBuffer = combiner.addMappedDeviceLocalBuffer(
 				3 * Float.BYTES * (2 + 3), 24, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
 		);
-		var memory = memoryBuilder.allocate(false);
+		var memory = combiner.build(false);
 		var vertices = vertexBuffer.floatBuffer();
 		// Put color (1, 0, 0) at position (-1, 1)
 		vertices.put(-1f);
@@ -270,7 +270,7 @@ public class HelloTriangle {
 		vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
 		vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
 		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
-		memory.free(boiler);
+		memory.destroy(boiler);
 
 		boiler.destroyInitialObjects();
 	}

@@ -14,7 +14,7 @@ import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.MemoryBlock;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
@@ -183,7 +183,7 @@ public class TerrainPlayground {
 		return pipelineBuilder.build("GroundPipeline");
 	}
 
-	private static PersistentResources createHeightImages(BoilerInstance boiler, MemoryBlockBuilder persistentBuilder) {
+	private static PersistentResources createHeightImages(BoilerInstance boiler, MemoryCombiner persistentCombiner) {
 		try {
 			var input = TerrainPlayground.class.getClassLoader().getResourceAsStream("com/github/knokko/boiler/samples/height/N44E006.hgt");
 			assert input != null;
@@ -198,16 +198,16 @@ public class TerrainPlayground {
 			ShortBuffer hostHeightBuffer = ByteBuffer.wrap(content).order(ByteOrder.BIG_ENDIAN).asShortBuffer();
 			ShortBuffer deltaHeightBuffer = ShortBuffer.allocate(hostHeightBuffer.capacity());
 
-			var heightImage = persistentBuilder.addImage(new ImageBuilder("HeightImage", gridSize, gridSize).texture().format(VK_FORMAT_R16_SINT));
-			var normalImage = persistentBuilder.addImage(new ImageBuilder("NormalImage", gridSize, gridSize).texture().format(VK_FORMAT_R8G8B8A8_SNORM));
-			var persistentMemory = persistentBuilder.allocate(false);
+			var heightImage = persistentCombiner.addImage(new ImageBuilder("HeightImage", gridSize, gridSize).texture().format(VK_FORMAT_R16_SINT));
+			var normalImage = persistentCombiner.addImage(new ImageBuilder("NormalImage", gridSize, gridSize).texture().format(VK_FORMAT_R8G8B8A8_SNORM));
+			var persistentMemory = persistentCombiner.build(false);
 
-			var stagingBuilder = new MemoryBlockBuilder(boiler, "StagingMemory");
-			var heightBuffer = stagingBuilder.addMappedBuffer(content.length, 2, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-			var normalBuffer = stagingBuilder.addMappedBuffer(
+			var stagingCombiner = new MemoryCombiner(boiler, "StagingMemory");
+			var heightBuffer = stagingCombiner.addMappedBuffer(content.length, 2, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+			var normalBuffer = stagingCombiner.addMappedBuffer(
 					4L * normalImage.width * normalImage.height, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 			);
-			var stagingMemory = stagingBuilder.allocate(false);
+			var stagingMemory = stagingCombiner.build(false);
 
 			var heightHostBuffer = heightBuffer.shortBuffer();
 			var normalHostBuffer = normalBuffer.byteBuffer();
@@ -266,7 +266,7 @@ public class TerrainPlayground {
 				);
 			}).destroy();
 
-			stagingMemory.free(boiler);
+			stagingMemory.destroy(boiler);
 			return new PersistentResources(persistentMemory, heightImage, normalImage);
 		} catch (IOException shouldNotHappen) {
 			throw new RuntimeException(shouldNotHappen);
@@ -296,16 +296,16 @@ public class TerrainPlayground {
 
 		int numFramesInFlight = 3;
 
-		var persistentBuilder = new MemoryBlockBuilder(boiler, "PersistentMemory");
+		var persistentCombiner = new MemoryCombiner(boiler, "PersistentMemory");
 		var uniformBuffers = new MappedVkbBuffer[numFramesInFlight];
 		for (int index = 0; index < numFramesInFlight; index++) {
-			uniformBuffers[index] = persistentBuilder.addMappedBuffer(
+			uniformBuffers[index] = persistentCombiner.addMappedDeviceLocalBuffer(
 					64, boiler.deviceProperties.limits().minUniformBufferOffsetAlignment(),
 					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
 			);
 		}
 
-		var persistent = createHeightImages(boiler, persistentBuilder);
+		var persistent = createHeightImages(boiler, persistentCombiner);
 
 		long renderPass;
 		VkbDescriptorSetLayout descriptorSetLayout;
@@ -375,11 +375,11 @@ public class TerrainPlayground {
 
 		long frameCounter = 0;
 		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			var memoryBuilder = new MemoryBlockBuilder(boiler, "DepthMemory");
-			var depthImage = memoryBuilder.addImage(new ImageBuilder(
+			var combiner = new MemoryCombiner(boiler, "DepthMemory");
+			var depthImage = combiner.addImage(new ImageBuilder(
 					"DepthImage", swapchainImage.width(), swapchainImage.height()
 			).depthAttachment(depthFormat));
-			var memory = memoryBuilder.allocate(true);
+			var memory = combiner.build(true);
 
 			long framebuffer = boiler.images.createFramebuffer(
 					renderPass, swapchainImage.width(), swapchainImage.height(),
@@ -389,7 +389,7 @@ public class TerrainPlayground {
 			return new AssociatedSwapchainResources(framebuffer, depthImage, memory);
 		}, resources -> {
 			vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
-			resources.depthMemory().free(boiler);
+			resources.depthMemory().destroy(boiler);
 		});
 
 		long referenceTime = System.currentTimeMillis();
@@ -590,7 +590,7 @@ public class TerrainPlayground {
 		vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
 		descriptorSetLayout.destroy();
 		vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
-		persistent.memory().free(boiler);
+		persistent.memory().destroy(boiler);
 		vkDestroySampler(boiler.vkDevice(), heightSampler, null);
 		vkDestroySampler(boiler.vkDevice(), normalSampler, null);
 

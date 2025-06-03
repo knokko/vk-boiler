@@ -3,7 +3,7 @@ package com.github.knokko.boiler.descriptors;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.images.ImageBuilder;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
@@ -23,15 +23,15 @@ public class TestWriteImage {
 				VK_API_VERSION_1_2, "TestWriteImage", 1
 		).validation().forbidValidationErrors().build();
 
-		var memoryBuilder = new MemoryBlockBuilder(instance, "Memory");
-		var destinationBuffer = memoryBuilder.addMappedBuffer(
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var destinationBuffer = combiner.addMappedBuffer(
 				4, instance.deviceProperties.limits().minStorageBufferOffsetAlignment(),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 		);
-		var sourceBuffer = memoryBuilder.addMappedBuffer(4, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+		var sourceBuffer = combiner.addMappedBuffer(4, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
-		var image = memoryBuilder.addImage(new ImageBuilder("Image", 1, 1).texture().format(VK_FORMAT_R32_SINT));
-		var memory = memoryBuilder.allocate(true);
+		var image = combiner.addImage(new ImageBuilder("Image", 1, 1).texture().format(VK_FORMAT_R32_SINT));
+		var memory = combiner.build(true);
 
 		memPutInt(sourceBuffer.hostAddress, 100);
 		try (var stack = stackPush()) {
@@ -88,7 +88,7 @@ public class TestWriteImage {
 			descriptorSetLayout.destroy();
 			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
 			vkDestroySampler(instance.vkDevice(), sampler, null);
-			memory.free(instance);
+			memory.destroy(instance);
 		}
 
 		instance.destroyInitialObjects();

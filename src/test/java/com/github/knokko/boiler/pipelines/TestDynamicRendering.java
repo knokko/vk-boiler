@@ -4,7 +4,7 @@ import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.exceptions.NoVkPhysicalDeviceException;
 import com.github.knokko.boiler.images.ImageBuilder;
-import com.github.knokko.boiler.memory.MemoryBlockBuilder;
+import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
@@ -32,12 +32,12 @@ public class TestDynamicRendering {
 		int height = 50;
 		var format = VK_FORMAT_R8G8B8A8_UNORM;
 
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var image = builder.addImage(new ImageBuilder("TestColorAttachment", width, height).format(format).setUsage(
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var image = combiner.addImage(new ImageBuilder("TestColorAttachment", width, height).format(format).setUsage(
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
 		));
-		var destinationBuffer = builder.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var memory = builder.allocate(true);
+		var destinationBuffer = combiner.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var memory = combiner.build(true);
 
 		long pipelineLayout;
 		long graphicsPipeline;
@@ -94,7 +94,7 @@ public class TestDynamicRendering {
 		assertEquals((byte) 0, memGetByte(centerAddress + 2));
 		assertEquals((byte) 255, memGetByte(centerAddress + 3));
 
-		memory.free(instance);
+		memory.destroy(instance);
 		vkDestroyPipeline(instance.vkDevice(), graphicsPipeline, null);
 		vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
 
@@ -139,12 +139,12 @@ public class TestDynamicRendering {
 		int width = 20;
 		int height = 30;
 
-		var builder = new MemoryBlockBuilder(instance, "Memory");
-		var image = builder.addImage(new ImageBuilder(
+		var combiner = new MemoryCombiner(instance, "Memory");
+		var image = combiner.addImage(new ImageBuilder(
 				"DepthImage", width, height
 		).depthAttachment(VK_FORMAT_D32_SFLOAT).addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
-		var destinationBuffer = builder.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var memory = builder.allocate(false);
+		var destinationBuffer = combiner.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var memory = combiner.build(false);
 
 		SingleTimeCommands.submit(instance, "DepthCommands", recorder -> {
 			recorder.transitionLayout(
@@ -168,7 +168,7 @@ public class TestDynamicRendering {
 
 		assertEquals(0.75f, memGetFloat(destinationBuffer.hostAddress));
 
-		memory.free(instance);
+		memory.destroy(instance);
 		instance.destroyInitialObjects();
 	}
 }
