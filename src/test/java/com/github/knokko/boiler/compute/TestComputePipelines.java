@@ -64,8 +64,7 @@ public class TestComputePipelines {
 
 			vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
 
-			var commands = new SingleTimeCommands(instance);
-			commands.submit("Filling", recorder -> {
+			SingleTimeCommands.submit(instance, "Filling", recorder -> {
 				vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 				recorder.bindComputeDescriptors(pipelineLayout, descriptorSet);
 				vkCmdPushConstants(
@@ -73,8 +72,7 @@ public class TestComputePipelines {
 						stack.ints(valuesPerInvocation)
 				);
 				vkCmdDispatch(recorder.commandBuffer, groupCount, 1, 1);
-			}).awaitCompletion();
-			commands.destroy();
+			}).destroy();
 
 			for (int index = 0; index < hostBuffer.limit(); index++) {
 				assertEquals(123456, hostBuffer.get(index));

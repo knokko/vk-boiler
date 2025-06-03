@@ -253,8 +253,7 @@ public class TerrainPlayground {
 
 			coarseDeltaHeightLookup = new HeightLookup(600, HEIGHT_IMAGE_NUM_PIXELS, deltaHeightBuffer);
 
-			var commands = new SingleTimeCommands(boiler);
-			commands.submit("StagingCopies", recorder -> {
+			SingleTimeCommands.submit(boiler, "StagingCopies", recorder -> {
 				recorder.bulkTransitionLayout(null, ResourceUsage.TRANSFER_DEST, heightImage, normalImage);
 				recorder.bulkCopyBufferToImage(new VkbImage[] { heightImage, normalImage }, new VkbBuffer[]{ heightBuffer, normalBuffer });
 				recorder.transitionLayout(
@@ -265,8 +264,7 @@ public class TerrainPlayground {
 						normalImage, ResourceUsage.TRANSFER_DEST,
 						ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
 				);
-			});
-			commands.destroy();
+			}).destroy();
 
 			stagingMemory.free(boiler);
 			return new PersistentResources(persistentMemory, heightImage, normalImage);

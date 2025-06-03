@@ -61,13 +61,11 @@ public class TestSharedBufferBuilder {
 		source1.doubleBuffer().put(1.25);
 		source2.byteBuffer().put((byte) 123);
 
-		var commands = new SingleTimeCommands(instance);
-		commands.submit("SharedShuffle", recorder -> {
+		SingleTimeCommands.submit(instance, "SharedShuffle", recorder -> {
 			recorder.bulkCopyBuffers(new VkbBuffer[] { source0, source1, source2 }, new VkbBuffer[] { middle0, middle1, middle2 });
 			recorder.bulkBufferBarrier(ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE, middle0, middle1, middle2);
 			recorder.bulkCopyBuffers(new VkbBuffer[] { middle0, middle1, middle2 }, new VkbBuffer[] { destination0, destination1, destination2 });
-		}).awaitCompletion();
-		commands.destroy();
+		}).destroy();
 
 		assertEquals(1234, destination0.intBuffer().get());
 		assertEquals(1.25, destination1.doubleBuffer().get());

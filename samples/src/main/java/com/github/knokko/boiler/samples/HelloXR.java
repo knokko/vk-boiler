@@ -221,14 +221,11 @@ public class HelloXR {
 			mountainStagingBuffer1.encodeBufferedImage(bufferedMountains1);
 			mountainStagingBuffer2.encodeBufferedImage(bufferedMountains2);
 
-			var singleTime = new SingleTimeCommands(boiler);
-			singleTime.submit("StagingCopy", recorder -> {
-				VkbBuffer[] buffers = { grassStagingBuffer, mountainStagingBuffer1, mountainStagingBuffer2 };
+			SingleTimeCommands.submit(boiler, "StagingCopy", recorder -> {
 				recorder.bulkTransitionLayout(null, ResourceUsage.TRANSFER_DEST, textures);
-				recorder.bulkCopyBufferToImage(textures, buffers);
+				recorder.bulkCopyBufferToImage(textures, new VkbBuffer[] { grassStagingBuffer, mountainStagingBuffer1, mountainStagingBuffer2 });
 				recorder.bulkTransitionLayout(ResourceUsage.TRANSFER_DEST, ResourceUsage.shaderRead(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT), textures);
-			});
-			singleTime.destroy();
+			}).destroy();
 			stagingMemory.free(boiler);
 		}
 

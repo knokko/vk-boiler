@@ -81,8 +81,7 @@ public class TestCommandRecorder {
 		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
 		var memory = builder.allocate(false);
 
-		var commands = new SingleTimeCommands(instance);
-		commands.submit("Copying", recorder -> {
+		SingleTimeCommands.submit(instance, "Copying", recorder -> {
 			recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_DEST);
 			recorder.clearColorImage(sourceImage.vkImage, 0f, 1f, 1f, 1f);
 			recorder.transitionLayout(sourceImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
@@ -91,14 +90,13 @@ public class TestCommandRecorder {
 			recorder.copyImage(sourceImage, destinationImage);
 			recorder.transitionLayout(destinationImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 			recorder.copyImageToBuffer(destinationImage, destinationBuffer);
-		}).awaitCompletion();
+		}).destroy();
 
 		assertEquals((byte) 0, memGetByte(destinationBuffer.hostAddress));
 		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress + 1));
 		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress + 2));
 		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress + 3));
 
-		commands.destroy();
 		memory.free(instance);
 		instance.destroyInitialObjects();
 	}
@@ -118,14 +116,12 @@ public class TestCommandRecorder {
 		).texture().format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK));
 		var memory = builder.allocate(true);
 
-		var commands = new SingleTimeCommands(instance);
-		commands.submit("Copying", recorder -> {
+		SingleTimeCommands.submit(instance, "Copying", recorder -> {
 			recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_SOURCE);
 			recorder.transitionLayout(destinationImage, null, ResourceUsage.TRANSFER_DEST);
 			recorder.copyImage(sourceImage, destinationImage);
-		}).awaitCompletion();
+		}).destroy();
 
-		commands.destroy();
 		memory.free(instance);
 		instance.destroyInitialObjects();
 	}
@@ -159,8 +155,7 @@ public class TestCommandRecorder {
 			var memory = builder.allocate(useVma);
 
 			var hostByteBuffer = hostBuffer.byteBuffer();
-			var commands = new SingleTimeCommands(instance);
-			commands.submit("Blitting", recorder -> {
+			SingleTimeCommands.submit(instance, "Blitting", recorder -> {
 				recorder.transitionLayout(sourceImage, null, ResourceUsage.TRANSFER_DEST);
 				recorder.copyBufferToImage(sourceImage, hostBuffer);
 				recorder.transitionLayout(sourceImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
@@ -184,7 +179,7 @@ public class TestCommandRecorder {
 					hostByteBuffer.put(index + 2, (byte) 0);
 					hostByteBuffer.put(index + 3, (byte) 255);
 				}
-			}).awaitCompletion();
+			}).destroy();
 
 			// So the blitted pixel should be (25, 0, 50, 255)
 			assertEquals((byte) 25, hostByteBuffer.get(0));
@@ -192,7 +187,6 @@ public class TestCommandRecorder {
 			assertEquals((byte) 50, hostByteBuffer.get(2));
 			assertEquals((byte) 255, hostByteBuffer.get(3));
 
-			commands.destroy();
 			memory.free(instance);
 		}
 
@@ -229,8 +223,7 @@ public class TestCommandRecorder {
 			var memory = builder.allocate(true);
 			for (int index = 0; index < amount; index++) sourceBuffers[index].intBuffer().put(index);
 
-			var commands = new SingleTimeCommands(instance);
-			commands.submit("Bulk", recorder -> {
+			SingleTimeCommands.submit(instance, "Bulk", recorder -> {
 				recorder.bulkCopyBuffers(sourceBuffers, middleBuffers);
 				recorder.bulkBufferBarrier(ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE, middleBuffers);
 				recorder.bulkTransitionLayout(null, ResourceUsage.TRANSFER_DEST, images1);
@@ -240,8 +233,7 @@ public class TestCommandRecorder {
 				recorder.bulkCopyImages(images1, images2);
 				recorder.bulkTransitionLayout(ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE, images2);
 				recorder.bulkCopyImageToBuffers(images2, destinationBuffers);
-			});
-			commands.destroy();
+			}).destroy();
 
 			for (int index = 0; index < amount; index++) assertEquals(index, destinationBuffers[index].intBuffer().get());
 			memory.free(instance);
