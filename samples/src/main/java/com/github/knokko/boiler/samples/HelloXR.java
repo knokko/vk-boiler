@@ -6,8 +6,9 @@ import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
-import com.github.knokko.boiler.descriptors.SharedDescriptorPool;
-import com.github.knokko.boiler.descriptors.SharedDescriptorPoolBuilder;
+import com.github.knokko.boiler.descriptors.DescriptorCombiner;
+import com.github.knokko.boiler.descriptors.DescriptorSetLayoutBuilder;
+import com.github.knokko.boiler.descriptors.DescriptorUpdater;
 import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
@@ -230,55 +231,47 @@ public class HelloXR {
 		}
 
 		VkbDescriptorSetLayout colorDescriptorSetLayout, imageDescriptorSetLayout;
-		SharedDescriptorPool sharedDescriptorPool;
 		long[] colorDescriptorSets, imageDescriptorSets;
 		long colorPipelineLayout, imagePipelineLayout;
 		long colorPipeline, imagePipeline;
+		long vkDescriptorPool;
 		try (var stack = stackPush()) {
 
-			var colorLayoutBindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-			boiler.descriptors.binding(colorLayoutBindings, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+			var colorBuilder = new DescriptorSetLayoutBuilder(stack, 1);
+			colorBuilder.set(0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+			colorDescriptorSetLayout = colorBuilder.build(boiler, "MatricesColorLayout");
 
-			var imageLayoutBindings = VkDescriptorSetLayoutBinding.calloc(2, stack);
-			boiler.descriptors.binding(imageLayoutBindings, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-			boiler.descriptors.binding(imageLayoutBindings, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-			imageLayoutBindings.get(1).descriptorCount(3);
+			var imageBuilder = new DescriptorSetLayoutBuilder(stack, 2);
+			imageBuilder.set(0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+			imageBuilder.set(1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+			imageBuilder.bindings.get(1).descriptorCount(3);
+			imageDescriptorSetLayout = imageBuilder.build(boiler, "MatricesImageLayout");
 
-			colorDescriptorSetLayout = boiler.descriptors.createLayout(stack, colorLayoutBindings, "MatricesLayout");
-			imageDescriptorSetLayout = boiler.descriptors.createLayout(stack, imageLayoutBindings, "MatricesImageLayout");
-			var sharedPoolBuilder = new SharedDescriptorPoolBuilder(boiler);
-			sharedPoolBuilder.request(colorDescriptorSetLayout, NUM_FRAMES_IN_FLIGHT);
-			sharedPoolBuilder.request(imageDescriptorSetLayout, NUM_FRAMES_IN_FLIGHT);
+			var descriptors = new DescriptorCombiner(boiler);
+			colorDescriptorSets = descriptors.addMultiple(colorDescriptorSetLayout, NUM_FRAMES_IN_FLIGHT);
+			imageDescriptorSets = descriptors.addMultiple(imageDescriptorSetLayout, NUM_FRAMES_IN_FLIGHT);
+			vkDescriptorPool = descriptors.build("MatrixDescriptors");
 
-			sharedDescriptorPool = sharedPoolBuilder.build("SharedDescriptorPool");
-			colorDescriptorSets = sharedDescriptorPool.allocate(colorDescriptorSetLayout, NUM_FRAMES_IN_FLIGHT);
-			imageDescriptorSets = sharedDescriptorPool.allocate(imageDescriptorSetLayout, NUM_FRAMES_IN_FLIGHT);
-
-			var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
-			for (int index = 0; index < NUM_FRAMES_IN_FLIGHT; index++) {
-				long[] descriptorSets = { colorDescriptorSets[index], imageDescriptorSets[index] };
-				for (long descriptorSet : descriptorSets) {
-					boiler.descriptors.writeBuffer(
-							stack, descriptorWrites, descriptorSet,
-							0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-							descriptorSet == descriptorSets[0] ? matrixBuffers[index] :
-									matrixBuffers[index].child(0, 128)
-					);
-					vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
-				}
-				var imageInfo = VkDescriptorImageInfo.calloc(3, stack);
-				for (int imageIndex = 0; imageIndex < 3; imageIndex++) {
-					imageInfo.get(imageIndex).sampler(sampler);
-					imageInfo.get(imageIndex).imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-					imageInfo.get(imageIndex).imageView(textures[imageIndex].vkImageView);
-				}
-				boiler.descriptors.writeImage(
-						descriptorWrites, imageDescriptorSets[index], 0,
-						VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfo
-				);
-				descriptorWrites.get(0).dstBinding(1);
-				vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
+			var imageInfo = VkDescriptorImageInfo.calloc(3, stack);
+			for (int imageIndex = 0; imageIndex < 3; imageIndex++) {
+				imageInfo.get(imageIndex).sampler(sampler);
+				imageInfo.get(imageIndex).imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				imageInfo.get(imageIndex).imageView(textures[imageIndex].vkImageView);
 			}
+
+			var updater = new DescriptorUpdater(stack, 3 * NUM_FRAMES_IN_FLIGHT);
+			for (int frame = 0; frame < NUM_FRAMES_IN_FLIGHT; frame++) {
+				updater.writeUniformBuffer(3 * frame, colorDescriptorSets[frame], 0, matrixBuffers[frame]);
+				updater.writeUniformBuffer(
+						3 * frame + 1, imageDescriptorSets[frame], 0,
+						matrixBuffers[frame].child(0, 128)
+				);
+				updater.write(3 * frame + 2, imageDescriptorSets[frame], 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+				//noinspection resource
+				updater.descriptorWrites.get(3 * frame + 2).descriptorCount(3);
+				updater.descriptorWrites.get(3 * frame + 2).pImageInfo(imageInfo);
+			}
+			updater.update(boiler);
 
 			var pushConstants = VkPushConstantRange.calloc(1, stack);
 			pushConstants.stageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -574,9 +567,9 @@ public class HelloXR {
 		vkDestroyPipeline(boiler.vkDevice(), imagePipeline, null);
 		vkDestroyPipelineLayout(boiler.vkDevice(), colorPipelineLayout, null);
 		vkDestroyPipelineLayout(boiler.vkDevice(), imagePipelineLayout, null);
-		colorDescriptorSetLayout.destroy();
-		imageDescriptorSetLayout.destroy();
-		sharedDescriptorPool.destroy(boiler);
+		vkDestroyDescriptorSetLayout(boiler.vkDevice(), colorDescriptorSetLayout.vkDescriptorSetLayout, null);
+		vkDestroyDescriptorSetLayout(boiler.vkDevice(), imageDescriptorSetLayout.vkDescriptorSetLayout, null);
+		vkDestroyDescriptorPool(boiler.vkDevice(), vkDescriptorPool, null);
 		for (long imageView : swapchainImageViews) {
 			vkDestroyImageView(boiler.vkDevice(), imageView, null);
 		}

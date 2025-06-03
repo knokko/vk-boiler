@@ -2,6 +2,9 @@ package com.github.knokko.boiler.compute;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
+import com.github.knokko.boiler.descriptors.DescriptorCombiner;
+import com.github.knokko.boiler.descriptors.DescriptorSetLayoutBuilder;
+import com.github.knokko.boiler.descriptors.DescriptorUpdater;
 import com.github.knokko.boiler.memory.MemoryCombiner;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
@@ -33,18 +36,15 @@ public class TestComputePipelines {
 			var memory = combiner.build(false);
 			var hostBuffer = buffer.intBuffer();
 
-			var fillLayoutBindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-			instance.descriptors.binding(fillLayoutBindings, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-
-			var descriptorSetLayout = instance.descriptors.createLayout(
-					stack, fillLayoutBindings, "FillBuffer-DescriptorSetLayout"
-			);
+			var builder = new DescriptorSetLayoutBuilder(stack, 1);
+			builder.set(0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+			var descriptorSetLayout = builder.build(instance, "FullBuffer-DSLayout");
 
 			var pushConstants = VkPushConstantRange.calloc(1, stack);
 			var sizePushConstant = pushConstants.get(0);
 			sizePushConstant.stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
 			sizePushConstant.offset(0);
-			sizePushConstant.size(8);
+			sizePushConstant.size(4);
 
 			long pipelineLayout = instance.pipelines.createLayout(
 					pushConstants, "FillBuffer-PipelineLayout", descriptorSetLayout.vkDescriptorSetLayout
@@ -53,16 +53,13 @@ public class TestComputePipelines {
 					pipelineLayout, "shaders/fill.comp.spv", "FillBuffer"
 			);
 
-			var descriptorPool = descriptorSetLayout.createPool(1, 0, "FillPool");
-			long descriptorSet = descriptorPool.allocate(1)[0];
+			var descriptors = new DescriptorCombiner(instance);
+			var descriptorSet = descriptors.addMultiple(descriptorSetLayout, 1);
+			long vkDescriptorPool = descriptors.build("DescriptorPool");
 
-			var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
-			instance.descriptors.writeBuffer(
-					stack, descriptorWrites, descriptorSet,
-					0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer
-			);
-
-			vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
+			var updater = new DescriptorUpdater(stack, 1);
+			updater.writeStorageBuffer(0, descriptorSet[0], 0, buffer);
+			updater.update(instance);
 
 			SingleTimeCommands.submit(instance, "Filling", recorder -> {
 				vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
@@ -78,9 +75,9 @@ public class TestComputePipelines {
 				assertEquals(123456, hostBuffer.get(index));
 			}
 
-			descriptorPool.destroy();
+			vkDestroyDescriptorPool(instance.vkDevice(), vkDescriptorPool, null);
 			vkDestroyPipeline(instance.vkDevice(), computePipeline, null);
-			descriptorSetLayout.destroy();
+			vkDestroyDescriptorSetLayout(instance.vkDevice(), descriptorSetLayout.vkDescriptorSetLayout, null);
 			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
 			memory.destroy(instance);
 		}

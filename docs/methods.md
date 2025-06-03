@@ -157,63 +157,21 @@ the non-zero result.
 
 ## Descriptors
 Since descriptor management can be quite verbose in 'raw'
-Vulkan, some classes and methods are provided to help.
+Vulkan, some classes are provided to lighten the work.
 
-### Layouts
-You can use `boiler.descriptors.createLayout(stack, bindings, name)`
-to create a `VkbDescriptorSetLayout`, which is a wrapper around
-a `VkDescriptorSetLayout`. You can use
-`boiler.descriptors.binding(...)` to slightly reduce the
-amount of code needed to populate the `bindings`.
+### Creating descriptor set layouts
+You can use the `DescriptorSetLayoutBuilder` class to create
+descriptor set layouts with slightly less boilerplate code
+than usual.
 
-### Pools
-You can call the `createPool(maxSets, flags, name)` method of
-a `VkbDescriptorSetLayout` to create a
-`HomogeneousDescriptorPool` that can allocate exactly
-`maxSets` descriptor sets from the layout. The pool has an
-`allocate(amount)` method that will allocate `amount`
-descriptor sets from the pool. 
+### Creating descriptor pools and allocating descriptor sets
+You can use the `DescriptorCombiner` class to create a descriptor
+pool that contains exactly the right amount of descriptors of each
+descriptor type.
 
-The limitation of `HomogeneousDescriptorPool` is that it
-supports only 1 descriptor set layout. If you want to
-allocate descriptor sets from different layouts from the
-same pool, you can use `SharedDescriptorPool` instead.
-
-Alternatively, you can use the 'raw'
-`boiler.descriptors.allocate(vkDescriptorPool, name, vkDescriptorSetLayouts...)`.
-
-### Banks
-Descriptor 'banks' are wrapped descriptor pools from which
-you can borrow and return descriptor sets. There are 2 types
-of descriptor banks:
-- `FixedDescriptorBank`s wrap only 1 descriptor pool, and you
-can only borrow a predefined number of descriptor sets from it
-at the same time.
-- `GrowingDescriptorBank`s will create more descriptor pools
-when needed. You can borrow as many descriptor sets as you
-want from such a bank.
-
-You can create both classes using their public constructor.
-Both classes are thread-safe and have the same methods:
-`borrowDescriptorSet`, `returnDescriptorSet`, and `destroy`.
-Also, just like `HomogeneousDescriptorPool`, they only
-support 1 descriptor set layout.
-
-### Updating
-`vk-boiler` also provides some methods that reduce the
-boilerplate code needed for updating descriptor sets.
-- You can use 
-`boiler.descriptors.bufferInfo(stack, bufferRanges)`
-to create a buffer of `VkDescriptorBufferInfo` structs that
-can conveniently be passed to 
-`VkWriteDescriptorSet.pBufferInfo`.
-- You can use `boiler.descriptors.writeBuffer(...)` to
-populate a `VkWriteDescriptorSet` that writes a buffer,
-in 1 line of code.
-- You can use `boiler.descriptors.writeImage(...)` to
-populate a `VkWriteDescriptorSet` that writes an image.
-You will still need to create the `VkDescriptorImageInfo`(s)
-yourself though.
+### Updating descriptor sets
+You can use the `DescriptorUpdater` class to conveniently update
+descriptor sets, without too much boilerplate code.
 
 ## Images
 Almost all applications need to use images, but creating them

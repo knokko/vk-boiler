@@ -8,8 +8,10 @@ import com.github.knokko.boiler.builders.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.culling.FrustumCuller;
+import com.github.knokko.boiler.descriptors.DescriptorCombiner;
+import com.github.knokko.boiler.descriptors.DescriptorSetLayoutBuilder;
+import com.github.knokko.boiler.descriptors.DescriptorUpdater;
 import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
-import com.github.knokko.boiler.descriptors.HomogeneousDescriptorPool;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.BoilerInstance;
@@ -142,11 +144,11 @@ public class TerrainPlayground {
 	}
 
 	private static VkbDescriptorSetLayout createDescriptorSetLayout(MemoryStack stack, BoilerInstance boiler) {
-		var bindings = VkDescriptorSetLayoutBinding.calloc(3, stack);
-		boiler.descriptors.binding(bindings, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-		boiler.descriptors.binding(bindings, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT);
-		boiler.descriptors.binding(bindings, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-		return boiler.descriptors.createLayout(stack, bindings, "TerrainDescriptorSetLayout");
+		var builder = new DescriptorSetLayoutBuilder(stack, 3);
+		builder.set(0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+		builder.set(1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT);
+		builder.set(2, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+		return builder.build(boiler, "DSLayout");
 	}
 
 	private static long createGroundPipelineLayout(MemoryStack stack, BoilerInstance boiler, long descriptorSetLayout) {
@@ -311,7 +313,7 @@ public class TerrainPlayground {
 		VkbDescriptorSetLayout descriptorSetLayout;
 		long pipelineLayout;
 		long groundPipeline;
-		HomogeneousDescriptorPool descriptorPool;
+		long vkDescriptorPool;
 		long[] descriptorSets;
 		int depthFormat = boiler.images.chooseDepthStencilFormat(
 				VK_FORMAT_X8_D24_UNORM_PACK32, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT
@@ -326,9 +328,9 @@ public class TerrainPlayground {
 			pipelineLayout = createGroundPipelineLayout(stack, boiler, descriptorSetLayout.vkDescriptorSetLayout);
 			groundPipeline = createGroundPipeline(stack, boiler, pipelineLayout, renderPass);
 
-			descriptorPool = descriptorSetLayout.createPool(numFramesInFlight, 0, "TerrainDescriptorPool");
-
-			descriptorSets = descriptorPool.allocate(numFramesInFlight);
+			var descriptors = new DescriptorCombiner(boiler);
+			descriptorSets = descriptors.addMultiple(descriptorSetLayout, numFramesInFlight);
+			vkDescriptorPool = descriptors.build("DescriptorPool");
 
 			heightSampler = boiler.images.createSampler(
 					VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
@@ -338,30 +340,13 @@ public class TerrainPlayground {
 					VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, "NormalSampler"
 			);
 
-			var heightMapInfo = VkDescriptorImageInfo.calloc(1, stack);
-			heightMapInfo.sampler(heightSampler);
-			heightMapInfo.imageView(persistent.heightImage.vkImageView);
-			heightMapInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			var normalMapInfo = VkDescriptorImageInfo.calloc(1, stack);
-			normalMapInfo.sampler(normalSampler);
-			normalMapInfo.imageView(persistent.normalImage.vkImageView);
-			normalMapInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-			var descriptorWrites = VkWriteDescriptorSet.calloc(3, stack);
-			for (int index = 0; index < numFramesInFlight; index++) {
-				boiler.descriptors.writeBuffer(
-						stack, descriptorWrites, descriptorSets[index],
-						0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffers[index]
-				);
-				boiler.descriptors.writeImage(
-						descriptorWrites, descriptorSets[index], 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, heightMapInfo
-				);
-				boiler.descriptors.writeImage(
-						descriptorWrites, descriptorSets[index], 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, normalMapInfo
-				);
-
-				vkUpdateDescriptorSets(boiler.vkDevice(), descriptorWrites, null);
+			var updater = new DescriptorUpdater(stack, 3 * numFramesInFlight);
+			for (int frame = 0; frame < numFramesInFlight; frame++) {
+				updater.writeUniformBuffer(3 * frame, descriptorSets[frame], 0, uniformBuffers[frame]);
+				updater.writeImage(3 * frame + 1, descriptorSets[frame], 1, persistent.heightImage.vkImageView, heightSampler);
+				updater.writeImage(3 * frame + 2, descriptorSets[frame], 2, persistent.normalImage.vkImageView, normalSampler);
 			}
+			updater.update(boiler);
 		}
 
 		var commandPool = boiler.commands.createPool(
@@ -585,10 +570,10 @@ public class TerrainPlayground {
 		timeline.destroy();
 		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 
-		descriptorPool.destroy();
+		vkDestroyDescriptorPool(boiler.vkDevice(), vkDescriptorPool, null);
 		vkDestroyPipeline(boiler.vkDevice(), groundPipeline, null);
 		vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-		descriptorSetLayout.destroy();
+		vkDestroyDescriptorSetLayout(boiler.vkDevice(), descriptorSetLayout.vkDescriptorSetLayout, null);
 		vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
 		persistent.memory().destroy(boiler);
 		vkDestroySampler(boiler.vkDevice(), heightSampler, null);

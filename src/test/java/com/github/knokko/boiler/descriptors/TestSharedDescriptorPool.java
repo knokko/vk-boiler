@@ -3,10 +3,11 @@ package com.github.knokko.boiler.descriptors;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.memory.MemoryCombiner;
 import org.junit.jupiter.api.Test;
-import org.lwjgl.vulkan.VkDescriptorSetLayoutBinding;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import java.util.HashSet;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -20,16 +21,15 @@ public class TestSharedDescriptorPool {
 
 		VkbDescriptorSetLayout layout;
 		try (var stack = stackPush()) {
-			var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-			instance.descriptors.binding(bindings, 0, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-			layout = instance.descriptors.createLayout(stack, bindings, "NonEmpty");
+			var builder = new DescriptorSetLayoutBuilder(stack, 1);
+			builder.set(0, 0, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+			layout = builder.build(instance, "Empty");
 		}
 
-		var pool = new SharedDescriptorPoolBuilder(instance).build("Empty");
-		assertThrows(IllegalArgumentException.class, () -> pool.allocate(layout, 1));
+		var vkDescriptorPool = new DescriptorCombiner(instance).build("Empty");
+		assertEquals(VK_NULL_HANDLE, vkDescriptorPool);
 
-		pool.destroy(instance);
-		layout.destroy();
+		vkDestroyDescriptorSetLayout(instance.vkDevice(), layout.vkDescriptorSetLayout, null);
 		instance.destroyInitialObjects();
 	}
 
@@ -52,54 +52,78 @@ public class TestSharedDescriptorPool {
 
 		VkbDescriptorSetLayout uniformBufferLayout, combinedLayout;
 		try (var stack = stackPush()) {
-			var bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-			instance.descriptors.binding(bindings, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-			uniformBufferLayout = instance.descriptors.createLayout(stack, bindings, "UniformLayout");
+			var builder = new DescriptorSetLayoutBuilder(stack, 1);
+			builder.set(0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+			uniformBufferLayout = builder.build(instance, "UniformLayout");
 		}
 		try (var stack = stackPush()) {
-			var bindings = VkDescriptorSetLayoutBinding.calloc(4, stack);
-			instance.descriptors.binding(bindings, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_GEOMETRY_BIT);
-			instance.descriptors.binding(bindings, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-			instance.descriptors.binding(bindings, 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-			instance.descriptors.binding(bindings, 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_GEOMETRY_BIT);
-			combinedLayout = instance.descriptors.createLayout(stack, bindings, "CombinedLayout");
+			var builder = new DescriptorSetLayoutBuilder(stack, 4);
+			builder.set(0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_GEOMETRY_BIT);
+			builder.set(1, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+			builder.set(2, 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+			builder.set(3, 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_GEOMETRY_BIT);
+			combinedLayout = builder.build(instance, "CombinedLayout");
 		}
 
-		var builder = new SharedDescriptorPoolBuilder(instance);
-		builder.request(combinedLayout, 1);
-		builder.request(uniformBufferLayout, 2);
-		builder.request(combinedLayout, 5);
-
-		var pool = builder.build("SharedPool");
-
-		var uniformSets = pool.allocate(uniformBufferLayout, 2);
-		assertThrows(IllegalArgumentException.class, () -> pool.allocate(uniformBufferLayout, 1));
-
-		var combinedSets1 = pool.allocate(combinedLayout, 4);
-		var combinedSets2 = pool.allocate(combinedLayout, 2);
-		assertThrows(IllegalArgumentException.class, () -> pool.allocate(combinedLayout, 1));
+		var descriptors = new DescriptorCombiner(instance);
+		var combinedSets2 = new long[1];
+		descriptors.addSingle(combinedLayout, descriptorSet -> combinedSets2[0] = descriptorSet);
+		var uniformSets = descriptors.addMultiple(uniformBufferLayout, 2);
+		var combinedSets1 = descriptors.addMultiple(combinedLayout, 5);
+		long vkDescriptorPool = descriptors.build("SharedPool");
 
 		try (var stack = stackPush()) {
-			var descriptorWrites = VkWriteDescriptorSet.calloc(1, stack);
-			for (int index = 0; index < 2; index++) {
-				instance.descriptors.writeBuffer(stack, descriptorWrites, uniformSets[index], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer);
-				vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
-			}
-
-			descriptorWrites = VkWriteDescriptorSet.calloc(4, stack);
+			var updater = new DescriptorUpdater(stack, 26);
+			updater.writeUniformBuffer(0, uniformSets[0], 0, uniformBuffer);
+			updater.writeUniformBuffer(1, uniformSets[1], 0, uniformBuffer);
 			for (int index = 0; index < 6; index++) {
-				long combinedSet = index < 4 ? combinedSets1[index] : combinedSets2[index - 4];
-				for (int binding : new int[] { 0, 2, 3 }) {
-					instance.descriptors.writeBuffer(stack, descriptorWrites, combinedSet, binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, storageBuffer);
-				}
-				instance.descriptors.writeBuffer(stack, descriptorWrites, combinedSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffer);
+				long combinedSet = index < 5 ? combinedSets1[index] : combinedSets2[index - 5];
+				updater.writeStorageBuffer(2 + 4 * index, combinedSet, 0, storageBuffer);
+				updater.writeStorageBuffer(3 + 4 * index, combinedSet, 2, storageBuffer);
+				updater.writeStorageBuffer(4 + 4 * index, combinedSet, 3, storageBuffer);
+				updater.writeUniformBuffer(5 + 4 * index, combinedSet, 1, uniformBuffer);
 			}
+			updater.update(instance);
 		}
 
-		pool.destroy(instance);
-		uniformBufferLayout.destroy();
-		combinedLayout.destroy();
+		vkDestroyDescriptorPool(instance.vkDevice(), vkDescriptorPool, null);
+		vkDestroyDescriptorSetLayout(instance.vkDevice(), uniformBufferLayout.vkDescriptorSetLayout, null);
+		vkDestroyDescriptorSetLayout(instance.vkDevice(), combinedLayout.vkDescriptorSetLayout, null);
 		memory.destroy(instance);
+		instance.destroyInitialObjects();
+	}
+
+	@Test
+	public void testAllocateManyDescriptors() {
+		var instance = new BoilerBuilder(
+				VK_API_VERSION_1_0, "TestPool", 1
+		).validation().forbidValidationErrors().build();
+
+		VkbDescriptorSetLayout layout;
+		try (var stack = stackPush()) {
+			var builder = new DescriptorSetLayoutBuilder(stack, 1);
+			builder.set(0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+			layout = builder.build(instance, "TestMany");
+		}
+
+		int amount = 10_000;
+		var descriptors = new DescriptorCombiner(instance);
+		var bulk1 = descriptors.addMultiple(layout, amount);
+		var bulk2 = descriptors.addMultiple(layout, amount);
+		var solo = new long[2];
+		descriptors.addSingle(layout, descriptorSet -> solo[0] = descriptorSet);
+		descriptors.addSingle(layout, descriptorSet -> solo[1] = descriptorSet);
+		long vkDescriptorPool = descriptors.build("LargePool");
+
+		var sets = new HashSet<Long>();
+		for (long set : bulk1) sets.add(set);
+		for (long set : bulk2) sets.add(set);
+		for (long set : solo) sets.add(set);
+
+		assertEquals(2 * amount + 2, sets.size());
+
+		vkDestroyDescriptorPool(instance.vkDevice(), vkDescriptorPool, null);
+		vkDestroyDescriptorSetLayout(instance.vkDevice(), layout.vkDescriptorSetLayout, null);
 		instance.destroyInitialObjects();
 	}
 }
