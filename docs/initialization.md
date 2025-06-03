@@ -109,9 +109,6 @@ satisfies all requirements, a `NoVkPhysicalDeviceException` will
 be thrown during `.build()`. Therefor, adding ambitious requirements
 will reduce the number of computers that can run your application.
 
-Hint: you can chain `.printDeviceRejectionInfo()` to figure out
-why each device was filtered out.
-
 ### Required device extensions
 You can chain `.requiredDeviceExtensions(...)` to add required
 device extensions:
@@ -120,16 +117,16 @@ filtered out.
 - If device selection succeeds, all of them will be enabled.
 
 ### Required device features
-You can chain `.requiredFeaturesXX(callback)` to add required
-Vulkan XX features. This will filter out all devices for which
+You can chain `.requiredFeaturesXX(description, callback)` to add
+required Vulkan XX features. This will filter out all devices for which
 the `callback` return `false`, but it will **not** automatically
 enable the features: you need to use `.featurePickerXX` for that.
 
 ### Extra device requirements
 For more complicated device filtering, you can chain
-`.extraDeviceRequirements(callback)`. The callback will get the
-candidate physical device and the window surfaces as input,
-and can query whatever it needs to make its decision.
+`.extraDeviceRequirements(description, callback)`. The callback
+will get the candidate physical device and the window surfaces as
+input, and can query whatever it needs to make its decision.
 
 ### Choosing between physical devices
 When multiple physical devices satisfy all the requirements, 1 of

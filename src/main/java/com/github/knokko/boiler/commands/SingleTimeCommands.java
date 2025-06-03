@@ -42,6 +42,24 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class SingleTimeCommands {
 
+	/**
+	 * Creates a new instance of <i>SingleTimeCommands</i>, calls <i>submit(...)</i>, and returns the instance. This
+	 * method is most convenient in combination with the <i>destroy()</i> method: you can call
+	 * {@code SingleTimeCommands.submit(boiler, context, commands -> { ... }).destroy()}, which will:
+	 * <ol>
+	 *     <li>Create a new command pool</li>
+	 *     <li>Allocate a single command buffer from it</li>
+	 *     <li>Record the commands in the callback</li>
+	 *     <li>Await completion of the commands</li>
+	 *     <li>Destroy the command pool</li>
+	 * </ol>
+	 */
+	public static SingleTimeCommands submit(BoilerInstance instance, String context, Consumer<CommandRecorder> recordCommands) {
+		var commands = new SingleTimeCommands(instance);
+		commands.submit(context, recordCommands);
+		return commands;
+	}
+
 	private final BoilerInstance instance;
 	private final VkbQueueFamily queueFamily;
 	private final long commandPool;
@@ -100,7 +118,7 @@ public class SingleTimeCommands {
 	 * @return The command submission, which you can await.
 	 */
 	public synchronized FenceSubmission submit(String context, Consumer<CommandRecorder> recordCommands) {
-		try (var stack = stackPush()) { // TODO maybe return "this" instead?
+		try (var stack = stackPush()) {
 			if (lastSubmission != null) {
 				lastSubmission.awaitCompletion();
 				assertVkSuccess(vkResetCommandPool(

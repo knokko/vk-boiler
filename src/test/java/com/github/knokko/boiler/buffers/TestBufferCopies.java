@@ -43,15 +43,13 @@ public class TestBufferCopies {
 					sourceHostBuffer.put((byte) index);
 				}
 
-				var commands = new SingleTimeCommands(instance);
-				commands.submit("Copying", recorder -> {
+				SingleTimeCommands.submit(instance, "Copying", recorder -> {
 					recorder.copyBuffer(sourceBuffer, middleBuffer1);
 					recorder.bufferBarrier(middleBuffer1, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 					recorder.copyBuffer(middleBuffer1, middleBuffer2);
 					recorder.bufferBarrier(middleBuffer2, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 					recorder.copyBuffer(middleBuffer2, destinationBuffer);
-				});
-				commands.destroy();
+				}).destroy();
 
 				var destinationHostBuffer = destinationBuffer.byteBuffer();
 				for (int index = 0; index < 100; index++) {
@@ -80,15 +78,13 @@ public class TestBufferCopies {
 		).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK));
 		var memory = builder.allocate(false);
 
-		var commands = new SingleTimeCommands(instance);
-		commands.submit("Copying", recorder -> {
+		SingleTimeCommands.submit(instance, "Copying", recorder -> {
 			recorder.transitionLayout(destinationImage, null, ResourceUsage.TRANSFER_DEST);
 			recorder.copyBufferToImage(destinationImage, sourceBuffer);
 			recorder.transitionLayout(destinationImage, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 			recorder.copyImageToBuffer(destinationImage, sourceBuffer);
-		}).awaitCompletion();
+		}).destroy();
 
-		commands.destroy();
 		memory.free(instance);
 		instance.destroyInitialObjects();
 	}

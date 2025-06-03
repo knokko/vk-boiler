@@ -67,8 +67,7 @@ public class TestDynamicRendering {
 			graphicsPipeline = pipeline.build("RedPipeline");
 		}
 
-		var commands = new SingleTimeCommands(instance);
-		commands.submit("Empty Renderpass", recorder -> {
+		SingleTimeCommands.submit(instance, "Empty Renderpass", recorder -> {
 			recorder.transitionLayout(image, null, ResourceUsage.COLOR_ATTACHMENT_WRITE);
 
 			var colorAttachments = recorder.singleColorRenderingAttachment(
@@ -82,8 +81,7 @@ public class TestDynamicRendering {
 
 			recorder.transitionLayout(image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.TRANSFER_SOURCE);
 			recorder.copyImageToBuffer(image, destinationBuffer);
-		}).awaitCompletion();
-		commands.destroy();
+		}).destroy();
 
 		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress));
 		assertEquals((byte) 0, memGetByte(destinationBuffer.hostAddress + 1));
@@ -148,8 +146,7 @@ public class TestDynamicRendering {
 		var destinationBuffer = builder.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		var memory = builder.allocate(false);
 
-		var commands = new SingleTimeCommands(instance);
-		commands.submit("DepthCommands", recorder -> {
+		SingleTimeCommands.submit(instance, "DepthCommands", recorder -> {
 			recorder.transitionLayout(
 					image, null,
 					ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
@@ -167,8 +164,7 @@ public class TestDynamicRendering {
 					ResourceUsage.TRANSFER_SOURCE
 			);
 			recorder.copyImageToBuffer(image, destinationBuffer);
-		}).awaitCompletion();
-		commands.destroy();
+		}).destroy();
 
 		assertEquals(0.75f, memGetFloat(destinationBuffer.hostAddress));
 

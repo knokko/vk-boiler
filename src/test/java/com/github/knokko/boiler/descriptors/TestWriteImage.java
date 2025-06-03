@@ -69,8 +69,7 @@ public class TestWriteImage {
 
 			vkUpdateDescriptorSets(instance.vkDevice(), descriptorWrites, null);
 
-			var commands = new SingleTimeCommands(instance);
-			commands.submit("Sampling", recorder -> {
+			SingleTimeCommands.submit(instance, "Sampling", recorder -> {
 				recorder.transitionLayout(image, null, ResourceUsage.TRANSFER_DEST);
 				recorder.copyBufferToImage(image, sourceBuffer);
 				recorder.transitionLayout(
@@ -80,8 +79,7 @@ public class TestWriteImage {
 				vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 				recorder.bindComputeDescriptors(pipelineLayout, descriptorSet);
 				vkCmdDispatch(recorder.commandBuffer, 1, 1, 1);
-			}).awaitCompletion();
-			commands.destroy();
+			}).destroy();
 
 			assertEquals(100, memGetInt(destinationBuffer.hostAddress));
 

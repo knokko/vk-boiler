@@ -6,6 +6,7 @@ code in projects, as well as some potentially useful classes.
 Creating buffers and allocating their memory in raw Vulkan is a lot of
 work. VMA significantly improves the situation, but it remains rather
 verbose.
+TODO rewrite this section
 
 ### DeviceVkbBuffer
 The `DeviceVkbBuffer` class is a tuple of a `VkBuffer`, its `VmaAllocation`
@@ -109,12 +110,18 @@ one-time-submit commands. Using it is as simple as
 ```java
 var commands = new SingleTimeCommands(boiler);
 commands.submit("Example", recorder -> {
-		recorder.copyBufferRanges(...); // Just an example
+		recorder.copyBuffer(...); // Just an example
 		// Or do something with recorder.commandBuffer
 		// And note that you can also use recorder.stack
 }).awaitCompletion(); // The awaitCompletion() is optional
 // Optional: reuse this instance later with different commands
 commands.destroy();
+```
+If you really need just 1 submission, you can make it even shorter:
+```java
+SingleTimeCommands.submit(boiler, "Example", recorder -> {
+		recorder.copyBuffer(...); // Just an example
+}).destroy(); // Calling destroy() awaits completion of the submission
 ```
 This could spare you all the boilerplate code of creating the
 command pool, allocating the command buffer, beginning the
@@ -230,6 +237,7 @@ yourself though.
 Almost all applications need to use images, but creating them
 in raw Vulkan can be quite verbose. Therefor, several methods
 are provided to create them using less code.
+TODO rewrite this section
 
 ### VkbImage
 The `VkbImage` class is a simple wrapper around a `VkImage`
