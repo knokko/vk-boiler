@@ -2,6 +2,7 @@ package com.github.knokko.boiler.images;
 
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.MemoryTypeSelector;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.vulkan.VkImageCreateInfo;
 import org.lwjgl.vulkan.VkImageViewCreateInfo;
 
@@ -281,7 +282,7 @@ public class ImageBuilder {
 			var pImage = stack.callocLong(1);
 
 			assertVkSuccess(vkCreateImage(
-					instance.vkDevice(), ciImage, null, pImage
+					instance.vkDevice(), ciImage, CallbackUserData.IMAGE.put(stack, instance), pImage
 			), "CreateImage", name);
 			long vkImage = pImage.get(0);
 
@@ -312,7 +313,7 @@ public class ImageBuilder {
 
 			var pImageView = stack.callocLong(1);
 			assertVkSuccess(vkCreateImageView(
-					instance.vkDevice(), ciImageView, null, pImageView
+					instance.vkDevice(), ciImageView, CallbackUserData.IMAGE_VIEW.put(stack, instance), pImageView
 			), "CreateImageView", name);
 			long imageView = pImageView.get(0);
 			instance.debug.name(stack, imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);

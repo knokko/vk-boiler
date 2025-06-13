@@ -3,6 +3,7 @@ package com.github.knokko.boiler.builders;
 import com.github.knokko.boiler.builders.window.*;
 import com.github.knokko.boiler.exceptions.GLFWFailureException;
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.window.VkbWindow;
 import org.lwjgl.vulkan.*;
@@ -204,7 +205,7 @@ public class WindowBuilder {
 		try (var stack = stackPush()) {
 			var pSurface = stack.callocLong(1);
 			assertVkSuccess(glfwCreateWindowSurface(
-					instance.vkInstance(), glfwWindow, null, pSurface
+					instance.vkInstance(), glfwWindow, CallbackUserData.SURFACE.put(stack, instance), pSurface
 			), "CreateWindowSurface", "WindowBuilder.buildLate");
 			vkSurface = pSurface.get(0);
 		}

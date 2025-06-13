@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.synchronization;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.vulkan.VkSemaphoreCreateInfo;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,7 +43,7 @@ public class SemaphoreBank {
 
 				var pSemaphore = stack.callocLong(1);
 				assertVkSuccess(vkCreateSemaphore(
-						instance.vkDevice(), ciSemaphore, null, pSemaphore
+						instance.vkDevice(), ciSemaphore, CallbackUserData.SEMAPHORE.put(stack, instance), pSemaphore
 				), "CreateSemaphore", name);
 				semaphore = pSemaphore.get(0);
 			}
@@ -93,8 +94,10 @@ public class SemaphoreBank {
 			}
 			throw new IllegalStateException("Not all borrowed semaphores have been returned");
 		}
-		for (long semaphore : unusedSemaphores) {
-			vkDestroySemaphore(instance.vkDevice(), semaphore, null);
+		try (var stack = stackPush()) {
+			for (long semaphore : unusedSemaphores) {
+				vkDestroySemaphore(instance.vkDevice(), semaphore, CallbackUserData.SEMAPHORE.put(stack, instance));
+			}
 		}
 		unusedSemaphores.clear();
 	}

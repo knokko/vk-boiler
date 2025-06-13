@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.synchronization;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.vulkan.VkSemaphoreSignalInfo;
 import org.lwjgl.vulkan.VkSemaphoreWaitInfo;
 
@@ -108,6 +109,8 @@ public class VkbTimelineSemaphore {
 	 * Calls <i>vkDestroySemaphore</i> to destroy this semaphore
 	 */
 	public void destroy() {
-		vkDestroySemaphore(instance.vkDevice(), vkSemaphore, null);
+		try (var stack = stackPush()) {
+			vkDestroySemaphore(instance.vkDevice(), vkSemaphore, CallbackUserData.SEMAPHORE.put(stack, instance));
+		}
 	}
 }

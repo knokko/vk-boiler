@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.commands;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
@@ -51,7 +52,7 @@ public class BoilerCommands {
 			for (int index = 0; index < amount; index++) {
 				String nameSuffix = amount > 1 ? Integer.toString(amount) : "";
 				assertVkSuccess(vkCreateCommandPool(
-						instance.vkDevice(), ciCommandPool, null, pCommandPool
+						instance.vkDevice(), ciCommandPool, CallbackUserData.COMMAND_POOL.put(stack, instance), pCommandPool
 				), "CreateCommandPool", name + nameSuffix);
 				commandPools[index] = pCommandPool.get(0);
 				instance.debug.name(stack, pCommandPool.get(0), VK_OBJECT_TYPE_COMMAND_POOL, nameSuffix);

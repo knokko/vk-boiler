@@ -17,6 +17,8 @@ import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.MemoryBlock;
 import com.github.knokko.boiler.memory.MemoryCombiner;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
@@ -136,7 +138,7 @@ public class TerrainPlayground {
 
 		var pRenderPass = stack.callocLong(1);
 		assertVkSuccess(vkCreateRenderPass(
-				boiler.vkDevice(), ciRenderPass, null, pRenderPass
+				boiler.vkDevice(), ciRenderPass, CallbackUserData.RENDER_PASS.put(stack, boiler), pRenderPass
 		), "CreateRenderPass", "TerrainPlayground");
 		long renderPass = pRenderPass.get(0);
 		boiler.debug.name(stack, renderPass, VK_OBJECT_TYPE_RENDER_PASS, "TerrainRendering");
@@ -281,6 +283,7 @@ public class TerrainPlayground {
 		)
 				.validation(new ValidationFeatures(true, true, false, true, true))
 				.forbidValidationErrors()
+				.allocationCallbacks(new SumAllocationCallbacks())
 				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).hideUntilFirstFrame())
 				.requiredFeatures12("timeline semaphore", VkPhysicalDeviceVulkan12Features::timelineSemaphore)
 				.featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
@@ -373,7 +376,12 @@ public class TerrainPlayground {
 
 			return new AssociatedSwapchainResources(framebuffer, depthImage, memory);
 		}, resources -> {
-			vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null);
+			try (var stack = stackPush()) {
+				vkDestroyFramebuffer(
+						boiler.vkDevice(), resources.framebuffer,
+						CallbackUserData.FRAME_BUFFER.put(stack, boiler)
+				);
+			}
 			resources.depthMemory().destroy(boiler);
 		});
 
@@ -438,6 +446,9 @@ public class TerrainPlayground {
 			long currentTime = System.currentTimeMillis();
 			if (currentTime > 1000 + referenceTime) {
 				System.out.println("FPS is " + (frameCounter - referenceFrames));
+				var allocationCallbacks = (SumAllocationCallbacks) boiler.allocationCallbacks;
+				System.out.println("Simple allocation callbacks: " + allocationCallbacks.copySimpleSizes());
+				System.out.println("INTERNAL allocation callbacks: " + allocationCallbacks.copyInternalSizes());
 				referenceTime = currentTime;
 				referenceFrames = frameCounter;
 			}
@@ -568,19 +579,31 @@ public class TerrainPlayground {
 
 		assertVkSuccess(vkDeviceWaitIdle(boiler.vkDevice()), "DeviceWaitIdle", "FinishTerrainPlayground");
 		timeline.destroy();
-		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
 
-		vkDestroyDescriptorPool(boiler.vkDevice(), vkDescriptorPool, null);
-		vkDestroyPipeline(boiler.vkDevice(), groundPipeline, null);
-		vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-		vkDestroyDescriptorSetLayout(boiler.vkDevice(), descriptorSetLayout.vkDescriptorSetLayout, null);
-		vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
-		persistent.memory().destroy(boiler);
-		vkDestroySampler(boiler.vkDevice(), heightSampler, null);
-		vkDestroySampler(boiler.vkDevice(), normalSampler, null);
+		try (var stack = stackPush()) {
+			vkDestroyCommandPool(boiler.vkDevice(), commandPool, CallbackUserData.COMMAND_POOL.put(stack, boiler));
 
-		if (boiler.debug.hasDebug) vkDestroyDebugUtilsMessengerEXT(boiler.vkInstance(), debugMessenger, null);
+			vkDestroyDescriptorPool(boiler.vkDevice(), vkDescriptorPool, CallbackUserData.DESCRIPTOR_POOL.put(stack, boiler));
+			vkDestroyPipeline(boiler.vkDevice(), groundPipeline, CallbackUserData.PIPELINE.put(stack, boiler));
+			vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, CallbackUserData.PIPELINE_LAYOUT.put(stack, boiler));
+			vkDestroyDescriptorSetLayout(
+					boiler.vkDevice(), descriptorSetLayout.vkDescriptorSetLayout,
+					CallbackUserData.DESCRIPTOR_SET_LAYOUT.put(stack, boiler)
+			);
+			vkDestroyRenderPass(boiler.vkDevice(), renderPass, CallbackUserData.RENDER_PASS.put(stack, boiler));
+			persistent.memory().destroy(boiler);
+			vkDestroySampler(boiler.vkDevice(), heightSampler, CallbackUserData.SAMPLER.put(stack, boiler));
+			vkDestroySampler(boiler.vkDevice(), normalSampler, CallbackUserData.SAMPLER.put(stack, boiler));
+
+			if (boiler.debug.hasDebug) vkDestroyDebugUtilsMessengerEXT(
+					boiler.vkInstance(), debugMessenger, CallbackUserData.DEBUG_MESSENGER.put(stack, boiler)
+			);
+		}
 		boiler.destroyInitialObjects();
+
+		var allocationCallbacks = (SumAllocationCallbacks) boiler.allocationCallbacks;
+		System.out.println("Final simple allocation callbacks: " + allocationCallbacks.copySimpleSizes());
+		System.out.println("Final INTERNAL allocation callbacks: " + allocationCallbacks.copyInternalSizes());
 	}
 
 	private record AssociatedSwapchainResources(

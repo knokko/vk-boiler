@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import org.lwjgl.vulkan.*;
@@ -255,7 +256,7 @@ public class VkbWindow {
 
 			var pSwapchain = stack.callocLong(1);
 			assertVkSuccess(vkCreateSwapchainKHR(
-					instance.vkDevice(), ciSwapchain, null, pSwapchain
+					instance.vkDevice(), ciSwapchain, CallbackUserData.SWAPCHAIN.put(stack, instance), pSwapchain
 			), "CreateSwapchainKHR", null);
 			long vkSwapchain = pSwapchain.get(0);
 
@@ -350,9 +351,9 @@ public class VkbWindow {
 	public synchronized void destroy() {
 		if (hasBeenDestroyed) return;
 
-		try {
+		try (var stack = stackPush()) {
 			cleaner.destroyEverything();
-			vkDestroySurfaceKHR(instance.vkInstance(), vkSurface, null);
+			vkDestroySurfaceKHR(instance.vkInstance(), vkSurface, CallbackUserData.SURFACE.put(stack, instance));
 			surfaceCapabilities.free();
 		} finally {
 			if (windowLoop == null) glfwDestroyWindow(glfwWindow);

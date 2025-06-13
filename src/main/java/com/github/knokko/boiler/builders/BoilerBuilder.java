@@ -10,6 +10,8 @@ import com.github.knokko.boiler.builders.xr.BoilerXrBuilder;
 import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.exceptions.*;
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import com.github.knokko.boiler.memory.callbacks.VkbAllocationCallbacks;
 import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.system.Platform;
 import org.lwjgl.vulkan.*;
@@ -52,15 +54,22 @@ import static org.lwjgl.vulkan.VK14.VK_API_VERSION_1_4;
 
 public class BoilerBuilder {
 
-	public static final VkInstanceCreator DEFAULT_VK_INSTANCE_CREATOR = (ciInstance, stack) -> {
+	public static final VkInstanceCreator DEFAULT_VK_INSTANCE_CREATOR = (ciInstance, allocationCallbacks, stack) -> {
 		var pInstance = stack.callocPointer(1);
-		assertVkSuccess(vkCreateInstance(ciInstance, null, pInstance), "CreateInstance", "BoilerBuilder");
+		assertVkSuccess(vkCreateInstance(
+				ciInstance, CallbackUserData.INSTANCE.put(stack, allocationCallbacks), pInstance
+		), "CreateInstance", "BoilerBuilder");
 		return new VkInstance(pInstance.get(0), ciInstance);
 	};
 
-	public static final VkDeviceCreator DEFAULT_VK_DEVICE_CREATOR = (ciDevice, instanceExtensions, physicalDevice, stack) -> {
+	public static final VkDeviceCreator DEFAULT_VK_DEVICE_CREATOR = (
+			ciDevice, instanceExtensions, physicalDevice,
+			allocationCallbacks, stack
+	) -> {
 		var pDevice = stack.callocPointer(1);
-		assertVkSuccess(vkCreateDevice(physicalDevice, ciDevice, null, pDevice), "CreateDevice", "BoilerBuilder");
+		assertVkSuccess(vkCreateDevice(
+				physicalDevice, ciDevice, CallbackUserData.DEVICE.put(stack, allocationCallbacks), pDevice
+		), "CreateDevice", "BoilerBuilder");
 		return new VkDevice(pDevice.get(0), physicalDevice, ciDevice);
 	};
 
@@ -118,6 +127,8 @@ public class BoilerBuilder {
 	boolean printDeviceSelectionInfo = true;
 
 	QueueFamilyMapper queueFamilyMapper = new MinimalQueueFamilyMapper();
+
+	VkbAllocationCallbacks allocationCallbacks = null;
 
 	private boolean didBuild = false;
 
@@ -446,6 +457,30 @@ public class BoilerBuilder {
 	}
 
 	/**
+	 * <p>
+	 *   Sets the <b>VkAllocationCallbacks</b> that will be used by the {@link BoilerInstance} to be created. Whenever
+	 *   a vulkan object is created behind the scenes, this allocation callback will be used. This is null by default,
+	 *   causing <b>null</b> to be passed to the allocation callbacks of each creation function and destroy function.
+	 * </p>
+	 * <p>
+	 *   Note that using allocation callbacks will likely have a negative effect on performance, unless you manage to
+	 *   create a very good allocator. However, allocation callbacks can be nice for debugging, or for measuring driver
+	 *   memory usage. In the latter case, you could for instance use
+	 *   {@link com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks}.
+	 * </p>
+	 * <p>
+	 *   After the instance has been created, you can access the callback using
+	 *   {@link BoilerInstance#allocationCallbacks}. Note that you <b>must</b> pass this same instance as parameter to
+	 *   every {@code vkCreate} and {@code vkDestroy} function that you call manually, for instance like:
+	 *   {@code vkDestroyCommandPool(boiler.vkDevice(), commandPool, CallbackUserData.COMMAND_POOL.put(stack, boiler));}
+	 * </p>
+	 */
+	public BoilerBuilder allocationCallbacks(VkbAllocationCallbacks callbacks) {
+		this.allocationCallbacks = callbacks;
+		return this;
+	}
+
+	/**
 	 * Adds a callback that will be called before the builder calls <i>vkCreateDevice</i>. Given the enabled instance
 	 * extensions, the callback can choose to modify the <i>VkDeviceCreateInfo</i> before it's passed on to the device
 	 * creator.
@@ -682,6 +717,7 @@ public class BoilerBuilder {
 				ciReporter.messageSeverity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT);
 				ciReporter.messageType(VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT);
 				ciReporter.pfnUserCallback((severity, types, data, userData) -> {
+					@SuppressWarnings("resource")
 					var error = VkDebugUtilsMessengerCallbackDataEXT.create(data);
 					var instance = propagateInstance[0];
 
@@ -705,8 +741,9 @@ public class BoilerBuilder {
 				});
 
 				var pReporter = stack.callocLong(1);
+				var callbacks = CallbackUserData.DEBUG_MESSENGER.put(stack, allocationCallbacks);
 				assertVkSuccess(vkCreateDebugUtilsMessengerEXT(
-						instanceResult.vkInstance(), ciReporter, null, pReporter
+						instanceResult.vkInstance(), ciReporter, callbacks, pReporter
 				), "CreateDebugUtilsMessengerEXT", "Validation error thrower");
 				validationErrorThrower = pReporter.get(0);
 			}
@@ -725,7 +762,7 @@ public class BoilerBuilder {
 				xr, defaultTimeout, windows, pHasSwapchainMaintenance[0],
 				apiVersion, instanceResult.vkInstance(), deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
 				instanceResult.enabledLayers(), instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
-				deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower
+				deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower, allocationCallbacks
 		);
 		propagateInstance[0] = instance;
 		if (xr != null) xr.boilerInstance = instance;

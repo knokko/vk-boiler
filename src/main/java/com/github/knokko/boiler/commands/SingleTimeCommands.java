@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.commands;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.synchronization.FenceSubmission;
 import org.lwjgl.vulkan.VkCommandBuffer;
@@ -148,6 +149,11 @@ public class SingleTimeCommands {
 	 */
 	public void destroy() {
 		if (lastSubmission != null) lastSubmission.awaitCompletion();
-		vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+		try (var stack = stackPush()) {
+			vkDestroyCommandPool(
+					instance.vkDevice(), commandPool,
+					CallbackUserData.COMMAND_POOL.put(stack, instance)
+			);
+		}
 	}
 }

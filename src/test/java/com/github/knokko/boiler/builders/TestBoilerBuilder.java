@@ -42,14 +42,14 @@ public class TestBoilerBuilder {
 				VK_API_VERSION_1_0,
 				"TestSimpleVulkan1.0",
 				VK_MAKE_VERSION(1, 0, 0)
-		).vkInstanceCreator((ciInstance, stack) -> {
+		).vkInstanceCreator((ciInstance, callbacks, stack) -> {
 			assertEquals(0L, ciInstance.pNext());
 
 			var appInfo = Objects.requireNonNull(ciInstance.pApplicationInfo());
 			assertEquals("TestSimpleVulkan1.0", appInfo.pApplicationNameString());
 			assertEquals(VK_API_VERSION_1_0, appInfo.apiVersion());
 			pDidCallInstanceCreator[0] = true;
-			return BoilerBuilder.DEFAULT_VK_INSTANCE_CREATOR.vkCreateInstance(ciInstance, stack);
+			return BoilerBuilder.DEFAULT_VK_INSTANCE_CREATOR.vkCreateInstance(ciInstance, callbacks, stack);
 		}).build();
 
 		assertTrue(pDidCallInstanceCreator[0]);
@@ -92,10 +92,10 @@ public class TestBoilerBuilder {
 				.validation(new ValidationFeatures(
 						true, true, false, false, false
 				))
-				.vkInstanceCreator((ciInstance, stack) -> {
+				.vkInstanceCreator((ciInstance, callbacks, stack) -> {
 					pDidCallInstanceCreator[0] = true;
 
-					var check = new ValidationFeaturesChecker(stack);
+					var check = new ValidationFeaturesChecker(stack, callbacks);
 					if (check.gpuAssistedValidation) {
 						assertNotEquals(0L, ciInstance.pNext());
 						var validationFeatures = VkValidationFeaturesEXT.create(ciInstance.pNext());
@@ -142,9 +142,12 @@ public class TestBoilerBuilder {
 
 					assertEquals(expectedExtensions, actualExtensions);
 
-					return BoilerBuilder.DEFAULT_VK_INSTANCE_CREATOR.vkCreateInstance(ciInstance, stack);
+					return BoilerBuilder.DEFAULT_VK_INSTANCE_CREATOR.vkCreateInstance(ciInstance, callbacks, stack);
 				})
-				.vkDeviceCreator((ciDevice, instanceExtensions, physicalDevice, stack) -> {
+				.vkDeviceCreator((
+						ciDevice, instanceExtensions, physicalDevice,
+						callbacks, stack
+				) -> {
 					VkPhysicalDeviceVulkan11Features enabledFeatures11 = null;
 					VkPhysicalDeviceVulkan12Features enabledFeatures12 = null;
 					VkPhysicalDeviceVulkan13Features enabledFeatures13 = null;
@@ -179,7 +182,7 @@ public class TestBoilerBuilder {
 
 					pDidCallDeviceCreator[0] = true;
 					return BoilerBuilder.DEFAULT_VK_DEVICE_CREATOR.vkCreateDevice(
-							ciDevice, instanceExtensions, physicalDevice, stack
+							ciDevice, instanceExtensions, physicalDevice, callbacks, stack
 					);
 				})
 				.forbidValidationErrors();
@@ -300,7 +303,7 @@ public class TestBoilerBuilder {
 				new BoilerBuilder(VK_API_VERSION_1_0, "TestPreInstance", 1)
 						.beforeInstanceCreation((ciInstance, stack) -> didCall[0] = true)
 						.beforeInstanceCreation((ciInstance, stack) -> didCall[1] = true)
-						.vkInstanceCreator((ciInstance, stack) -> {
+						.vkInstanceCreator((ciInstance, callbacks, stack) -> {
 							assertTrue(didCall[0]);
 							assertTrue(didCall[1]);
 							throw new TestException();
@@ -319,7 +322,10 @@ public class TestBoilerBuilder {
 				new BoilerBuilder(VK_API_VERSION_1_0, "TestPreDevice", 1)
 						.beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> didCall[0] = true)
 						.beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> didCall[1] = true)
-						.vkDeviceCreator((ciDevice, instanceExtensions, physicalDevice, stack) -> {
+						.vkDeviceCreator((
+								ciDevice, instanceExtensions, physicalDevice,
+								callbacks, stack
+						) -> {
 							assertTrue(didCall[0]);
 							assertTrue(didCall[1]);
 							throw new TestException();
@@ -421,7 +427,7 @@ public class TestBoilerBuilder {
 	public void testApiDump() {
 		var builder = new BoilerBuilder(
 				VK_API_VERSION_1_0, "TestApiDump", 1
-		).apiDump().vkInstanceCreator((ciInstance, stack) -> {
+		).apiDump().vkInstanceCreator((ciInstance, callbacks, stack) -> {
 			var layers = CollectionHelper.decodeStringSet(ciInstance.ppEnabledLayerNames());
 			assertTrue(layers.contains("VK_LAYER_LUNARG_api_dump"), "layers were " + layers);
 			throw new RuntimeException("Mission completed");

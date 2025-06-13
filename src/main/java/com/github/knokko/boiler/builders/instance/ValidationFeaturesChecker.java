@@ -1,5 +1,7 @@
 package com.github.knokko.boiler.builders.instance;
 
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import com.github.knokko.boiler.memory.callbacks.VkbAllocationCallbacks;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
@@ -10,10 +12,12 @@ import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 
 public class ValidationFeaturesChecker {
 
+    private final VkbAllocationCallbacks allocationCallbacks;
     private final VkInstance vkInstance;
     public final boolean gpuAssistedValidation, debugPrintf;
 
-    public ValidationFeaturesChecker(MemoryStack stack) {
+    public ValidationFeaturesChecker(MemoryStack stack, VkbAllocationCallbacks allocationCallbacks) {
+        this.allocationCallbacks = allocationCallbacks;
         if (VK.getInstanceVersionSupported() < VK_API_VERSION_1_2) {
             this.vkInstance = null;
             this.gpuAssistedValidation = false;
@@ -31,7 +35,7 @@ public class ValidationFeaturesChecker {
 
         var pInstance = stack.callocPointer(1);
         assertVkSuccess(vkCreateInstance(
-                ciInstance, null, pInstance
+                ciInstance, CallbackUserData.INSTANCE.put(stack, allocationCallbacks), pInstance
         ), "CreateInstance", "validation feature check");
         this.vkInstance = new VkInstance(pInstance.get(), ciInstance);
 
@@ -68,7 +72,7 @@ public class ValidationFeaturesChecker {
         this.debugPrintf = supportsPrint;
     }
 
-    public void destroy() {
-        if (vkInstance != null) vkDestroyInstance(vkInstance, null);
+    public void destroy(MemoryStack stack) {
+        if (vkInstance != null) vkDestroyInstance(vkInstance, CallbackUserData.INSTANCE.put(stack, allocationCallbacks));
     }
 }

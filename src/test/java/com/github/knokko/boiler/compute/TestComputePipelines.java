@@ -6,6 +6,8 @@ import com.github.knokko.boiler.descriptors.DescriptorCombiner;
 import com.github.knokko.boiler.descriptors.DescriptorSetLayoutBuilder;
 import com.github.knokko.boiler.descriptors.DescriptorUpdater;
 import com.github.knokko.boiler.memory.MemoryCombiner;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.vulkan.*;
 
@@ -20,7 +22,9 @@ public class TestComputePipelines {
 	public void testSimpleComputeShader() {
 		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TestSimpleComputeShader", VK_MAKE_VERSION(0, 1, 0)
-		).validation().forbidValidationErrors().build();
+		)
+				.allocationCallbacks(new SumAllocationCallbacks())
+				.validation().forbidValidationErrors().build();
 
 		try (var stack = stackPush()) {
 			int valuesPerInvocation = 16;
@@ -75,10 +79,13 @@ public class TestComputePipelines {
 				assertEquals(123456, hostBuffer.get(index));
 			}
 
-			vkDestroyDescriptorPool(instance.vkDevice(), vkDescriptorPool, null);
-			vkDestroyPipeline(instance.vkDevice(), computePipeline, null);
-			vkDestroyDescriptorSetLayout(instance.vkDevice(), descriptorSetLayout.vkDescriptorSetLayout, null);
-			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
+			vkDestroyDescriptorPool(instance.vkDevice(), vkDescriptorPool, CallbackUserData.DESCRIPTOR_POOL.put(stack, instance));
+			vkDestroyPipeline(instance.vkDevice(), computePipeline, CallbackUserData.PIPELINE.put(stack, instance));
+			vkDestroyDescriptorSetLayout(
+					instance.vkDevice(), descriptorSetLayout.vkDescriptorSetLayout,
+					CallbackUserData.DESCRIPTOR_SET_LAYOUT.put(stack, instance)
+			);
+			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, CallbackUserData.PIPELINE_LAYOUT.put(stack, instance));
 			memory.destroy(instance);
 		}
 

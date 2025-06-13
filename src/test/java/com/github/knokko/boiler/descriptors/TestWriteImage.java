@@ -4,10 +4,13 @@ import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.memory.MemoryCombiner;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memGetInt;
 import static org.lwjgl.system.MemoryUtil.memPutInt;
@@ -20,7 +23,10 @@ public class TestWriteImage {
 	public void testWriteImage() {
 		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TestWriteImage", 1
-		).validation().forbidValidationErrors().build();
+		)
+				.validation().forbidValidationErrors()
+				.allocationCallbacks(new SumAllocationCallbacks())
+				.build();
 
 		var combiner = new MemoryCombiner(instance, "Memory");
 		var destinationBuffer = combiner.addMappedBuffer(
@@ -74,11 +80,15 @@ public class TestWriteImage {
 
 			assertEquals(100, memGetInt(destinationBuffer.hostAddress));
 
-			vkDestroyDescriptorPool(instance.vkDevice(), descriptorPool, null);
-			vkDestroyPipeline(instance.vkDevice(), computePipeline, null);
-			vkDestroyDescriptorSetLayout(instance.vkDevice(), descriptorSetLayout.vkDescriptorSetLayout, null);
-			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, null);
-			vkDestroySampler(instance.vkDevice(), sampler, null);
+			assertInstanceOf(SumAllocationCallbacks.class, instance.allocationCallbacks);
+			vkDestroyDescriptorPool(instance.vkDevice(), descriptorPool, CallbackUserData.DESCRIPTOR_POOL.put(stack, instance));
+			vkDestroyPipeline(instance.vkDevice(), computePipeline, CallbackUserData.PIPELINE.put(stack, instance));
+			vkDestroyDescriptorSetLayout(
+					instance.vkDevice(), descriptorSetLayout.vkDescriptorSetLayout,
+					CallbackUserData.DESCRIPTOR_SET_LAYOUT.put(stack, instance)
+			);
+			vkDestroyPipelineLayout(instance.vkDevice(), pipelineLayout, CallbackUserData.PIPELINE_LAYOUT.put(stack, instance));
+			vkDestroySampler(instance.vkDevice(), sampler, CallbackUserData.SAMPLER.put(stack, instance));
 			memory.destroy(instance);
 		}
 

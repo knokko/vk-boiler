@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.synchronization;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.system.MemoryStack;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
@@ -208,8 +209,8 @@ public class VkbFence implements Comparable<VkbFence> {
 		return lastCompletedSubmission >= referenceSubmissionTime;
 	}
 
-	void destroy() {
-		vkDestroyFence(instance.vkDevice(), vkFence, null);
+	void destroy(MemoryStack stack) {
+		vkDestroyFence(instance.vkDevice(), vkFence, CallbackUserData.FENCE.put(stack, instance));
 	}
 
 	@Override

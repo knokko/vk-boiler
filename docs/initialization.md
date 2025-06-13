@@ -370,3 +370,20 @@ This method is not really required since you could achieve the
 same effect by using the device selection methods and the device
 creation methods. However, since dynamic rendering is pretty
 popular, I added this convenience method to lighten the work.
+
+### Allocation callbacks
+You can chain `.allocationCallbacks(callbacks)` to let vk-boiler pass
+`callbacks` as the `pAllocator` parameter of all creation and
+destruction functions. You can use an example implementation like
+`SumAllocationCallbacks`, or create your own implementation of
+`VkbAllocationCallbacks`.
+
+If you chain `.allocationCallbacks`, you should also pass this
+`callbacks` to every Vulkan creation function and destruction function
+that you call yourself, for instance
+```java
+vkDestroyCommandPool(
+        boiler.vkDevice(), commandPool,
+        CallbackUserData.COMMAND_POOL.put(stack, boiler)
+);
+```
