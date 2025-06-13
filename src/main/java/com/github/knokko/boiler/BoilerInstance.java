@@ -5,6 +5,8 @@ import com.github.knokko.boiler.commands.BoilerCommands;
 import com.github.knokko.boiler.debug.BoilerDebug;
 import com.github.knokko.boiler.images.BoilerImages;
 import com.github.knokko.boiler.memory.MemoryInfo;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import com.github.knokko.boiler.memory.callbacks.VkbAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.BoilerPipelines;
 import com.github.knokko.boiler.queues.QueueFamilies;
 import com.github.knokko.boiler.synchronization.BoilerSync;
@@ -19,6 +21,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.vmaDestroyAllocator;
 import static org.lwjgl.vulkan.EXTDebugUtils.vkDestroyDebugUtilsMessengerEXT;
 import static org.lwjgl.vulkan.VK10.*;
@@ -48,6 +51,15 @@ public class BoilerInstance {
 	private final long vmaAllocator;
 	private final long validationErrorThrower;
 
+	/**
+	 * The allocation callbacks that were supplied to
+	 * {@link com.github.knokko.boiler.builders.BoilerBuilder#allocationCallbacks(VkbAllocationCallbacks)}, or
+	 * <b>null</b> when no allocation callbacks were supplied.
+	 * It will be passed as <i>pAllocator</i> to every Vulkan creation function and destruction function that this
+	 * {@link BoilerInstance} or its children call 'behind the scenes'.
+	 */
+	public final VkbAllocationCallbacks allocationCallbacks;
+
 	public final MemoryInfo memoryInfo;
 	public final BoilerImages images;
 	public final BoilerPipelines pipelines;
@@ -67,8 +79,10 @@ public class BoilerInstance {
 			XrBoiler xr, long defaultTimeout, Collection<VkbWindow> windows, boolean hasSwapchainMaintenance,
 			int apiVersion, VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
 			Set<String> explicitLayers, Set<String> instanceExtensions, Set<String> deviceExtensions,
-			QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower
+			QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower,
+			VkbAllocationCallbacks allocationCallbacks
 	) {
+		this.allocationCallbacks = allocationCallbacks;
 		this.windows = windows;
 		this.hasSwapchainMaintenance = hasSwapchainMaintenance;
 		this.xr = xr;
@@ -193,16 +207,21 @@ public class BoilerInstance {
 	public void destroyInitialObjects() {
 		checkDestroyed();
 
-		for (var window : windows) window.destroy();
-		sync.fenceBank.destroy();
-		sync.semaphoreBank.destroy();
-		vmaDestroyAllocator(vmaAllocator);
-		vkDestroyDevice(vkDevice, null);
-		if (validationErrorThrower != VK_NULL_HANDLE) {
-			vkDestroyDebugUtilsMessengerEXT(vkInstance, validationErrorThrower, null);
+		try (var stack = stackPush()) {
+			for (var window : windows) window.destroy();
+			sync.fenceBank.destroy();
+			sync.semaphoreBank.destroy();
+			vmaDestroyAllocator(vmaAllocator);
+			vkDestroyDevice(vkDevice, CallbackUserData.DEVICE.put(stack, allocationCallbacks));
+			if (validationErrorThrower != VK_NULL_HANDLE) {
+				vkDestroyDebugUtilsMessengerEXT(
+						vkInstance, validationErrorThrower,
+						CallbackUserData.DEBUG_MESSENGER.put(stack, allocationCallbacks)
+				);
+			}
+			vkDestroyInstance(vkInstance, CallbackUserData.INSTANCE.put(stack, allocationCallbacks));
+			if (xr != null) xr.destroyInitialObjects();
 		}
-		vkDestroyInstance(vkInstance, null);
-		if (xr != null) xr.destroyInitialObjects();
 
 		deviceProperties.free();
 		destroyed = true;

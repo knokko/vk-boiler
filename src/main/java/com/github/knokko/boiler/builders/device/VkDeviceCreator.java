@@ -1,5 +1,6 @@
 package com.github.knokko.boiler.builders.device;
 
+import com.github.knokko.boiler.memory.callbacks.VkbAllocationCallbacks;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkDeviceCreateInfo;
@@ -14,6 +15,7 @@ public interface VkDeviceCreator {
 			VkDeviceCreateInfo ciDevice,
 			Set<String> enabledInstanceExtensions,
 			VkPhysicalDevice physicalDevice,
+			VkbAllocationCallbacks allocationCallbacks,
 			MemoryStack stack
 	);
 }

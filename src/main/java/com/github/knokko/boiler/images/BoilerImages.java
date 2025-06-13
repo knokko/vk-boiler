@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.images;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
@@ -59,7 +60,7 @@ public class BoilerImages {
 
 			var pImageView = stack.callocLong(1);
 			assertVkSuccess(vkCreateImageView(
-					instance.vkDevice(), ciImageView, null, pImageView
+					instance.vkDevice(), ciImageView, CallbackUserData.IMAGE_VIEW.put(stack, instance), pImageView
 			), "CreateImageView", name);
 			long imageView = pImageView.get(0);
 			instance.debug.name(stack, imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
@@ -90,7 +91,7 @@ public class BoilerImages {
 
 			var pFramebuffer = stack.callocLong(1);
 			assertVkSuccess(vkCreateFramebuffer(
-					instance.vkDevice(), ciFramebuffer, null, pFramebuffer
+					instance.vkDevice(), ciFramebuffer, CallbackUserData.FRAME_BUFFER.put(stack, instance), pFramebuffer
 			), "CreateFramebuffer", name);
 			long framebuffer = pFramebuffer.get(0);
 			instance.debug.name(stack, framebuffer, VK_OBJECT_TYPE_FRAMEBUFFER, name);
@@ -147,9 +148,8 @@ public class BoilerImages {
 
 			var pSampler = stack.callocLong(1);
 			assertVkSuccess(vkCreateSampler(
-							instance.vkDevice(), ciSampler, null, pSampler),
-					"CreateSampler", name
-			);
+					instance.vkDevice(), ciSampler, CallbackUserData.SAMPLER.put(stack, instance), pSampler
+			), "CreateSampler", name);
 			long sampler = pSampler.get(0);
 			instance.debug.name(stack, sampler, VK_OBJECT_TYPE_SAMPLER, name);
 			return sampler;

@@ -5,6 +5,7 @@ import com.github.knokko.boiler.buffers.MappedVkbBuffer;
 import com.github.knokko.boiler.buffers.VkbBuffer;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.vulkan.*;
 
 import java.util.HashMap;
@@ -173,7 +174,7 @@ public class MemoryCombiner {
 				ciBuffer.usage(key.usage());
 
 				assertVkSuccess(vkCreateBuffer(
-						instance.vkDevice(), ciBuffer, null, pBuffer
+						instance.vkDevice(), ciBuffer, CallbackUserData.BUFFER.put(stack, instance), pBuffer
 				), "CreateBuffer", bufferName);
 				long vkBuffer = pBuffer.get(0);
 				instance.debug.name(stack, vkBuffer, VK_OBJECT_TYPE_BUFFER, name);

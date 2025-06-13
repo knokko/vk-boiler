@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.builders;
 
 import com.github.knokko.boiler.exceptions.NoVkPhysicalDeviceException;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueue;
 import com.github.knokko.boiler.queues.QueueFamilies;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
@@ -39,7 +40,8 @@ class BoilerDeviceBuilder {
 			var pSurface = stack.callocLong(1);
 			windowSurfaces = builder.windows.stream().mapToLong(windowBuilder -> {
 				assertVkSuccess(glfwCreateWindowSurface(
-						instanceResult.vkInstance(), windowBuilder.glfwWindow, null, pSurface
+						instanceResult.vkInstance(), windowBuilder.glfwWindow,
+						CallbackUserData.SURFACE.put(stack, builder.allocationCallbacks), pSurface
 				), "glfwCreateWindowSurface", null);
 				return pSurface.get(0);
 			}).toArray();
@@ -213,7 +215,7 @@ class BoilerDeviceBuilder {
 			}
 
 			vkDevice = builder.vkDeviceCreator.vkCreateDevice(
-					ciDevice, instanceResult.enabledExtensions(), vkPhysicalDevice, stack
+					ciDevice, instanceResult.enabledExtensions(), vkPhysicalDevice, builder.allocationCallbacks, stack
 			);
 
 			var queueFamilyMap = new HashMap<Integer, VkbQueueFamily>();
@@ -246,6 +248,7 @@ class BoilerDeviceBuilder {
 			ciAllocator.flags(vmaFlags);
 			ciAllocator.physicalDevice(vkPhysicalDevice);
 			ciAllocator.device(vkDevice);
+			ciAllocator.pAllocationCallbacks(CallbackUserData.VMA.put(stack, builder.allocationCallbacks));
 			ciAllocator.instance(instanceResult.vkInstance());
 			ciAllocator.pVulkanFunctions(vmaVulkanFunctions);
 			ciAllocator.vulkanApiVersion(builder.apiVersion);

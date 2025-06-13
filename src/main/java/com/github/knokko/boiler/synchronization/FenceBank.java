@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.synchronization;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.vulkan.VkFenceCreateInfo;
 
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -53,7 +54,7 @@ public class FenceBank {
 
 				var pFence = stack.callocLong(1);
 				assertVkSuccess(vkCreateFence(
-						instance.vkDevice(), ciFence, null, pFence
+						instance.vkDevice(), ciFence, CallbackUserData.FENCE.put(stack, instance), pFence
 				), "CreateFence", name);
 				fence = new VkbFence(instance, pFence.get(0), startSignaled);
 			} else {
@@ -123,7 +124,9 @@ public class FenceBank {
 			}
 			throw new IllegalStateException("Not all borrowed fences have been returned");
 		}
-		for (var fence : returnedFences) fence.destroy();
+		try (var stack = stackPush()) {
+			for (var fence : returnedFences) fence.destroy(stack);
+		}
 		returnedFences.clear();
 	}
 }

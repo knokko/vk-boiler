@@ -2,6 +2,7 @@ package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.VkbFence;
@@ -10,6 +11,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkCommandBuffer;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
 /**
@@ -110,6 +112,13 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 	protected void cleanUp(BoilerInstance instance) {
 		for (var fence : commandFences) fence.waitIfSubmitted();
 		instance.sync.fenceBank.returnFences(commandFences);
-		for (var commandPool : commandPools) vkDestroyCommandPool(instance.vkDevice(), commandPool, null);
+		try (var stack = stackPush()) {
+			for (var commandPool : commandPools) {
+				vkDestroyCommandPool(
+						instance.vkDevice(), commandPool,
+						CallbackUserData.COMMAND_POOL.put(stack, instance)
+				);
+			}
+		}
 	}
 }

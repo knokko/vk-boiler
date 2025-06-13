@@ -1,6 +1,8 @@
 package com.github.knokko.boiler.builders.xr;
 
 import com.github.knokko.boiler.builders.device.VkDeviceCreator;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import com.github.knokko.boiler.memory.callbacks.VkbAllocationCallbacks;
 import org.lwjgl.openxr.XrInstance;
 import org.lwjgl.openxr.XrVulkanDeviceCreateInfoKHR;
 import org.lwjgl.system.MemoryStack;
@@ -28,7 +30,7 @@ class XrDeviceCreator implements VkDeviceCreator {
 	@Override
 	public VkDevice vkCreateDevice(
 			VkDeviceCreateInfo ciDevice, Set<String> instanceExtensions,
-			VkPhysicalDevice physicalDevice, MemoryStack stack
+			VkPhysicalDevice physicalDevice, VkbAllocationCallbacks allocationCallbacks, MemoryStack stack
 	) {
 		var xrCiDevice = XrVulkanDeviceCreateInfoKHR.calloc(stack);
 		xrCiDevice.type$Default();
@@ -37,7 +39,7 @@ class XrDeviceCreator implements VkDeviceCreator {
 		xrCiDevice.pfnGetInstanceProcAddr(VK.getFunctionProvider().getFunctionAddress("vkGetInstanceProcAddr"));
 		xrCiDevice.vulkanPhysicalDevice(physicalDevice);
 		xrCiDevice.vulkanCreateInfo(ciDevice);
-		xrCiDevice.vulkanAllocator(null);
+		xrCiDevice.vulkanAllocator(CallbackUserData.DEVICE.put(stack, allocationCallbacks));
 
 		var pDevice = stack.callocPointer(1);
 		var pResult = stack.callocInt(1);

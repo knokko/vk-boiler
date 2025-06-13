@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.pipelines;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.vulkan.*;
 
 import java.io.IOException;
@@ -45,7 +46,7 @@ public class BoilerPipelines {
 
 			var pLayout = stack.callocLong(1);
 			assertVkSuccess(vkCreatePipelineLayout(
-					instance.vkDevice(), ciLayout, null, pLayout
+					instance.vkDevice(), ciLayout, CallbackUserData.PIPELINE_LAYOUT.put(stack, instance), pLayout
 			), "CreatePipelineLayout", name);
 			long layout = pLayout.get(0);
 
@@ -84,7 +85,7 @@ public class BoilerPipelines {
 
 			var pModule = stack.callocLong(1);
 			assertVkSuccess(vkCreateShaderModule(
-					instance.vkDevice(), ciModule, null, pModule
+					instance.vkDevice(), ciModule, CallbackUserData.SHADER_MODULE.put(stack, instance), pModule
 			), "CreateShaderModule", name);
 			module = pModule.get(0);
 
@@ -124,13 +125,14 @@ public class BoilerPipelines {
 
 			var pPipelines = stack.callocLong(1);
 			assertVkSuccess(vkCreateComputePipelines(
-					instance.vkDevice(), VK_NULL_HANDLE, ciPipelines, null, pPipelines
+					instance.vkDevice(), VK_NULL_HANDLE, ciPipelines,
+					CallbackUserData.PIPELINE.put(stack, instance), pPipelines
 			), "CreateComputePipelines", name);
 			pipeline = pPipelines.get(0);
 
 			instance.debug.name(stack, pipeline, VK_OBJECT_TYPE_PIPELINE, name);
+			vkDestroyShaderModule(instance.vkDevice(), shaderModule, CallbackUserData.SHADER_MODULE.put(stack, instance));
 		}
-		vkDestroyShaderModule(instance.vkDevice(), shaderModule, null);
 		return pipeline;
 	}
 }

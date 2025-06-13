@@ -4,6 +4,8 @@ import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.memory.MemoryCombiner;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
@@ -27,6 +29,7 @@ public class HelloTriangle {
 		)
 				.validation().forbidValidationErrors()
 				.hideDeviceSelectionInfo()
+				.allocationCallbacks(new SumAllocationCallbacks())
 				.addWindow(new WindowBuilder(
 						1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 				).presentModes(VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR))
@@ -86,7 +89,7 @@ public class HelloTriangle {
 
 			var pRenderPass = stack.callocLong(1);
 			assertVkSuccess(vkCreateRenderPass(
-					boiler.vkDevice(), ciRenderPass, null, pRenderPass
+					boiler.vkDevice(), ciRenderPass, CallbackUserData.RENDER_PASS.put(stack, boiler), pRenderPass
 			), "CreateRenderPass", "TrianglePass");
 			renderPass = pRenderPass.get(0);
 		}
@@ -140,8 +143,8 @@ public class HelloTriangle {
 
 			graphicsPipeline = pipelineBuilder.build("TrianglePipeline");
 
-			vkDestroyShaderModule(boiler.vkDevice(), vertexModule, null);
-			vkDestroyShaderModule(boiler.vkDevice(), fragmentModule, null);
+			vkDestroyShaderModule(boiler.vkDevice(), vertexModule, CallbackUserData.SHADER_MODULE.put(stack, boiler));
+			vkDestroyShaderModule(boiler.vkDevice(), fragmentModule, CallbackUserData.SHADER_MODULE.put(stack, boiler));
 		}
 
 		var combiner = new MemoryCombiner(boiler, "VertexMemory");
@@ -177,7 +180,14 @@ public class HelloTriangle {
 			);
 
 			return new AssociatedSwapchainResources(framebuffer);
-		}, resources -> vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null));
+		}, resources -> {
+			try (var stack = stackPush()) {
+				vkDestroyFramebuffer(
+						boiler.vkDevice(), resources.framebuffer,
+						CallbackUserData.FRAME_BUFFER.put(stack, boiler)
+				);
+			}
+		});
 
 		long referenceTime = System.currentTimeMillis();
 		long referenceFrames = 0;
@@ -204,6 +214,9 @@ public class HelloTriangle {
 			long currentTime = System.currentTimeMillis();
 			if (currentTime > 1000 + referenceTime) {
 				System.out.println("FPS is " + (frameCounter - referenceFrames));
+				var allocationCallbacks = (SumAllocationCallbacks) boiler.allocationCallbacks;
+				System.out.println("Simple allocation callbacks: " + allocationCallbacks.copySimpleSizes());
+				System.out.println("INTERNAL allocation callbacks: " + allocationCallbacks.copyInternalSizes());
 				referenceTime = currentTime;
 				referenceFrames = frameCounter;
 			}
@@ -266,13 +279,19 @@ public class HelloTriangle {
 		boiler.sync.fenceBank.awaitSubmittedFences();
 		boiler.sync.fenceBank.returnFences(commandFences);
 
-		vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, null);
-		vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, null);
-		vkDestroyRenderPass(boiler.vkDevice(), renderPass, null);
-		vkDestroyCommandPool(boiler.vkDevice(), commandPool, null);
+		try (var stack = stackPush()) {
+			vkDestroyPipelineLayout(boiler.vkDevice(), pipelineLayout, CallbackUserData.PIPELINE_LAYOUT.put(stack, boiler));
+			vkDestroyPipeline(boiler.vkDevice(), graphicsPipeline, CallbackUserData.PIPELINE.put(stack, boiler));
+			vkDestroyRenderPass(boiler.vkDevice(), renderPass, CallbackUserData.RENDER_PASS.put(stack, boiler));
+			vkDestroyCommandPool(boiler.vkDevice(), commandPool, CallbackUserData.COMMAND_POOL.put(stack, boiler));
+		}
 		memory.destroy(boiler);
 
 		boiler.destroyInitialObjects();
+
+		var allocationCallbacks = (SumAllocationCallbacks) boiler.allocationCallbacks;
+		System.out.println("Final simple allocation callbacks: " + allocationCallbacks.copySimpleSizes());
+		System.out.println("Final INTERNAL allocation callbacks: " + allocationCallbacks.copyInternalSizes());
 	}
 
 	private record AssociatedSwapchainResources(

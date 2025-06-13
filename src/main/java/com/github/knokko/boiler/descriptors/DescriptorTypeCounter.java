@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDescriptorPoolCreateInfo;
 import org.lwjgl.vulkan.VkDescriptorPoolSize;
@@ -83,7 +84,7 @@ class DescriptorTypeCounter {
 
 		var pPool = stack.callocLong(1);
 		assertVkSuccess(vkCreateDescriptorPool(
-				instance.vkDevice(), ciPool, null, pPool
+				instance.vkDevice(), ciPool, CallbackUserData.DESCRIPTOR_POOL.put(stack, instance), pPool
 		), "CreateDescriptorPool", name);
 		long vkDescriptorPool = pPool.get(0);
 

@@ -1,10 +1,12 @@
 package com.github.knokko.boiler.memory;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 
 import java.util.ArrayList;
 import java.util.Collection;
 
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.vmaFreeMemory;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -25,10 +27,16 @@ public class MemoryBlock {
 	 * Destroys all the image views, images, buffers, and memory allocations in this memory block.
 	 */
 	public void destroy(BoilerInstance instance) {
-		for (long vkImageView : vkImageViews) vkDestroyImageView(instance.vkDevice(), vkImageView, null);
-		for (long vkImage : vkImages) vkDestroyImage(instance.vkDevice(), vkImage, null);
-		for (long vkBuffer : vkBuffers) vkDestroyBuffer(instance.vkDevice(), vkBuffer, null);
-		for (long vmaAllocation : vmaAllocations) vmaFreeMemory(instance.vmaAllocator(), vmaAllocation);
-		for (long vkAllocation : vkAllocations) vkFreeMemory(instance.vkDevice(), vkAllocation, null);
+		try (var stack = stackPush()) {
+			var imageViewCallbacks = CallbackUserData.IMAGE_VIEW.put(stack, instance);
+			var imageCallbacks = CallbackUserData.IMAGE.put(stack, instance);
+			var bufferCallbacks = CallbackUserData.BUFFER.put(stack, instance);
+			var memoryCallbacks = CallbackUserData.MEMORY.put(stack, instance);
+			for (long vkImageView : vkImageViews) vkDestroyImageView(instance.vkDevice(), vkImageView, imageViewCallbacks);
+			for (long vkImage : vkImages) vkDestroyImage(instance.vkDevice(), vkImage, imageCallbacks);
+			for (long vkBuffer : vkBuffers) vkDestroyBuffer(instance.vkDevice(), vkBuffer, bufferCallbacks);
+			for (long vmaAllocation : vmaAllocations) vmaFreeMemory(instance.vmaAllocator(), vmaAllocation);
+			for (long vkAllocation : vkAllocations) vkFreeMemory(instance.vkDevice(), vkAllocation, memoryCallbacks);
+		}
 	}
 }

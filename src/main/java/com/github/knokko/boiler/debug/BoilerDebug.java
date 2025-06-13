@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.debug;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDebugUtilsMessengerCallbackDataEXT;
 import org.lwjgl.vulkan.VkDebugUtilsMessengerCreateInfoEXT;
@@ -78,7 +79,7 @@ public class BoilerDebug {
 
 		var pMessenger = stack.callocLong(1);
 		assertVkSuccess(vkCreateDebugUtilsMessengerEXT(
-				instance.vkInstance(), ciMessenger, null, pMessenger
+				instance.vkInstance(), ciMessenger, CallbackUserData.DEBUG_MESSENGER.put(stack, instance), pMessenger
 		), "CreateDebugUtilsMessengerEXT", name);
 		return pMessenger.get(0);
 	}

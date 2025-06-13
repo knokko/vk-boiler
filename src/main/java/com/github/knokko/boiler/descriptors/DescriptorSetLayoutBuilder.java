@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.descriptors;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDescriptorSetLayoutBinding;
 import org.lwjgl.vulkan.VkDescriptorSetLayoutCreateInfo;
@@ -65,7 +66,7 @@ public class DescriptorSetLayoutBuilder {
 	public VkbDescriptorSetLayout build(BoilerInstance instance, String name) {
 		var pLayout = stack.callocLong(1);
 		assertVkSuccess(vkCreateDescriptorSetLayout(
-				instance.vkDevice(), ciLayout, null, pLayout
+				instance.vkDevice(), ciLayout, CallbackUserData.DESCRIPTOR_SET_LAYOUT.put(stack, instance), pLayout
 		), "CreateDescriptorSetLayout", name);
 		long vkDescriptorSetLayout = pLayout.get(0);
 

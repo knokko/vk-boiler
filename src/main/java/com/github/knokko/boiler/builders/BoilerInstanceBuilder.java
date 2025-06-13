@@ -95,7 +95,7 @@ class BoilerInstanceBuilder {
 				pValidationFeatures.sType$Default();
 				pValidationFeatures.pNext(0L);
 
-				var supportedValidationFeatures = new ValidationFeaturesChecker(stack);
+				var supportedValidationFeatures = new ValidationFeaturesChecker(stack, builder.allocationCallbacks);
 
 				var validationFlags = stack.callocInt(5);
 				if (builder.validationFeatures.gpuAssisted() && supportedValidationFeatures.gpuAssistedValidation)
@@ -110,7 +110,7 @@ class BoilerInstanceBuilder {
 					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT);
 				validationFlags.flip();
 
-				supportedValidationFeatures.destroy();
+				supportedValidationFeatures.destroy(stack);
 
 				if (validationFlags.limit() > 0) pValidationFeatures.pEnabledValidationFeatures(validationFlags);
 				else pValidationFeatures = null;
@@ -131,7 +131,7 @@ class BoilerInstanceBuilder {
 				preCreator.beforeInstanceCreation(ciInstance, stack);
 			}
 
-			vkInstance = builder.vkInstanceCreator.vkCreateInstance(ciInstance, stack);
+			vkInstance = builder.vkInstanceCreator.vkCreateInstance(ciInstance, builder.allocationCallbacks, stack);
 		}
 		return new Result(vkInstance, enabledLayers, enabledExtensions);
 	}

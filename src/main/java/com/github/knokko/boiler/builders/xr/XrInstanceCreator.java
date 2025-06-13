@@ -1,6 +1,8 @@
 package com.github.knokko.boiler.builders.xr;
 
 import com.github.knokko.boiler.builders.instance.VkInstanceCreator;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import com.github.knokko.boiler.memory.callbacks.VkbAllocationCallbacks;
 import org.lwjgl.openxr.XrInstance;
 import org.lwjgl.openxr.XrVulkanInstanceCreateInfoKHR;
 import org.lwjgl.system.MemoryStack;
@@ -23,14 +25,16 @@ class XrInstanceCreator implements VkInstanceCreator {
 	}
 
 	@Override
-	public VkInstance vkCreateInstance(VkInstanceCreateInfo ciInstance, MemoryStack stack) {
+	public VkInstance vkCreateInstance(
+			VkInstanceCreateInfo ciInstance, VkbAllocationCallbacks allocationCallbacks, MemoryStack stack
+	) {
 		var ciXrInstance = XrVulkanInstanceCreateInfoKHR.calloc(stack);
 		ciXrInstance.type$Default();
 		ciXrInstance.systemId(xrSystem);
 		ciXrInstance.createFlags(0);
 		ciXrInstance.pfnGetInstanceProcAddr(VK.getFunctionProvider().getFunctionAddress("vkGetInstanceProcAddr"));
 		ciXrInstance.vulkanCreateInfo(ciInstance);
-		ciXrInstance.vulkanAllocator(null);
+		ciXrInstance.vulkanAllocator(CallbackUserData.INSTANCE.put(stack, allocationCallbacks));
 
 		var pInstance = stack.callocPointer(1);
 		var pResult = stack.callocInt(1);

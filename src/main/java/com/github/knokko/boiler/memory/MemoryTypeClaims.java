@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.memory;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.util.vma.VmaAllocationCreateInfo;
 import org.lwjgl.util.vma.VmaAllocationInfo;
 import org.lwjgl.vulkan.VkMemoryAllocateInfo;
@@ -75,7 +76,7 @@ class MemoryTypeClaims {
 
 				var pMemory = stack.callocLong(1);
 				assertVkSuccess(vkAllocateMemory(
-						instance.vkDevice(), aiMemory, null, pMemory
+						instance.vkDevice(), aiMemory, CallbackUserData.MEMORY.put(stack, instance), pMemory
 				), "AllocateMemory", name);
 
 				allocation = pMemory.get(0);

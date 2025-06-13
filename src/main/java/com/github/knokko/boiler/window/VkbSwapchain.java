@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
@@ -188,7 +189,11 @@ class VkbSwapchain {
 
 	void destroyNow() {
 		for (var callback : destructionCallbacks) callback.run();
-		for (long imageView : imageViews) vkDestroyImageView(instance.vkDevice(), imageView, null);
-		vkDestroySwapchainKHR(instance.vkDevice(), vkSwapchain, null);
+		try (var stack = stackPush()) {
+			for (long imageView : imageViews) {
+				vkDestroyImageView(instance.vkDevice(), imageView, CallbackUserData.IMAGE_VIEW.put(stack, instance));
+			}
+			vkDestroySwapchainKHR(instance.vkDevice(), vkSwapchain, CallbackUserData.SWAPCHAIN.put(stack, instance));
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.synchronization;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
@@ -51,7 +52,7 @@ public class BoilerSync {
 
 			var pSemaphore = stack.callocLong(1);
 			assertVkSuccess(vkCreateSemaphore(
-					instance.vkDevice(), ciSemaphore, null, pSemaphore
+					instance.vkDevice(), ciSemaphore, CallbackUserData.SEMAPHORE.put(stack, instance), pSemaphore
 			), "CreateSemaphore", name);
 			long vkSemaphore = pSemaphore.get(0);
 			instance.debug.name(stack, vkSemaphore, VK_OBJECT_TYPE_SEMAPHORE, name);

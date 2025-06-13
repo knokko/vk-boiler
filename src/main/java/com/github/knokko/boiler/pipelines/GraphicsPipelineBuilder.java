@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.pipelines;
 
 import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
@@ -340,13 +341,13 @@ public class GraphicsPipelineBuilder {
 		assertVkSuccess(vkCreateGraphicsPipelines(
 				instance.vkDevice(), pipelineCache,
 				VkGraphicsPipelineCreateInfo.create(ciPipeline.address(), 1),
-				null, pPipeline
+				CallbackUserData.PIPELINE.put(stack, instance), pPipeline
 		), "CreateGraphicsPipelines", name);
 		long pipeline = pPipeline.get(0);
 		instance.debug.name(stack, pipeline, VK_OBJECT_TYPE_PIPELINE, name);
 
 		for (long module : shaderModules) {
-			vkDestroyShaderModule(instance.vkDevice(), module, null);
+			vkDestroyShaderModule(instance.vkDevice(), module, CallbackUserData.SHADER_MODULE.put(stack, instance));
 		}
 
 		return pipeline;
