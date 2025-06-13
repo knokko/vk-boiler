@@ -1,11 +1,9 @@
 package com.github.knokko.boiler.pipelines;
 
 import com.github.knokko.boiler.BoilerInstance;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.vulkan.VK10.*;
@@ -19,7 +17,7 @@ public class GraphicsPipelineBuilder {
 	private final BoilerInstance instance;
 	private final MemoryStack stack;
 
-	private final List<Long> shaderModules = new ArrayList<>();
+	private final LongArrayList shaderModules = new LongArrayList();
 
 	/**
 	 * The <i>VkPipelineCache</i> that will be used during the <i>build()</i> method. It will be <i>VK_NULL_HANDLE</i>

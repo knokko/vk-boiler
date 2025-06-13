@@ -1,0 +1,17 @@
+
+dependencies {
+
+	// The main project must be built first, since we need to scan its build directory
+	implementation project(":")
+
+
+	implementation group: 'it.unimi.dsi', name: 'fastutil', version: '8.5.15'
+}
+
+tasks.register("fastutil", JavaExec) {
+	group = "Development"
+	description = "Creates a minified fastutil jar to be used as dependency by the main project"
+
+	classpath sourceSets.main.runtimeClasspath
+	mainClass = "com.github.knokko.boiler.development.FastUtil"
+}

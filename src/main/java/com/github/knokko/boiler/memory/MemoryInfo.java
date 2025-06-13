@@ -1,12 +1,9 @@
 package com.github.knokko.boiler.memory;
 
 import com.github.knokko.boiler.BoilerInstance;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
@@ -27,20 +24,20 @@ public class MemoryInfo {
 	/**
 	 * All memory type indices with {@link org.lwjgl.vulkan.VK10#VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT}
 	 */
-	public final List<Integer> deviceLocalMemoryTypes;
+	public final IntArrayList deviceLocalMemoryTypes;
 
 	/**
 	 * All memory type indices with {@link org.lwjgl.vulkan.VK10#VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT} and
 	 * {@link org.lwjgl.vulkan.VK10#VK_MEMORY_PROPERTY_HOST_COHERENT_BIT}
 	 */
-	public final List<Integer> hostVisibleMemoryTypes;
+	public final IntArrayList hostVisibleMemoryTypes;
 
 	/**
 	 * All memory type indices with {@link org.lwjgl.vulkan.VK10#VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT} and
 	 * {@link org.lwjgl.vulkan.VK10#VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT} and
 	 * {@link org.lwjgl.vulkan.VK10#VK_MEMORY_PROPERTY_HOST_COHERENT_BIT}
 	 */
-	public final List<Integer> hybridMemoryTypes;
+	public final IntArrayList hybridMemoryTypes;
 
 	/**
 	 * Note: this constructor is meant for internal use only. Use {@link BoilerInstance#memoryInfo} instead.
@@ -50,9 +47,9 @@ public class MemoryInfo {
 			var memory = VkPhysicalDeviceMemoryProperties.calloc(stack);
 			vkGetPhysicalDeviceMemoryProperties(instance.vkPhysicalDevice(), memory);
 			this.numMemoryTypes = memory.memoryTypeCount();
-			List<Integer> deviceLocalMemoryTypes = new ArrayList<>();
-			List<Integer> hostVisibleMemoryTypes = new ArrayList<>();
-			List<Integer> hybridMemoryTypes = new ArrayList<>();
+			this.deviceLocalMemoryTypes = new IntArrayList();
+			this.hostVisibleMemoryTypes = new IntArrayList();
+			this.hybridMemoryTypes = new IntArrayList();
 			for (int index = 0; index < numMemoryTypes; index++) {
 				int flags = memory.memoryTypes(index).propertyFlags();
 				if ((flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0) deviceLocalMemoryTypes.add(index);
@@ -61,9 +58,6 @@ public class MemoryInfo {
 					if ((flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0) hybridMemoryTypes.add(index);
 				}
 			}
-			this.deviceLocalMemoryTypes = Collections.unmodifiableList(deviceLocalMemoryTypes);
-			this.hostVisibleMemoryTypes = Collections.unmodifiableList(hostVisibleMemoryTypes);
-			this.hybridMemoryTypes = Collections.unmodifiableList(hybridMemoryTypes);
 		}
 	}
 

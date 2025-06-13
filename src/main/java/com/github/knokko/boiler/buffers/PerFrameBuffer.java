@@ -1,9 +1,7 @@
 package com.github.knokko.boiler.buffers;
 
 import com.github.knokko.boiler.exceptions.PerFrameOverflowException;
-
-import java.util.HashMap;
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
 
 import static com.github.knokko.boiler.utilities.BoilerMath.nextMultipleOf;
 
@@ -34,7 +32,7 @@ public class PerFrameBuffer {
 	 */
 	public final MappedVkbBuffer buffer;
 
-	private final Map<Integer, Long> limits = new HashMap<>();
+	private final Int2LongOpenHashMap limits = new Int2LongOpenHashMap();
 
 	private long currentOffset, currentLimit;
 

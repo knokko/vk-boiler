@@ -5,6 +5,7 @@ import com.github.knokko.boiler.queues.VkbQueue;
 import com.github.knokko.boiler.queues.QueueFamilies;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.utilities.CollectionHelper;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.vma.VmaAllocatorCreateInfo;
 import org.lwjgl.util.vma.VmaVulkanFunctions;
@@ -172,7 +173,7 @@ class BoilerDeviceBuilder {
 			);
 			queueFamilyMapping.validate();
 
-			var uniqueQueueFamilies = new HashMap<Integer, float[]>();
+			var uniqueQueueFamilies = new Int2ObjectOpenHashMap<float[]>();
 			// Do presentFamily first so that it will be overwritten by the others if the queue family is shared
 			for (var presentFamilyIndex : queueFamilyMapping.presentFamilyIndices()) {
 				uniqueQueueFamilies.put(presentFamilyIndex, new float[]{1f});
@@ -189,11 +190,11 @@ class BoilerDeviceBuilder {
 
 			var pQueueCreateInfos = VkDeviceQueueCreateInfo.calloc(uniqueQueueFamilies.size(), stack);
 			int ciQueueIndex = 0;
-			for (var entry : uniqueQueueFamilies.entrySet()) {
+			for (var entry : uniqueQueueFamilies.int2ObjectEntrySet()) {
 				var ciQueue = pQueueCreateInfos.get(ciQueueIndex);
 				ciQueue.sType$Default();
 				ciQueue.flags(0);
-				ciQueue.queueFamilyIndex(entry.getKey());
+				ciQueue.queueFamilyIndex(entry.getIntKey());
 				ciQueue.pQueuePriorities(stack.floats(entry.getValue()));
 
 				ciQueueIndex += 1;
@@ -216,9 +217,9 @@ class BoilerDeviceBuilder {
 					ciDevice, instanceResult.enabledExtensions(), vkPhysicalDevice, stack
 			);
 
-			var queueFamilyMap = new HashMap<Integer, VkbQueueFamily>();
-			for (var entry : uniqueQueueFamilies.entrySet()) {
-				queueFamilyMap.put(entry.getKey(), getQueueFamily(stack, vkDevice, entry.getKey(), entry.getValue().length));
+			var queueFamilyMap = new Int2ObjectOpenHashMap<VkbQueueFamily>();
+			for (var entry : uniqueQueueFamilies.int2ObjectEntrySet()) {
+				queueFamilyMap.put(entry.getIntKey(), getQueueFamily(stack, vkDevice, entry.getIntKey(), entry.getValue().length));
 			}
 
 			presentFamilies = new VkbQueueFamily[windowSurfaces.length];
