@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.buffers;
 
-import java.awt.*;
+import com.github.knokko.boiler.utilities.ImageCoding;
+
 import java.awt.image.BufferedImage;
 import java.nio.*;
 
@@ -91,21 +92,7 @@ public class MappedVkbBuffer extends VkbBuffer {
 	 * @param image The image whose pixels should be stored in the buffer
 	 */
 	public void encodeBufferedImage(BufferedImage image) {
-		long expectedSize = 4L * image.getWidth() * image.getHeight();
-		if (size != expectedSize) {
-			throw new IllegalArgumentException("Expected destination size to be " + expectedSize + ", but got " + size);
-		}
-
-		var byteBuffer = byteBuffer();
-		for (int y = 0; y < image.getHeight(); y++) {
-			for (int x = 0; x < image.getWidth(); x++) {
-				var pixel = new Color(image.getRGB(x, y), true);
-				byteBuffer.put((byte) pixel.getRed());
-				byteBuffer.put((byte) pixel.getGreen());
-				byteBuffer.put((byte) pixel.getBlue());
-				byteBuffer.put((byte) pixel.getAlpha());
-			}
-		}
+		ImageCoding.encodeBufferedImage(byteBuffer(), image);
 	}
 
 	/**
@@ -116,25 +103,6 @@ public class MappedVkbBuffer extends VkbBuffer {
 	 * @return The decoded image
 	 */
 	public BufferedImage decodeBufferedImage(int width, int height) {
-		long expectedSize = 4L * width * height;
-		if (size != expectedSize) {
-			throw new IllegalArgumentException("Expected source size to be " + expectedSize + ", but got " + size);
-		}
-
-		var image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-		var byteBuffer = byteBuffer();
-		for (int y = 0; y < image.getHeight(); y++) {
-			for (int x = 0; x < image.getWidth(); x++) {
-				var pixel = new Color(
-						byteBuffer.get() & 0xFF,
-						byteBuffer.get() & 0xFf,
-						byteBuffer.get() & 0xFF,
-						byteBuffer.get() & 0xFF
-				);
-				image.setRGB(x, y, pixel.getRGB());
-			}
-		}
-
-		return image;
+		return ImageCoding.decodeBufferedImage(byteBuffer(), width, height);
 	}
 }
