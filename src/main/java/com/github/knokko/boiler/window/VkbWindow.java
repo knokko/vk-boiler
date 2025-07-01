@@ -7,6 +7,7 @@ import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static java.lang.Math.max;
@@ -66,6 +67,8 @@ public class VkbWindow {
 	private boolean hasBeenDestroyed;
 
 	WindowEventLoop windowLoop;
+
+	private final Set<SwapchainResourceManager<?, ?>> associations = ConcurrentHashMap.newKeySet();
 
 	/**
 	 * This constructor is meant for internal use only. You should use <i>BoilerBuilder.addWindow</i> or
@@ -264,7 +267,8 @@ public class VkbWindow {
 			instance.debug.name(stack, vkSwapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, "Swapchain-" + title + currentSwapchainID);
 
 			currentSwapchain = new VkbSwapchain(
-					instance, vkSwapchain, title, cleaner, surfaceFormat, swapchainImageUsage, presentMode,
+					instance, vkSwapchain, title, cleaner, associations,
+					surfaceFormat, swapchainImageUsage, presentMode,
 					width, height, presentFamily, compatibleUsedPresentModes
 			);
 		}
@@ -353,6 +357,7 @@ public class VkbWindow {
 
 		try (var stack = stackPush()) {
 			cleaner.destroyEverything();
+			for (var association : associations) association.destroy();
 			vkDestroySurfaceKHR(instance.vkInstance(), vkSurface, CallbackUserData.SURFACE.put(stack, instance));
 			surfaceCapabilities.free();
 		} finally {

@@ -35,6 +35,11 @@ and usage flags in the same `VkBuffer`, and will create at most 1 memory
 allocation per memory type to bind the memory of all its buffer and
 images.
 
+When you want to replace an old `MemoryBlock` with a new `MemoryBlock`,
+you can use the `buildAndRecycle(old)` method instead of the
+`build(useVma)` method, which will attempt to reuse the `VkMemory`
+allocations of `old`.
+
 ### PerFrameBuffer
 The `PerFrameBuffer` wraps a `MappedVkbBuffer`, and uses it to manage
 one-time-only data that you use every frame, and whose memory space can be

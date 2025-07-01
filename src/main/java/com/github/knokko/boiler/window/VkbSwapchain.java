@@ -28,6 +28,7 @@ class VkbSwapchain {
 	private final String name;
 	final long vkSwapchain;
 	private final SwapchainCleaner cleaner;
+	final Set<SwapchainResourceManager<?, ?>> associations;
 	private final Set<Integer> supportedPresentModes;
 	private int presentMode;
 	final int width, height;
@@ -41,13 +42,16 @@ class VkbSwapchain {
 	private boolean outdated;
 
 	VkbSwapchain(
-			BoilerInstance instance, long vkSwapchain, String title, SwapchainCleaner cleaner, int imageFormat, int imageUsage,
-			int presentMode, int width, int height, VkbQueueFamily presentFamily, Set<Integer> supportedPresentModes
+			BoilerInstance instance, long vkSwapchain, String title,
+			SwapchainCleaner cleaner, Set<SwapchainResourceManager<?, ?>> associations,
+			int imageFormat, int imageUsage, int presentMode, int width, int height,
+			VkbQueueFamily presentFamily, Set<Integer> supportedPresentModes
 	) {
 		this.instance = instance;
 		this.name = title;
 		this.vkSwapchain = vkSwapchain;
 		this.cleaner = cleaner;
+		this.associations = associations;
 
 		this.presentMode = presentMode;
 		this.supportedPresentModes = Collections.unmodifiableSet(supportedPresentModes);

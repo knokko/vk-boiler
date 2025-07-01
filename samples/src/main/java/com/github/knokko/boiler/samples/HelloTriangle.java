@@ -8,6 +8,7 @@ import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
+import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
@@ -173,21 +174,26 @@ public class HelloTriangle {
 		vertices.put(0f);
 
 		long frameCounter = 0;
-		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			long framebuffer = boiler.images.createFramebuffer(
-					renderPass, swapchainImage.width(), swapchainImage.height(),
-					"TriangleFramebuffer", swapchainImage.image().vkImageView
-			);
+		var swapchainResources = new SwapchainResourceManager<Object, Long>() {
 
-			return new AssociatedSwapchainResources(framebuffer);
-		}, resources -> {
-			try (var stack = stackPush()) {
-				vkDestroyFramebuffer(
-						boiler.vkDevice(), resources.framebuffer,
-						CallbackUserData.FRAME_BUFFER.put(stack, boiler)
+			@Override
+			protected Long createImage(Object swapchain, AcquiredImage swapchainImage) {
+				return boiler.images.createFramebuffer(
+						renderPass, swapchainImage.width(), swapchainImage.height(),
+						"TriangleFramebuffer", swapchainImage.image().vkImageView
 				);
 			}
-		});
+
+			@Override
+			protected void destroyImage(Long framebuffer) {
+				try (var stack = stackPush()) {
+					vkDestroyFramebuffer(
+							boiler.vkDevice(), framebuffer,
+							CallbackUserData.FRAME_BUFFER.put(stack, boiler)
+					);
+				}
+			}
+		};
 
 		long referenceTime = System.currentTimeMillis();
 		long referenceFrames = 0;
@@ -229,7 +235,7 @@ public class HelloTriangle {
 					continue;
 				}
 
-				var imageResources = swapchainResources.get(swapchainImage);
+				var framebuffer = swapchainResources.get(swapchainImage);
 				WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
 						swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 				)};
@@ -251,7 +257,7 @@ public class HelloTriangle {
 				var biRenderPass = VkRenderPassBeginInfo.calloc(stack);
 				biRenderPass.sType$Default();
 				biRenderPass.renderPass(renderPass);
-				biRenderPass.framebuffer(imageResources.framebuffer);
+				biRenderPass.framebuffer(framebuffer);
 				biRenderPass.renderArea().offset().set(0, 0);
 				biRenderPass.renderArea().extent().set(swapchainImage.width(), swapchainImage.height());
 				biRenderPass.clearValueCount(1);
@@ -292,10 +298,5 @@ public class HelloTriangle {
 		var allocationCallbacks = (SumAllocationCallbacks) boiler.allocationCallbacks;
 		System.out.println("Final simple allocation callbacks: " + allocationCallbacks.copySimpleSizes());
 		System.out.println("Final INTERNAL allocation callbacks: " + allocationCallbacks.copyInternalSizes());
-	}
-
-	private record AssociatedSwapchainResources(
-			long framebuffer
-	) {
 	}
 }

@@ -20,6 +20,7 @@ import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
+import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.TimelineInstant;
@@ -362,28 +363,59 @@ public class TerrainPlayground {
 		var timeline = boiler.sync.createTimelineSemaphore(numFramesInFlight - 1, "TerrainTimeline");
 
 		long frameCounter = 0;
-		var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-			var combiner = new MemoryCombiner(boiler, "DepthMemory");
-			var depthImage = combiner.addImage(new ImageBuilder(
-					"DepthImage", swapchainImage.width(), swapchainImage.height()
-			).depthAttachment(depthFormat));
-			var memory = combiner.build(true);
+		var swapchainResources = new SwapchainResourceManager<SwapchainResources, ImageResources>() {
 
-			long framebuffer = boiler.images.createFramebuffer(
-					renderPass, swapchainImage.width(), swapchainImage.height(),
-					"TerrainFramebuffer", swapchainImage.image().vkImageView, depthImage.vkImageView
-			);
-
-			return new AssociatedSwapchainResources(framebuffer, depthImage, memory);
-		}, resources -> {
-			try (var stack = stackPush()) {
-				vkDestroyFramebuffer(
-						boiler.vkDevice(), resources.framebuffer,
-						CallbackUserData.FRAME_BUFFER.put(stack, boiler)
-				);
+			@Override
+			protected SwapchainResources createSwapchain(int width, int height, int numImages) {
+				var depthImages = new VkbImage[numImages];
+				var combiner = depthCombiner(depthImages, width, height);
+				var memory = combiner.build(false);
+				return new SwapchainResources(memory, depthImages);
 			}
-			resources.depthMemory().destroy(boiler);
-		});
+
+			@Override
+			protected ImageResources createImage(SwapchainResources swapchain, AcquiredImage swapchainImage) {
+				var depthImage = swapchain.depthImages[swapchainImage.index()];
+				long framebuffer = boiler.images.createFramebuffer(
+						renderPass, swapchainImage.width(), swapchainImage.height(),
+						"TerrainFramebuffer", swapchainImage.image().vkImageView, depthImage.vkImageView
+				);
+				return new ImageResources(framebuffer, depthImage);
+			}
+
+			@Override
+			protected void destroySwapchain(SwapchainResources resources){
+				resources.depthMemory().destroy(boiler);
+			}
+
+			@Override
+			protected void destroyImage(ImageResources resources){
+				try (var stack = stackPush()) {
+					vkDestroyFramebuffer(
+							boiler.vkDevice(), resources.framebuffer,
+							CallbackUserData.FRAME_BUFFER.put(stack, boiler)
+					);
+				}
+			}
+
+			@Override
+			protected SwapchainResources recreateSwapchain(SwapchainResources old, int width, int height, int numImages) {
+				var depthImages = new VkbImage[numImages];
+				var combiner = depthCombiner(depthImages, width, height);
+				var memory = combiner.buildAndRecycle(old.depthMemory);
+				return new SwapchainResources(memory, depthImages);
+			}
+
+			private MemoryCombiner depthCombiner(VkbImage[] depthImages, int width, int height) {
+				var combiner = new MemoryCombiner(boiler, "DepthMemory");
+				for (int index = 0; index < depthImages.length; index++) {
+					depthImages[index] = combiner.addImage(new ImageBuilder(
+							"DepthImage" + index, width, height
+					).depthAttachment(depthFormat));
+				}
+				return combiner;
+			}
+		};
 
 		long referenceTime = System.currentTimeMillis();
 		long referenceFrames = 0;
@@ -606,10 +638,14 @@ public class TerrainPlayground {
 		System.out.println("Final INTERNAL allocation callbacks: " + allocationCallbacks.copyInternalSizes());
 	}
 
-	private record AssociatedSwapchainResources(
+	private record SwapchainResources(
+			MemoryBlock depthMemory,
+			VkbImage[] depthImages
+	) {}
+
+	private record ImageResources(
 			long framebuffer,
-			VkbImage depthImage,
-			MemoryBlock depthMemory
+			VkbImage depthImage
 	) { }
 
 	private record TerrainFragment(

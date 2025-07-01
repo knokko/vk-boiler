@@ -17,7 +17,7 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class MemoryBlock {
 
-	final Collection<Long> vkAllocations = new ArrayList<>();
+	final Collection<MemoryAllocation> allocations = new ArrayList<>();
 	final Collection<Long> vmaAllocations = new ArrayList<>();
 	final Collection<Long> vkBuffers = new ArrayList<>();
 	final Collection<Long> vkImages = new ArrayList<>();
@@ -27,6 +27,13 @@ public class MemoryBlock {
 	 * Destroys all the image views, images, buffers, and memory allocations in this memory block.
 	 */
 	public void destroy(BoilerInstance instance) {
+		destroy(instance, false);
+	}
+
+	void destroy(BoilerInstance instance, boolean recycle) {
+		if (recycle && !vmaAllocations.isEmpty()) {
+			throw new UnsupportedOperationException("Memory blocks allocated using VMA cannot be recycled");
+		}
 		try (var stack = stackPush()) {
 			var imageViewCallbacks = CallbackUserData.IMAGE_VIEW.put(stack, instance);
 			var imageCallbacks = CallbackUserData.IMAGE.put(stack, instance);
@@ -36,7 +43,38 @@ public class MemoryBlock {
 			for (long vkImage : vkImages) vkDestroyImage(instance.vkDevice(), vkImage, imageCallbacks);
 			for (long vkBuffer : vkBuffers) vkDestroyBuffer(instance.vkDevice(), vkBuffer, bufferCallbacks);
 			for (long vmaAllocation : vmaAllocations) vmaFreeMemory(instance.vmaAllocator(), vmaAllocation);
-			for (long vkAllocation : vkAllocations) vkFreeMemory(instance.vkDevice(), vkAllocation, memoryCallbacks);
+			if (!recycle) {
+				for (MemoryAllocation allocation : allocations) {
+					vkFreeMemory(instance.vkDevice(), allocation.vkAllocation, memoryCallbacks);
+				}
+			}
+		}
+	}
+
+	MemoryAllocation getAllocation(int memoryType) {
+		for (MemoryAllocation allocation : allocations) {
+			if (allocation.memoryType == memoryType) {
+				if (allocation.wasRecycled) throw new IllegalStateException();
+				return allocation;
+			}
+		}
+		return null;
+	}
+
+	static class MemoryAllocation {
+
+		final long vkAllocation;
+		final long size;
+		final int memoryType;
+		final long hostAddress;
+
+		boolean wasRecycled = false;
+
+		MemoryAllocation(long vkAllocation, long size, int memoryType, long hostAddress) {
+			this.vkAllocation = vkAllocation;
+			this.size = size;
+			this.memoryType = memoryType;
+			this.hostAddress = hostAddress;
 		}
 	}
 }

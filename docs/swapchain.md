@@ -59,44 +59,70 @@ such cases is to simply sleep a while and retry.
 ### Associating resources with swapchain images
 The swapchain management system will automatically create and destroy swapchains
 and their images, but there is sometimes a need to create objects that are
-'tied' to swapchain images (like swapchain framebuffers). You can use a
-`SwapchainResourceManager<T>` to achieve this result, where the `T` is the type
-of your associated resource class.
+'tied' to swapchains or swapchain images (like swapchain framebuffers). You can
+use a `SwapchainResourceManager<S, I>` to achieve this result, where the `S` is
+the type associated with your swapchains, and `I` is the type associated with
+your swapchain **images**.
 
-When you want to associate 1 object per swapchain image, `T` should be the type
-of this object. When you want to associate multiple objects, you should create
-a class or record that contains all these objects, and use that as `T`.
+When you want to associate 1 object per swapchain (image), `S` or `I` should be
+the type of this object. When you want to associate multiple objects, you should
+create a class or record that contains all these objects, and use that as `S` or
+`I`. To use this class, you should create a class that extends
+`SwapchainResourceManager`.
+- To associate resources with swapchain images, you should override the
+  `I createImage(S swapchain, AcquiredImage swapchainImage)` method and the
+  `void destroyImage(I resource)` method.
+- To associate resources with swapchains, you should override the
+  `S createSwapchain(int width, int height, int numImages)` method and the
+  `void destroySwapchain(S swapchain)` method. You **could** also override
+  `S recreateSwapchain(S oldSwapchain, int newWidth, int newHeight, int newNumImages)`,
+  but this is **optional**, and only useful when you want to recycle your
+  associated swapchain resources.
 
-The constructor has 2 parameters: the first one is a function that constructs
-an instance of `T` for a given swapchain image, and the second one is a
-function that destroys an instance of `T`. The resource manager will ensure
-that the construction function is called whenever a swapchain image is first
-acquired, and that the destruction function is called when the swapchain is
-destroyed. You don't need to destroy the resource manager explicitly.
+The resource manager will ensure that the *create* methods are always called
+whenever swapchains are created, or swapchain images are used for the first
+time.
+
+Furthermore, the resource manager will ensure that the *destroy* methods are
+eventually called after their corresponding swapchain is destroyed.
+(But not immediately because they are potentially needed by the
+`recreateSwapchain` method.)
+You don't need to destroy the resource manager explicitly.
 
 To get the resources associated with a swapchain image, use
 `yourSwapchainResourceManager.get(swapchainImage)`. The relevant code in
 HelloTriangle is shown below:
 ```java
-var swapchainResources = new SwapchainResourceManager<>(swapchainImage -> {
-	long framebuffer = boiler.images.createFramebuffer(
-			renderPass, swapchainImage.width(), swapchainImage.height(),
-			"TriangleFramebuffer", swapchainImage.image().vkImageView()
-	);
+var swapchainResources = new SwapchainResourceManager<Object, Long>() {
 
-	return new AssociatedSwapchainResources(framebuffer);
-}, resources -> vkDestroyFramebuffer(boiler.vkDevice(), resources.framebuffer, null));
+    @Override
+    protected Long createImage(Object swapchain, AcquiredImage swapchainImage) {
+        return boiler.images.createFramebuffer(
+                renderPass, swapchainImage.width(), swapchainImage.height(),
+                "TriangleFramebuffer", swapchainImage.image().vkImageView
+        );
+    }
+
+    @Override
+    protected void destroyImage(Long framebuffer) {
+        try (var stack = stackPush()) {
+            vkDestroyFramebuffer(
+                    boiler.vkDevice(), framebuffer,
+                    CallbackUserData.FRAME_BUFFER.put(stack, boiler)
+            );
+        }
+    }
+};
 // Some unrelated stuff...
 while (windowShouldNotClose) {
 	// Acquire swapchainImage...
-	var imageResources = swapchainResources.get(swapchainImage);
-	// Use imageResources and do the rest of the frame...
+	var framebuffer = swapchainResources.get(swapchainImage);
+	// Use framebuffer and do the rest of the frame...
 }
-// Some unrelated stuff...
-private record AssociatedSwapchainResources(
-		long framebuffer
-) {}
 ```
+
+The `TerrainPlayground` sample shows a more advanced way to use
+`SwapchainResourceManager`.
 
 ## Window loop systems
 The basic usage shown above is simple and requires much less code than doing

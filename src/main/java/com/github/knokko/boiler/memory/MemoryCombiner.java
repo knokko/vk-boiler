@@ -211,7 +211,46 @@ public class MemoryCombiner {
 		for (int index = 0; index < claims.length; index++) {
 			MemoryTypeClaims claim = claims[index];
 			if (claim == null) continue;
-			claim.allocate(instance, name + ": memory type " + index, useVma, index, block);
+			claim.allocate(instance, name + ": memory type " + index, useVma, null, index, block);
+		}
+		return block;
+	}
+
+	/**
+	 * This is a variation of {@link #build(boolean)} that attempts to recycle the memory block {@code toRecycle}.
+	 * <ul>
+	 * 		<li>
+	 *			When X bytes of memory type T are needed, and {@code toRecycle} has at least X bytes of memory type T,
+	 *			the memory allocation of {@code toRecycle} will be reused rather than freed.
+	 *		</li>
+	 * 		<li>
+	 * 			When {@code toRecycle} does <b>not</b> use memory type T, or has less than X bytes for memory type T,
+	 * 			a new memory allocation will be made (just like in {@link #build(boolean)}).
+	 * 		</li>
+	 * 		<li>
+	 * 			All buffers and images of {@code toRecycle} will be destroyed, as well as all memory allocations that
+	 * 			are not recycled.
+	 * 		</li>
+	 * </ul>
+	 *
+	 * @return The new memory block
+	 */
+	public MemoryBlock buildAndRecycle(MemoryBlock toRecycle) {
+		toRecycle.destroy(instance, true);
+		createBuffers();
+		MemoryBlock block = new MemoryBlock();
+		for (int index = 0; index < claims.length; index++) {
+			MemoryTypeClaims claim = claims[index];
+			if (claim == null) continue;
+			claim.allocate(instance, name + ": memory type " + index, false, toRecycle, index, block);
+		}
+		try (var stack = stackPush()) {
+			var memoryCallbacks = CallbackUserData.MEMORY.put(stack, instance);
+			for (var allocation : toRecycle.allocations) {
+				if (!allocation.wasRecycled) {
+					vkFreeMemory(instance.vkDevice(), allocation.vkAllocation, memoryCallbacks);
+				}
+			}
 		}
 		return block;
 	}

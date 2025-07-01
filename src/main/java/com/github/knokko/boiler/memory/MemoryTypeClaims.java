@@ -41,7 +41,7 @@ class MemoryTypeClaims {
 		return offset;
 	}
 
-	void allocate(BoilerInstance instance, String name, boolean useVma, int memoryType, MemoryBlock block) {
+	void allocate(BoilerInstance instance, String name, boolean useVma, MemoryBlock old, int memoryType, MemoryBlock block) {
 		long size = prepareAllocations();
 		long allocation;
 		long hostAddress = 0L;
@@ -69,27 +69,44 @@ class MemoryTypeClaims {
 				block.vmaAllocations.add(allocation);
 				if (mapMemory) hostAddress = allocationInfo.pMappedData();
 			} else {
-				var aiMemory = VkMemoryAllocateInfo.calloc(stack);
-				aiMemory.sType$Default();
-				aiMemory.allocationSize(size);
-				aiMemory.memoryTypeIndex(memoryType);
+				var oldAllocation = old != null ? old.getAllocation(memoryType) : null;
+				if (oldAllocation != null) {
+					if (oldAllocation.size >= size && (!mapMemory || oldAllocation.hostAddress != 0L)) {
+						oldAllocation.wasRecycled = true;
+					} else oldAllocation = null;
+				}
 
-				var pMemory = stack.callocLong(1);
-				assertVkSuccess(vkAllocateMemory(
-						instance.vkDevice(), aiMemory, CallbackUserData.MEMORY.put(stack, instance), pMemory
-				), "AllocateMemory", name);
+				if (oldAllocation != null) {
+					allocation = oldAllocation.vkAllocation;
+					size = oldAllocation.size;
+					hostAddress = oldAllocation.hostAddress;
+				} else {
+					var aiMemory = VkMemoryAllocateInfo.calloc(stack);
+					aiMemory.sType$Default();
+					aiMemory.allocationSize(size);
+					aiMemory.memoryTypeIndex(memoryType);
 
-				allocation = pMemory.get(0);
+					var pMemory = stack.callocLong(1);
+					assertVkSuccess(vkAllocateMemory(
+							instance.vkDevice(), aiMemory, CallbackUserData.MEMORY.put(stack, instance), pMemory
+					), "AllocateMemory", name);
+
+					allocation = pMemory.get(0);
+				}
+
 				instance.debug.name(stack, allocation, VK_OBJECT_TYPE_DEVICE_MEMORY, name);
-				block.vkAllocations.add(allocation);
 
-				if (mapMemory) {
+				if (mapMemory && oldAllocation == null) {
 					var pHostAddress = stack.callocPointer(1);
 					assertVkSuccess(vkMapMemory(
 							instance.vkDevice(), allocation, 0, VK_WHOLE_SIZE, 0, pHostAddress
 					), "MapMemory", name);
 					hostAddress = pHostAddress.get(0);
 				}
+
+				block.allocations.add(new MemoryBlock.MemoryAllocation(
+						allocation, size, memoryType, hostAddress
+				));
 			}
 		}
 
