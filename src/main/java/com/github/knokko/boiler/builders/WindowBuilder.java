@@ -11,9 +11,12 @@ import org.lwjgl.vulkan.*;
 import java.util.*;
 import java.util.function.Consumer;
 
+import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.glfwCreateWindowSurface;
+import static org.lwjgl.sdl.SDLVideo.*;
+import static org.lwjgl.sdl.SDLVulkan.SDL_Vulkan_CreateSurface;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.KHRSurface.*;
@@ -24,8 +27,9 @@ public class WindowBuilder {
 
 	final int width, height;
 	final int swapchainImageUsage;
-	long glfwWindow;
+	long handle;
 	String title;
+	long sdlFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 	boolean hideUntilFirstFrame;
 	SurfaceFormatPicker surfaceFormatPicker = new SimpleSurfaceFormatPicker(
 			VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB
@@ -53,6 +57,16 @@ public class WindowBuilder {
 	 */
 	public WindowBuilder title(String title) {
 		this.title = title;
+		return this;
+	}
+
+	/**
+	 * Specifies the <b>flags</b> parameter that will be passed to <i>SDL_CreateWindow</i>, if
+	 * {@link BoilerBuilder#useSDL()} was chained. If you don't call this method, the flags
+	 * will be {@code SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE}.
+	 */
+	public WindowBuilder sdlFlags(long flags) {
+		this.sdlFlags = flags;
 		return this;
 	}
 
@@ -91,11 +105,12 @@ public class WindowBuilder {
 	}
 
 	/**
-	 * Lets this window builder use the existing glfwWindow, instead of creating a new window. The title of this
-	 * window builder will be ignored, as well as the initial width and height passed to the constructor.
+	 * Lets this window builder use the existing glfwWindow or sdlWindow handle, instead of creating a new window.
+	 * The title of this window builder will be ignored, as well as the initial width and height passed to the
+	 * constructor.
 	 */
-	public WindowBuilder glfwWindow(long glfwWindow) {
-		this.glfwWindow = glfwWindow;
+	public WindowBuilder handle(long handle) {
+		this.handle = handle;
 		return this;
 	}
 
@@ -160,7 +175,7 @@ public class WindowBuilder {
 			var compositeAlpha = compositeAlphaPicker.chooseCompositeAlpha(capabilities.supportedCompositeAlpha());
 
 			return new VkbWindow(
-					hasSwapchainMaintenance, glfwWindow, vkSurface, presentModes, preparedPresentModes, title,
+					hasSwapchainMaintenance, handle, vkSurface, presentModes, preparedPresentModes, title,
 					hideUntilFirstFrame, surfaceFormat.format(), surfaceFormat.colorSpace(), capabilities,
 					swapchainImageUsage, compositeAlpha, presentFamily
 			);
@@ -168,7 +183,7 @@ public class WindowBuilder {
 	}
 
 	void createGlfwWindow() {
-		if (glfwWindow != 0L) return;
+		if (handle != 0L) return;
 
 		if (title == null) throw new IllegalStateException("Missing .title(...)");
 
@@ -181,8 +196,8 @@ public class WindowBuilder {
 		if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) hideUntilFirstFrame = false;
 
 		glfwWindowHint(GLFW_VISIBLE, hideUntilFirstFrame ? GLFW_FALSE : GLFW_TRUE);
-		glfwWindow = glfwCreateWindow(width, height, title, 0L, 0L);
-		if (glfwWindow == 0) {
+		handle = glfwCreateWindow(width, height, title, 0L, 0L);
+		if (handle == 0) {
 			try (var stack = stackPush()) {
 				var pError = stack.callocPointer(1);
 				int errorCode = glfwGetError(pError);
@@ -195,18 +210,40 @@ public class WindowBuilder {
 		}
 	}
 
+	void createSdlWindow() {
+		if (handle != 0L) return;
+		if (title == null) throw new IllegalStateException("Missing .title(...)");
+
+		// If I try this on Wayland, the window will never become visible, not even after SDL_ShowWindow
+		// hideUntilFirstFrame doesn't make much sense on Wayland anyway,
+		// since Wayland always hides windows until the first frame is presented
+		if ("wayland".equals(SDL_GetCurrentVideoDriver())) hideUntilFirstFrame = false;
+
+		if (hideUntilFirstFrame) sdlFlags |= SDL_WINDOW_HIDDEN;
+		handle = SDL_CreateWindow(title, width, height, sdlFlags);
+		assertSdlSuccess(handle != 0L, "CreateWindow");
+	}
+
 	/**
 	 * Note: this method is for internal use only. Use `boilerInstance.addWindow` to add new windows.
 	 */
 	public VkbWindow buildLate(BoilerInstance instance) {
-		createGlfwWindow();
-
 		long vkSurface;
 		try (var stack = stackPush()) {
 			var pSurface = stack.callocLong(1);
-			assertVkSuccess(glfwCreateWindowSurface(
-					instance.vkInstance(), glfwWindow, CallbackUserData.SURFACE.put(stack, instance), pSurface
-			), "CreateWindowSurface", "WindowBuilder.buildLate");
+			if (instance.useSDL) {
+				createSdlWindow();
+				assertSdlSuccess(SDL_Vulkan_CreateSurface(
+						handle, instance.vkInstance(),
+						CallbackUserData.SURFACE.put(stack, instance), pSurface
+				), "Vulkan_CreateSurface");
+			} else {
+				createGlfwWindow();
+				assertVkSuccess(glfwCreateWindowSurface(
+						instance.vkInstance(), handle, CallbackUserData.SURFACE.put(stack, instance), pSurface
+				), "CreateWindowSurface", "WindowBuilder.buildLate");
+			}
+
 			vkSurface = pSurface.get(0);
 		}
 

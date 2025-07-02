@@ -6,7 +6,7 @@ import static java.lang.Math.*;
  * Helper class to pack RGB(A) colors into a single <b>int</b>. This is similar to what <i>java.awt.Color</i> does,
  * but the component order is different. The  advantage of this class over <i>java.awt.Color</i>,
  * is that no objects need to be allocated, you don't need to ship <i>java.desktop</i>,
- * and you don't risk triggering AWT on macOS, which could sabotage GLFW.
+ * and you don't risk triggering AWT on macOS, which could sabotage GLFW or SDL.
  */
 public class ColorPacker {
 

@@ -437,7 +437,7 @@ public class TerrainPlayground {
 		var camera = new Camera();
 		var cameraController = new CameraController();
 
-		glfwSetKeyCallback(boiler.window().glfwWindow, ((window, key, scancode, action, mods) -> {
+		glfwSetKeyCallback(boiler.window().handle, ((window, key, scancode, action, mods) -> {
 			float dx = 0f, dy = 0f, dz = 0f;
 			if (key == GLFW_KEY_A) dx = -1f;
 			if (key == GLFW_KEY_D) dx = 1f;
@@ -456,7 +456,7 @@ public class TerrainPlayground {
 		}));
 
 		//noinspection resource
-		glfwSetCursorPosCallback(boiler.window().glfwWindow, (window, x, y) -> {
+		glfwSetCursorPosCallback(boiler.window().handle, (window, x, y) -> {
 			if (!Double.isNaN(cameraController.oldX) && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 				double dx = x - cameraController.oldX;
 				double dy = y - cameraController.oldY;
@@ -472,7 +472,7 @@ public class TerrainPlayground {
 			cameraController.oldY = y;
 		});
 
-		while (!glfwWindowShouldClose(boiler.window().glfwWindow)) {
+		while (!glfwWindowShouldClose(boiler.window().handle)) {
 			glfwPollEvents();
 
 			long currentTime = System.currentTimeMillis();

@@ -12,6 +12,7 @@ import com.github.knokko.boiler.exceptions.*;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.VkbAllocationCallbacks;
+import com.github.knokko.boiler.utilities.CollectionHelper;
 import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.system.Platform;
 import org.lwjgl.vulkan.*;
@@ -21,12 +22,15 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.utilities.CollectionHelper.decodeStringSet;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.*;
+import static org.lwjgl.sdl.SDLInit.SDL_INIT_VIDEO;
+import static org.lwjgl.sdl.SDLInit.SDL_Init;
+import static org.lwjgl.sdl.SDLVulkan.SDL_Vulkan_GetInstanceExtensions;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
 import static org.lwjgl.vulkan.EXTMemoryBudget.VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTSurfaceMaintenance1.VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME;
@@ -80,7 +84,8 @@ public class BoilerBuilder {
 	long defaultTimeout = 1_000_000_000L;
 
 	List<WindowBuilder> windows = new ArrayList<>();
-	boolean initGLFW = true;
+	boolean initWindowingAPI = true;
+	int sdlFlags = 0;
 
 	BoilerXrBuilder xrBuilder;
 
@@ -517,19 +522,55 @@ public class BoilerBuilder {
 
 	/**
 	 * <p>
-	 * Call this when you want the BoilerBuilder to create the window, but without initializing GLFW (e.g. when you
-	 * want to initialize GLFW yourself).
+	 * Call this when you want the BoilerBuilder to create the window, but without initializing GLFW or SDL
+	 * (e.g. when you want to initialize it yourself because you need to do something special).
 	 * </p>
 	 * <p>
 	 * This method has no effect when the BoilerBuilder does <b>not</b> create a window (in that case, it won't
-	 * initialize GLFW anyway).
+	 * initialize GLFW or SDL anyway).
 	 * </p>
 	 *
 	 * @return this
 	 */
-	public BoilerBuilder dontInitGLFW() {
-		this.initGLFW = false;
+	public BoilerBuilder dontInitWindowingAPI() {
+		this.initWindowingAPI = false;
 		return this;
+	}
+
+	/**
+	 * <p>
+	 *      When you create 1 or more windows, vk-boiler will use GLFW to manage them. If you chain this
+	 *      method, vk-boiler will use SDL to manage the windows instead.
+	 * </p>
+	 * <p>
+	 *     The flags passed to <i>SDL_Init</i> will be {@code flags}.
+	 * </p<
+	 * <p>
+	 *     When you don't create any windows, chaining this method has no effect.
+	 * </p>
+	 * @return this
+	 */
+	public BoilerBuilder useSDL(int flags) {
+		this.sdlFlags = flags;
+		return this;
+	}
+
+	/**
+	 * <p>
+	 *      When you create 1 or more windows, vk-boiler will use GLFW to manage them. If you chain this
+	 *      method, vk-boiler will use SDL to manage the windows instead.
+	 * </p>
+	 * <p>
+	 *      The flags passed to <i>SDL_Init</i> will be <i>SDL_INIT_VIDEO</i>. Use {@link #useSDL(int)}
+	 *      if you need different flags.
+	 * </p<
+	 * <p>
+	 *     When you don't create any windows, chaining this method has no effect.
+	 * </p>
+	 * @return this
+	 */
+	public BoilerBuilder useSDL() {
+		return useSDL(SDL_INIT_VIDEO);
 	}
 
 	// -----------------------------------------------------------------------------------------------------------------
@@ -577,36 +618,52 @@ public class BoilerBuilder {
 	 * <i>boilerInstance.destroyInitialObjects()</i>.
 	 * @return The <i>BoilerInstance</i>
 	 * @throws GLFWFailureException If GLFW initialization failed, or GLFW-Vulkan interop is not available
+	 * @throws SDLFailureException If SDL initialization failed, or SDL-Vulkan interop is not available
 	 * @throws VulkanFailureException If a Vulkan function called during this method doesn't return <i>VK_SUCCESS</i>
 	 * @throws MissingVulkanLayerException If a <i>required</i> Vulkan (instance) layer is not supported
 	 * @throws MissingVulkanExtensionException If a <i>required</i> Vulkan instance extension is not supported
 	 * @throws NoVkPhysicalDeviceException If not a single <i>VkPhysicalDevice</i> satisfies all device requirements
 	 * (or the target machine doesn't support any <i>VkPhysicalDevice</i> at all)
 	 */
-	public BoilerInstance build() throws GLFWFailureException, VulkanFailureException, MissingVulkanLayerException,
+	public BoilerInstance build() throws GLFWFailureException, SDLFailureException,
+			VulkanFailureException, MissingVulkanLayerException,
 			MissingVulkanExtensionException, NoVkPhysicalDeviceException {
 		if (didBuild) throw new IllegalStateException("This builder has been used already");
 		didBuild = true;
 
-		if (!windows.isEmpty() && windows.stream().allMatch(window -> window.glfwWindow == 0L) && initGLFW) {
-			if (!glfwInit()) throw new GLFWFailureException("glfwInit() returned false");
+		if (!windows.isEmpty() && windows.stream().allMatch(window -> window.handle == 0L) && initWindowingAPI) {
+			if (sdlFlags != 0L) {
+				assertSdlSuccess(SDL_Init(sdlFlags), "Init");
+			} else {
+				if (!glfwInit()) throw new GLFWFailureException("glfwInit() returned false");
+			}
 		}
 
 		for (var windowBuilder : windows) {
 			if (windowBuilder.title == null) windowBuilder.title = applicationName;
-			windowBuilder.createGlfwWindow();
+			if (sdlFlags != 0) {
+				windowBuilder.createSdlWindow();
+			} else {
+				windowBuilder.createGlfwWindow();
+			}
 		}
 
 		boolean[] pHasSwapchainMaintenance = {false};
 
 		if (!windows.isEmpty()) {
-			if (!glfwVulkanSupported()) throw new GLFWFailureException("glfwVulkanSupported() returned false");
-			var glfwExtensions = glfwGetRequiredInstanceExtensions();
-			if (glfwExtensions == null)
-				throw new GLFWFailureException("glfwGetRequiredInstanceExtensions() returned null");
-			for (int extensionIndex = 0; extensionIndex < glfwExtensions.limit(); extensionIndex++) {
-				this.requiredVulkanInstanceExtensions.add(memUTF8(glfwExtensions.get(extensionIndex)));
+			if (sdlFlags != 0) {
+				var sdlExtensions = SDL_Vulkan_GetInstanceExtensions();
+				assertSdlSuccess(sdlExtensions != null, "Vulkan_GetInstanceExtensions");
+				this.requiredVulkanInstanceExtensions.addAll(CollectionHelper.decodeStringSet(sdlExtensions));
+			} else {
+				if (!glfwVulkanSupported()) throw new GLFWFailureException("glfwVulkanSupported() returned false");
+				var glfwExtensions = glfwGetRequiredInstanceExtensions();
+				if (glfwExtensions == null) {
+					throw new GLFWFailureException("glfwGetRequiredInstanceExtensions() returned null");
+				}
+				this.requiredVulkanInstanceExtensions.addAll(CollectionHelper.decodeStringSet(glfwExtensions));
 			}
+
 			this.requiredVulkanDeviceExtensions.add(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 			this.desiredVulkanDeviceExtensions.add(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
 			this.desiredVulkanInstanceExtensions.add(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
@@ -759,7 +816,7 @@ public class BoilerBuilder {
 		}).collect(Collectors.toList());
 
 		var instance = new BoilerInstance(
-				xr, defaultTimeout, windows, pHasSwapchainMaintenance[0],
+				xr, defaultTimeout, sdlFlags != 0, windows, pHasSwapchainMaintenance[0],
 				apiVersion, instanceResult.vkInstance(), deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
 				instanceResult.enabledLayers(), instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
 				deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower, allocationCallbacks

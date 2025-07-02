@@ -2,10 +2,13 @@ package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.synchronization.AwaitableSubmission;
+import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.system.MemoryStack;
 
+import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static java.lang.Thread.sleep;
 import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.sdl.SDLEvents.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 
 /**
@@ -22,6 +25,7 @@ public abstract class WindowRenderLoop {
 	private volatile boolean didStart;
 	volatile Thread thread;
 	private boolean didResize;
+	private boolean sdlCloseRequested;
 
 	/**
 	 * @param window The window
@@ -39,6 +43,13 @@ public abstract class WindowRenderLoop {
 		this.numFramesInFlight = numFramesInFlight;
 		this.acquireSwapchainImageWithFence = acquireSwapchainImageWithFence;
 		this.presentMode = presentMode;
+		if (window.instance.useSDL) {
+			assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
+				if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
+						nSDL_GetWindowFromEvent(rawEvent) == window.handle) sdlCloseRequested = true;
+				return false;
+			}, 0L), "AddEventWatch");
+		}
 	}
 
 	private void run() {
@@ -51,8 +62,20 @@ public abstract class WindowRenderLoop {
 
 		try {
 			long currentFrame = 0;
-			while (!glfwWindowShouldClose(window.glfwWindow)) {
-				if (window.windowLoop == null) glfwPollEvents();
+			while (!sdlCloseRequested && (window.instance.useSDL || !glfwWindowShouldClose(window.handle))) {
+				if (window.windowLoop == null) {
+					if (window.instance.useSDL) {
+						try (var stack = stackPush()) {
+							var event = SDL_Event.calloc(stack);
+							//noinspection StatementWithEmptyBody
+							while (SDL_PollEvent(event)) {
+								// Users should use SDL_AddEventWatch to listen for events
+							}
+						}
+					} else {
+						glfwPollEvents();
+					}
+				}
 
 				int frameIndex = (int) (currentFrame % numFramesInFlight);
 
@@ -110,10 +133,19 @@ public abstract class WindowRenderLoop {
 		didStart = true;
 
 		if (window.windowLoop == null) {
-			//noinspection resource
-			glfwSetFramebufferSizeCallback(
-					window.glfwWindow, (glfwWindow, width, height) -> this.didResize = true
-			);
+			if (window.instance.useSDL) {
+				assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
+					if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED &&
+							nSDL_GetWindowFromEvent(rawEvent) == window.handle) this.didResize = true;
+					return false;
+				}, 0L), "AddEventWatch");
+			} else {
+				//noinspection resource
+				glfwSetFramebufferSizeCallback(
+						window.handle, (glfwWindow, width, height) -> this.didResize = true
+				);
+			}
+
 			this.run();
 		}
 		else {

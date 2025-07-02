@@ -14,9 +14,11 @@ import org.lwjgl.vulkan.*;
 import java.nio.ByteBuffer;
 import java.util.*;
 
+import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVmaSuccess;
 import static org.lwjgl.glfw.GLFWVulkan.glfwCreateWindowSurface;
+import static org.lwjgl.sdl.SDLVulkan.SDL_Vulkan_CreateSurface;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.*;
 import static org.lwjgl.vulkan.EXTMemoryBudget.VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
@@ -39,10 +41,18 @@ class BoilerDeviceBuilder {
 		try (var stack = stackPush()) {
 			var pSurface = stack.callocLong(1);
 			windowSurfaces = builder.windows.stream().mapToLong(windowBuilder -> {
-				assertVkSuccess(glfwCreateWindowSurface(
-						instanceResult.vkInstance(), windowBuilder.glfwWindow,
-						CallbackUserData.SURFACE.put(stack, builder.allocationCallbacks), pSurface
-				), "glfwCreateWindowSurface", null);
+				if (builder.sdlFlags != 0) {
+					assertSdlSuccess(SDL_Vulkan_CreateSurface(
+							windowBuilder.handle, instanceResult.vkInstance(),
+							CallbackUserData.SURFACE.put(stack, builder.allocationCallbacks), pSurface
+					), "Vulkan_CreateSurface");
+				} else {
+					assertVkSuccess(glfwCreateWindowSurface(
+							instanceResult.vkInstance(), windowBuilder.handle,
+							CallbackUserData.SURFACE.put(stack, builder.allocationCallbacks), pSurface
+					), "glfwCreateWindowSurface", null);
+				}
+
 				return pSurface.get(0);
 			}).toArray();
 

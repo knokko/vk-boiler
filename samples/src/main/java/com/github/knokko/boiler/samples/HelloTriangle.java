@@ -201,7 +201,7 @@ public class HelloTriangle {
 		int[] pPresentMode = {VK_PRESENT_MODE_FIFO_KHR};
 
 		//noinspection resource
-		glfwSetKeyCallback(boiler.window().glfwWindow, ((window, key, scancode, action, mods) -> {
+		glfwSetKeyCallback(boiler.window().handle, ((window, key, scancode, action, mods) -> {
 			if (action == GLFW_PRESS) {
 				var spm = boiler.window().supportedPresentModes;
 				if (key == GLFW_KEY_F) pPresentMode[0] = VK_PRESENT_MODE_FIFO_KHR;
@@ -214,7 +214,7 @@ public class HelloTriangle {
 			}
 		}));
 
-		while (!glfwWindowShouldClose(boiler.window().glfwWindow)) {
+		while (!glfwWindowShouldClose(boiler.window().handle)) {
 			glfwPollEvents();
 
 			long currentTime = System.currentTimeMillis();

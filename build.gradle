@@ -19,10 +19,11 @@ allprojects {
 
 	repositories {
 		mavenCentral()
+		maven { url "https://central.sonatype.com/repository/maven-snapshots" }
 	}
 
 	project.ext.jomlVersion = "1.10.8"
-	project.ext.lwjglVersion = "3.3.6"
+	project.ext.lwjglVersion = "3.4.0-SNAPSHOT"
 	switch (OperatingSystem.current()) {
 		case OperatingSystem.LINUX:
 			def osArch = System.getProperty("os.arch")
@@ -51,6 +52,7 @@ dependencies {
 	compileOnly "org.lwjgl:lwjgl"
 	compileOnly "org.lwjgl:lwjgl-vulkan"
 	compileOnly "org.lwjgl:lwjgl-glfw"
+	compileOnly "org.lwjgl:lwjgl-sdl"
 	compileOnly "org.lwjgl:lwjgl-vma"
 	compileOnly "org.lwjgl:lwjgl-openxr"
 	compileOnly "org.joml:joml:${jomlVersion}"
@@ -60,10 +62,12 @@ dependencies {
 	testImplementation "org.lwjgl:lwjgl-vma"
 	testImplementation "org.lwjgl:lwjgl-vulkan"
 	testImplementation "org.lwjgl:lwjgl-glfw"
+	testImplementation "org.lwjgl:lwjgl-sdl"
 	testImplementation "org.joml:joml:${jomlVersion}"
 
 	testRuntimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
 	testRuntimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
+	testRuntimeOnly "org.lwjgl:lwjgl-sdl::$lwjglNatives"
 	testRuntimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
 	if (lwjglNatives == "natives-macos") testRuntimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
 

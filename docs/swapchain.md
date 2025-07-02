@@ -175,12 +175,14 @@ When your application uses this, you need to:
 
 ### The `WindowEventLoop` class
 To tackle problems (2) and (3), some multithreading is required:
-- The main thread needs to handle GLFW events and (re)create swapchains
+- The main thread needs to handle GLFW (or SDL) events
+  and (re)create swapchains
 - The render thread(s) need(s) to render and present the swapchain images
 
-The `WindowEventLoop` class claims the main thread to wait for GLFW events
-and recreate swapchains, while the `(Simple)WindowRenderLoop` class
-handles the rendering and presentation. The usage is:
+The `WindowEventLoop` class claims the main thread to wait for GLFW
+(or SDL) events and recreate swapchains, while the
+`(Simple)WindowRenderLoop` class handles the rendering and
+presentation. The usage is:
 ```java
 var eventLoop = new WindowEventLoop();
 eventLoop.addWindow(new ClassThatExtendsWindowRenderLoop(boiler.window()));

@@ -9,9 +9,11 @@ import org.lwjgl.vulkan.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static java.lang.Math.max;
 import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.sdl.SDLVideo.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.vkGetPhysicalDeviceSurfaceCapabilities2KHR;
 import static org.lwjgl.vulkan.KHRSurface.*;
@@ -20,14 +22,18 @@ import static org.lwjgl.vulkan.KHRSwapchain.vkCreateSwapchainKHR;
 import static org.lwjgl.vulkan.VK10.*;
 
 /**
- * A thick wrapper around a <i>GlfwWindow</i>, and a potential manager for the swapchains of the window. See
+ * A thick wrapper around a GLFW window or SDL window, and a potential manager for the swapchains of the window. See
  * docs/swapchain.md for instructions on how to use this.
  */
 public class VkbWindow {
 
 	BoilerInstance instance;
 	private final SwapchainCleaner cleaner;
-	public final long glfwWindow;
+
+	/**
+	 * The GLFW window handle or the SDL window handle
+	 */
+	public final long handle;
 	public final long vkSurface;
 	/**
 	 * An immutable set of all supported <i>VkPresentModeKHR</i>s of the <i>VkSurfaceKHR</i> of this window.
@@ -75,7 +81,7 @@ public class VkbWindow {
 	 * <i>BoilerInstance.addWindow</i> instead
 	 */
 	public VkbWindow(
-			boolean hasSwapchainMaintenance, long glfwWindow, long vkSurface,
+			boolean hasSwapchainMaintenance, long handle, long vkSurface,
 			Collection<Integer> supportedPresentModes, Set<Integer> preparedPresentModes,
 			String title, boolean hideUntilFirstFrame, int surfaceFormat, int surfaceColorSpace,
 			VkSurfaceCapabilitiesKHR surfaceCapabilities, int swapchainImageUsage, int swapchainCompositeAlpha,
@@ -83,7 +89,7 @@ public class VkbWindow {
 	) {
 		if (hasSwapchainMaintenance) cleaner = new SwapchainMaintenanceCleaner();
 		else cleaner = new LegacySwapchainCleaner();
-		this.glfwWindow = glfwWindow;
+		this.handle = handle;
 		this.vkSurface = vkSurface;
 		this.supportedPresentModes = Set.copyOf(supportedPresentModes);
 		this.usedPresentModes = new HashSet<>(preparedPresentModes);
@@ -141,7 +147,11 @@ public class VkbWindow {
 			if (width == -1 || height == -1) {
 				var pWidth = stack.callocInt(1);
 				var pHeight = stack.callocInt(1);
-				glfwGetFramebufferSize(glfwWindow, pWidth, pHeight);
+				if (instance.useSDL) {
+					assertSdlSuccess(SDL_GetWindowSizeInPixels(handle, pWidth, pHeight), "GetWindowSizeInPixels");
+				} else {
+					glfwGetFramebufferSize(handle, pWidth, pHeight);
+				}
 				width = pWidth.get(0);
 				height = pHeight.get(0);
 			}
@@ -325,6 +335,12 @@ public class VkbWindow {
 		return acquiredImage;
 	}
 
+	private void showWindowNow() {
+		if (instance.useSDL) {
+			assertSdlSuccess(SDL_ShowWindow(handle), "ShowWindow");
+		} else glfwShowWindow(handle);
+	}
+
 	/**
 	 * Presents a previously acquired swapchain image
 	 * @param image The swapchain image
@@ -335,8 +351,8 @@ public class VkbWindow {
 	public void presentSwapchainImage(AcquiredImage image, AwaitableSubmission renderSubmission) {
 		image.swapchain.presentImage(image, Objects.requireNonNull(renderSubmission));
 		if (hideUntilFirstFrame && !calledShowWindow) {
-			if (windowLoop == null) glfwShowWindow(glfwWindow);
-			else windowLoop.queueMainThreadAction(() -> glfwShowWindow(glfwWindow), this);
+			if (windowLoop == null) showWindowNow();
+			else windowLoop.queueMainThreadAction(this::showWindowNow, this);
 			calledShowWindow = true;
 		}
 	}
@@ -350,7 +366,7 @@ public class VkbWindow {
 	 * during `BoilerInstance.destroyInitialObjects`.<br>
 	 *
 	 * Note: if you are using a `(Simple)WindowRenderLoop` to manage this window, it will automatically be destroyed
-	 * after <i>glfwWindowShouldClose</i> returns <i>true</i>.
+	 * after <i>glfwWindowShouldClose</i> returns <i>true</i>, or SDL receives a similar event.
 	 */
 	public synchronized void destroy() {
 		if (hasBeenDestroyed) return;
@@ -361,7 +377,10 @@ public class VkbWindow {
 			vkDestroySurfaceKHR(instance.vkInstance(), vkSurface, CallbackUserData.SURFACE.put(stack, instance));
 			surfaceCapabilities.free();
 		} finally {
-			if (windowLoop == null) glfwDestroyWindow(glfwWindow);
+			if (windowLoop == null) {
+				if (instance.useSDL) SDL_DestroyWindow(handle);
+				else glfwDestroyWindow(handle);
+			}
 			hasBeenDestroyed = true;
 		}
 	}

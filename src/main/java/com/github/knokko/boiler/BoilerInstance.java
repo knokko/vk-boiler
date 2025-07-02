@@ -33,6 +33,7 @@ public class BoilerInstance {
 	 */
 	public final long defaultTimeout;
 
+	public final boolean useSDL;
 	private final Collection<VkbWindow> windows;
 	private final boolean hasSwapchainMaintenance;
 
@@ -76,13 +77,15 @@ public class BoilerInstance {
 	 * you can.
 	 */
 	public BoilerInstance(
-			XrBoiler xr, long defaultTimeout, Collection<VkbWindow> windows, boolean hasSwapchainMaintenance,
-			int apiVersion, VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
+			XrBoiler xr, long defaultTimeout, boolean useSDL, Collection<VkbWindow> windows,
+			boolean hasSwapchainMaintenance, int apiVersion, VkInstance vkInstance,
+			VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
 			Set<String> explicitLayers, Set<String> instanceExtensions, Set<String> deviceExtensions,
 			QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower,
 			VkbAllocationCallbacks allocationCallbacks
 	) {
 		this.allocationCallbacks = allocationCallbacks;
+		this.useSDL = useSDL;
 		this.windows = windows;
 		this.hasSwapchainMaintenance = hasSwapchainMaintenance;
 		this.xr = xr;

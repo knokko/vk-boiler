@@ -1,14 +1,21 @@
 package com.github.knokko.boiler.window;
 
+import com.github.knokko.boiler.exceptions.SDLFailureException;
+import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.system.Platform;
 
 import java.util.concurrent.*;
 
+import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.sdl.SDLError.SDL_GetError;
+import static org.lwjgl.sdl.SDLEvents.*;
+import static org.lwjgl.sdl.SDLVideo.SDL_DestroyWindow;
+import static org.lwjgl.system.MemoryStack.stackPush;
 
 /**
- * A class to handle swapchain recreations and GLFW events on the main thread while rendering is happening on other
- * threads. See docs/swapchain.md for more information.
+ * A class to handle swapchain recreations and GLFW or SDL events on the main thread while rendering is happening on
+ * other threads. See docs/swapchain.md for more information.
  */
 public class WindowEventLoop {
 
@@ -17,13 +24,19 @@ public class WindowEventLoop {
 	private final Runnable updateCallback;
 	private final double waitTimeout;
 
+	private boolean useSDL;
+	private int emptyEventType;
+
 	/**
-	 * @param waitTimeout The timeout (in seconds) that will be passed to each call to <i>glfwWaitEventsTimeout</i>.
-	 *                    When this is 0, the event loop will call <i>glfwWaitEvents</i> instead.
-	 * @param updateCallback An optional callback that will be called every time after <i>glfwWaitEvents</i> or
-	 *                       <i>glfwWaitEventsTimeout</i>. You can use this if you need to occasionally run some code
-	 *                       on the main thread. Note that you can use <i>glfwPostEmptyEvent</i> from another thread to
-	 *                       cause <i>glfwWaitEvents(Timeout)</i> to return early.
+	 * @param waitTimeout The timeout (in seconds) that will be passed to each call to <i>glfwWaitEventsTimeout</i> or
+	 *                       <i>SDL_WaitEventTimeout</i>. When this is 0, the event loop will call
+	 *                       <i>glfwWaitEvents</i> or <i>SDL_WaitEvent</i> instead.
+	 * @param updateCallback An optional callback that will be called every time after <i>glfwWaitEvents</i>,
+	 *                       <i>glfwWaitEventsTimeout</i>, <i>SDL_WaitEvent</i>, or <i>SDL_WaitEventTimeout</i>.
+	 *                       You can use this if you need to occasionally run some code on the main thread.
+	 *                       Note that you can use <i>glfwPostEmptyEvent</i> or <i>SDL_PushEvent</i> from another
+	 *                       thread to cause <i>glfwWaitEvents(Timeout)</i> or <i>SDL_WaitEvent(Timeout)</i> to
+	 *                       return early.
 	 */
 	public WindowEventLoop(double waitTimeout, Runnable updateCallback) {
 		this.updateCallback = updateCallback;
@@ -48,7 +61,7 @@ public class WindowEventLoop {
 
 			// Due to the stupid win32 event loop, Windows is the only OS that can only resize smoothly when
 			// the swapchain is recreated during the resize callback. On all other platforms, we can simply do the
-			// resizing after glfwWaitEvents() returns.
+			// resizing after glfwWaitEvents() or SDL_WaitEvent returns.
 			if (Platform.get() != Platform.WINDOWS) return;
 
 			try {
@@ -60,7 +73,11 @@ public class WindowEventLoop {
 
 		while (task != null) {
 			if (task.runnable == null) {
-				glfwDestroyWindow(task.window.glfwWindow);
+				if (useSDL) {
+					SDL_DestroyWindow(task.window.handle);
+				} else {
+					glfwDestroyWindow(task.window.handle);
+				}
 				stateMap.remove(task.window);
 			} else task.runnable.run();
 
@@ -75,8 +92,16 @@ public class WindowEventLoop {
 	private void initializeAndDestroyWindows() {
 		stateMap.forEach((window, state) -> {
 			if (!state.initialized.isDone()) {
-				//noinspection resource
-				glfwSetFramebufferSizeCallback(window.glfwWindow, (glfwWindow, width, height) -> update(window));
+				if (useSDL) {
+					assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
+						if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED &&
+								nSDL_GetWindowFromEvent(rawEvent) == window.handle) update(window);
+						return false;
+					}, 0L), "AddEventWatch");
+				} else {
+					//noinspection resource
+					glfwSetFramebufferSizeCallback(window.handle, (glfwWindow, width, height) -> update(window));
+				}
 				state.initialized.complete(null);
 			}
 			if (state.renderLoop.thread != null && !state.renderLoop.thread.isAlive()) {
@@ -90,6 +115,8 @@ public class WindowEventLoop {
 	 * handle swapchain recreations for the given window. This method can be called from any thread.
 	 */
 	public void addWindow(WindowRenderLoop renderLoop) {
+		useSDL = renderLoop.window.instance.useSDL;
+		if (useSDL) emptyEventType = SDL_RegisterEvents(1);
 		stateMap.put(renderLoop.window, new State(renderLoop));
 		renderLoop.window.windowLoop = this;
 		renderLoop.start();
@@ -101,8 +128,20 @@ public class WindowEventLoop {
 	 */
 	public void runMain() {
 		while (!stateMap.isEmpty()) {
-			if (waitTimeout > 0.0) glfwWaitEventsTimeout(waitTimeout);
-			else glfwWaitEvents();
+			if (useSDL) {
+				try (var stack = stackPush()) {
+					var event = SDL_Event.calloc(stack);
+					if (waitTimeout > 0.0) SDL_WaitEventTimeout(event, (int) (1000 * waitTimeout));
+					else SDL_WaitEvent(event);
+					//noinspection StatementWithEmptyBody
+					while (SDL_PollEvent(event)) {
+						// Users can respond to events by using SDL_AddEventWatcher
+					}
+				}
+			} else {
+				if (waitTimeout > 0.0) glfwWaitEventsTimeout(waitTimeout);
+				else glfwWaitEvents();
+			}
 			if (updateCallback != null) updateCallback.run();
 			update(null);
 			initializeAndDestroyWindows();
@@ -132,7 +171,13 @@ public class WindowEventLoop {
 	void queueMainThreadAction(Runnable resize, VkbWindow window) {
 		var state = getState(window);
 		queue.add(new Task(resize, state, window));
-		glfwPostEmptyEvent();
+		if (useSDL) {
+			try (var stack = stackPush()) {
+				var event = SDL_Event.calloc(stack);
+				event.type(emptyEventType);
+				assertSdlSuccess(SDL_PushEvent(event), "PushEvent");
+			}
+		} else glfwPostEmptyEvent();
 		state.actionCompleted.acquireUninterruptibly();
 	}
 

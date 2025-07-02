@@ -43,7 +43,7 @@ public class MultipleWindows {
 		eventLoop.addWindow(new FillWindowLoop(windows[0], 1f, 0f, 1f));
 
 		//noinspection resource
-		glfwSetMouseButtonCallback(windows[1].glfwWindow, (clickedWindow, button, action, modifiers) -> {
+		glfwSetMouseButtonCallback(windows[1].handle, (clickedWindow, button, action, modifiers) -> {
 			if (action == GLFW_PRESS) startNewWindowThread(boiler, eventLoop);
 		});
 

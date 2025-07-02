@@ -211,7 +211,19 @@ creation a lot easier.
 ### Initializing GLFW
 By default, the builder will initialize GLFW (call `glfwInit()`)
 if it is going to create at least 1 window. You can prevent this
-by chaining `.dontInitGLFW`.
+by chaining `.dontInitWindowingAPI()`.
+
+### Initialize SDL
+If you want to use SDL instead of GLFW, you need to chain
+`.useSdl()` or `.useSdl(sdlInitFlags)`. This will cause the
+builder to call `SDL_Init`. If you want to call this function
+yourself, you can additionally chain `.dontInitWindowingAPI()`.
+
+Currently, the `DecoratedTriangle` sample is the only sample
+that uses SDL: all other samples use GLFW. However, you can
+easily let `MiniTriangle` and `SimpleRingApproximation` use
+SDL by chaining `.useSdl()` to their builder. This won't work
+on the other samples, since they depend on GLFW directly.
 
 ### Adding windows
 You can add a window by chaining `.addWindow(windowBuilder)`,
@@ -263,10 +275,18 @@ compatible with any present mode that you have used before, so
 chaining this method will only speed up the first couple of present
 mode switches.
 
+#### SDL window creation flags,
+When you chained `.useSdl()`, the builder will create the
+window with `SDL_CreateWindow(title, width, height, sdlFlags)`
+where `sdlFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE`.
+
+If you want to use different flags, you should chain
+`.sdlFlags(flags)`.
+
 #### Using an existing window
 When you have special window requirements that are not covered by
-the methods above, you can create the GLFW window yourself, and
-chain `.glfwWindow(yourWindow)`.
+the methods above, you can create the window yourself, and
+chain `.handle(yourGlfwOrSdlWindowHandle)`.
 
 If you do this, the builder will simply use this window rather
 than creating a new window itself. This also means that the

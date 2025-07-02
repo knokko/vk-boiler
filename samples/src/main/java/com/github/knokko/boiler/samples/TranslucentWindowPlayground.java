@@ -48,7 +48,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 				.validation(new ValidationFeatures(
 						false, false, false, true, true
 				))
-				.dontInitGLFW()
+				.dontInitWindowingAPI()
 				.addWindow(new WindowBuilder(
 						800, 600, VK_IMAGE_USAGE_TRANSFER_DST_BIT
 				).compositeAlphaPicker(new SimpleCompositeAlphaPicker(
@@ -64,7 +64,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 		System.out.printf(
 				"GLFW platform is %s and GLFW transparent framebuffer is %b and composite alpha mode is %s\n",
 				getIntConstantName(GLFW.class, glfwGetPlatform(), "GLFW_PLATFORM", "", "unknown"),
-				glfwGetWindowAttrib(boiler.window().glfwWindow, GLFW_TRANSPARENT_FRAMEBUFFER),
+				glfwGetWindowAttrib(boiler.window().handle, GLFW_TRANSPARENT_FRAMEBUFFER),
 				getIntConstantName(KHRSurface.class, boiler.window().swapchainCompositeAlpha,
 						"VK_COMPOSITE_ALPHA", "BIT_KHR", "unknown")
 		);
