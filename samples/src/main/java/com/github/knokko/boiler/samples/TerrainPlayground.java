@@ -282,7 +282,7 @@ public class TerrainPlayground {
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TerrainPlayground", VK_MAKE_VERSION(0, 1, 0)
 		)
-				.validation(new ValidationFeatures(true, true, false, true, true))
+				.validation(new ValidationFeatures(true, false, true, true))
 				.forbidValidationErrors()
 				.allocationCallbacks(new SumAllocationCallbacks())
 				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).hideUntilFirstFrame())

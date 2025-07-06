@@ -1,21 +1,22 @@
 package com.github.knokko.boiler.builders;
 
-import com.github.knokko.boiler.builders.instance.ValidationFeaturesChecker;
 import com.github.knokko.boiler.exceptions.MissingVulkanExtensionException;
 import com.github.knokko.boiler.exceptions.MissingVulkanLayerException;
-import com.github.knokko.boiler.utilities.CollectionHelper;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static com.github.knokko.boiler.utilities.CollectionHelper.encodeStringSet;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.EXTValidationFeatures.*;
+import static org.lwjgl.vulkan.EXTLayerSettings.*;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
-import static org.lwjgl.vulkan.VK10.vkEnumerateInstanceExtensionProperties;
-import static org.lwjgl.vulkan.VK10.vkEnumerateInstanceLayerProperties;
+import static org.lwjgl.vulkan.VK10.*;
 
 class BoilerInstanceBuilder {
 
@@ -88,44 +89,17 @@ class BoilerInstanceBuilder {
 			appInfo.engineVersion(builder.engineVersion);
 			appInfo.apiVersion(builder.apiVersion);
 
-			VkValidationFeaturesEXT pValidationFeatures;
-			if (builder.validationFeatures != null) {
-
-				pValidationFeatures = VkValidationFeaturesEXT.calloc(stack);
-				pValidationFeatures.sType$Default();
-				pValidationFeatures.pNext(0L);
-
-				var supportedValidationFeatures = new ValidationFeaturesChecker(stack, builder.allocationCallbacks);
-
-				var validationFlags = stack.callocInt(5);
-				if (builder.validationFeatures.gpuAssisted() && supportedValidationFeatures.gpuAssistedValidation)
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
-				if (builder.validationFeatures.gpuAssistedReserve() && supportedValidationFeatures.gpuAssistedValidation)
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT);
-				if (builder.validationFeatures.bestPractices())
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT);
-				if (builder.validationFeatures.debugPrint() && supportedValidationFeatures.debugPrintf)
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT);
-				if (builder.validationFeatures.synchronization())
-					validationFlags.put(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT);
-				validationFlags.flip();
-
-				supportedValidationFeatures.destroy(stack);
-
-				if (validationFlags.limit() > 0) pValidationFeatures.pEnabledValidationFeatures(validationFlags);
-				else pValidationFeatures = null;
-
-			} else pValidationFeatures = null;
+			var validationSettings = chooseValidationSettings(builder, stack);
 
 			var ciInstance = VkInstanceCreateInfo.calloc(stack);
 			ciInstance.sType$Default();
-			ciInstance.pNext(pValidationFeatures != null ? pValidationFeatures.address() : 0L);
+			if (validationSettings != null) ciInstance.pNext(validationSettings);
 			if (enabledExtensions.contains(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
 				ciInstance.flags(VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR);
 			} else ciInstance.flags(0);
 			ciInstance.pApplicationInfo(appInfo);
-			ciInstance.ppEnabledLayerNames(CollectionHelper.encodeStringSet(enabledLayers, stack));
-			ciInstance.ppEnabledExtensionNames(CollectionHelper.encodeStringSet(enabledExtensions, stack));
+			ciInstance.ppEnabledLayerNames(encodeStringSet(enabledLayers, stack));
+			ciInstance.ppEnabledExtensionNames(encodeStringSet(enabledExtensions, stack));
 
 			for (var preCreator : builder.preInstanceCreators) {
 				preCreator.beforeInstanceCreation(ciInstance, stack);
@@ -134,6 +108,53 @@ class BoilerInstanceBuilder {
 			vkInstance = builder.vkInstanceCreator.vkCreateInstance(ciInstance, builder.allocationCallbacks, stack);
 		}
 		return new Result(vkInstance, enabledLayers, enabledExtensions);
+	}
+
+	private static VkLayerSettingsCreateInfoEXT chooseValidationSettings(BoilerBuilder builder, MemoryStack stack) {
+		if (builder.validationFeatures != null) {
+
+			VkLayerSettingsCreateInfoEXT ciValidationSettings = VkLayerSettingsCreateInfoEXT.calloc(stack);
+			ciValidationSettings.sType$Default();
+
+			List<String> chosenLayerSettings = chooseValidationSettings(builder);
+			if (chosenLayerSettings.isEmpty()) return null;
+
+			var pTrue = stack.calloc(4).putInt(0, VK_TRUE);
+			var vvl = stack.UTF8("VK_LAYER_KHRONOS_validation");
+			var pValidationSettings = VkLayerSettingEXT.calloc(chosenLayerSettings.size(), stack);
+
+			for (int index = 0; index < chosenLayerSettings.size(); index++) {
+				var setting = pValidationSettings.get(index);
+				setting.pLayerName(vvl);
+				setting.pSettingName(stack.UTF8(chosenLayerSettings.get(index)));
+				setting.type(VK_LAYER_SETTING_TYPE_BOOL32_EXT);
+				setting.pValues(pTrue);
+				VkLayerSettingEXT.nvalueCount(setting.address(), 1);
+			}
+
+			ciValidationSettings.pSettings(pValidationSettings);
+			return ciValidationSettings;
+		} else return null;
+	}
+
+	private static List<String> chooseValidationSettings(BoilerBuilder builder) {
+		List<String> chosenLayerSettings = new ArrayList<>();
+
+		if (builder.validationFeatures.debugPrint()) chosenLayerSettings.add("printf_enable");
+		if (builder.validationFeatures.gpuAssisted()) {
+			chosenLayerSettings.add("gpuav_enable");
+			chosenLayerSettings.add("gpuav_safe_mode");
+			chosenLayerSettings.add("gpuav_force_on_robustness");
+		}
+		if (builder.validationFeatures.bestPractices()) {
+			chosenLayerSettings.add("validate_best_practices");
+			chosenLayerSettings.add("validate_best_practices_arm");
+			chosenLayerSettings.add("validate_best_practices_amd");
+			chosenLayerSettings.add("validate_best_practices_nvidia");
+			chosenLayerSettings.add("validate_best_practices_img");
+		}
+		if (builder.validationFeatures.synchronization()) chosenLayerSettings.add("validate_sync");
+		return chosenLayerSettings;
 	}
 
 	record Result(VkInstance vkInstance, Set<String> enabledLayers, Set<String> enabledExtensions) {

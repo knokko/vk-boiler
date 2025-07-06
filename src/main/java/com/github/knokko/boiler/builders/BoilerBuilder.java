@@ -14,7 +14,6 @@ import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.VkbAllocationCallbacks;
 import com.github.knokko.boiler.utilities.CollectionHelper;
 import com.github.knokko.boiler.xr.XrBoiler;
-import org.lwjgl.system.Platform;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
@@ -32,10 +31,10 @@ import static org.lwjgl.sdl.SDLInit.SDL_Init;
 import static org.lwjgl.sdl.SDLVulkan.SDL_Vulkan_GetInstanceExtensions;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
+import static org.lwjgl.vulkan.EXTLayerSettings.VK_EXT_LAYER_SETTINGS_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTMemoryBudget.VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTSurfaceMaintenance1.VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTSwapchainMaintenance1.VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME;
-import static org.lwjgl.vulkan.EXTValidationFeatures.*;
 import static org.lwjgl.vulkan.KHRBindMemory2.VK_KHR_BIND_MEMORY_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRCreateRenderpass2.VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRDedicatedAllocation.VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME;
@@ -180,20 +179,16 @@ public class BoilerBuilder {
 	}
 
 	/**
-	 * Enables the validation layer with basic validation, synchronization validation, and best practices. If the
-	 * API version is at least 1.2, GPU-assisted validation will also be enabled.<br>
-	 * A <i>MissingVulkanLayerException</i> will be thrown if the validation layer is not supported.
+	 * Enables the validation layer with most validation features (basic, best practices, gpu-assisted, sync).
+	 * Note however that gpu-assisted validation and debug printf only work in VK 1.1 and later.
+	 * A <i>MissingVulkanLayerException</i> will be thrown during {@link #build()}
+	 * if the validation layer is not supported.
 	 */
 	public BoilerBuilder validation() {
-		if (this.apiVersion == VK_API_VERSION_1_0 || this.apiVersion == VK_API_VERSION_1_1) {
-			return this.validation(new ValidationFeatures(
-					false, false, false, true, true
-			));
-		} else {
-			return this.validation(new ValidationFeatures(
-					true, true, false, true, true
-			));
-		}
+		return this.validation(new ValidationFeatures(
+				apiVersion != VK_API_VERSION_1_0, apiVersion != VK_API_VERSION_1_0,
+				true, true
+		));
 	}
 
 	/**
@@ -717,7 +712,7 @@ public class BoilerBuilder {
 
 		if (validationFeatures != null) {
 			this.requiredVulkanInstanceExtensions.add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-			this.requiredVulkanInstanceExtensions.add(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+			this.requiredVulkanInstanceExtensions.add(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME);
 			this.requiredVulkanLayers.add("VK_LAYER_KHRONOS_validation");
 		}
 
@@ -771,29 +766,32 @@ public class BoilerBuilder {
 				var ciReporter = VkDebugUtilsMessengerCreateInfoEXT.calloc(stack);
 				ciReporter.sType$Default();
 				ciReporter.flags(0);
-				ciReporter.messageSeverity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT);
-				ciReporter.messageType(VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT);
+				ciReporter.messageSeverity(
+						VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+								VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+				);
+				ciReporter.messageType(
+						VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+								VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+								VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
+				);
 				ciReporter.pfnUserCallback((severity, types, data, userData) -> {
 					@SuppressWarnings("resource")
 					var error = VkDebugUtilsMessengerCallbackDataEXT.create(data);
 					var instance = propagateInstance[0];
 
 					if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
-						if (error.messageIdNumber() == 1284057537 && instance != null && Platform.get() == Platform.LINUX) {
-							try (var innerStack = stackPush()) {
-								var deviceProperties = VkPhysicalDeviceProperties.calloc(innerStack);
-								vkGetPhysicalDeviceProperties(instance.vkPhysicalDevice(), deviceProperties);
-								if (deviceProperties.deviceType() == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-									// I believe this one is a false positive on Nvidia Linux
-									System.out.println(error.pMessageString());
-									return VK_FALSE;
-								}
-							}
-						}
-
 						if (instance != null) instance.reportFatalValidationError();
 						throw new ValidationException(error.pMessageString());
-					} else System.out.println(error.pMessageString());
+					} else {
+						String message = error.pMessageString();
+						if (message == null) return VK_FALSE; // I have no clue whether this is possible
+
+						// These messages are really useless
+						if (message.startsWith("vkCreateDevice(): Internal Warning: ")) return VK_FALSE;
+
+						System.out.println(message);
+					}
 					return VK_FALSE;
 				});
 

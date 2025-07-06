@@ -46,7 +46,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 				VK_API_VERSION_1_0, "TranslucentWindowPlayground", VK_MAKE_VERSION(1, 0, 0)
 		)
 				.validation(new ValidationFeatures(
-						false, false, false, true, true
+						false, false, true, true
 				))
 				.dontInitWindowingAPI()
 				.addWindow(new WindowBuilder(

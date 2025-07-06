@@ -94,7 +94,9 @@ public class MultipleWindows {
 
 		public SpinWindowLoop(VkbWindow window) {
 			super(
-					window, 1, true, VK_PRESENT_MODE_MAILBOX_KHR,
+					window, 1, true,
+					window.supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
+							VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
 					ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.COLOR_ATTACHMENT_WRITE
 			);
 		}

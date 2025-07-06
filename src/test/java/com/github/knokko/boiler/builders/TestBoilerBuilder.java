@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.builders;
 
 import com.github.knokko.boiler.builders.instance.ValidationFeatures;
-import com.github.knokko.boiler.builders.instance.ValidationFeaturesChecker;
 import com.github.knokko.boiler.builders.queue.QueueFamilyAllocation;
 import com.github.knokko.boiler.builders.queue.QueueFamilyMapping;
 import com.github.knokko.boiler.debug.ValidationException;
@@ -18,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-import static org.lwjgl.vulkan.EXTValidationFeatures.*;
+import static org.lwjgl.vulkan.EXTLayerSettings.VK_EXT_LAYER_SETTINGS_EXTENSION_NAME;
+import static org.lwjgl.vulkan.EXTLayerSettings.VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT;
 import static org.lwjgl.vulkan.KHRDynamicRendering.VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRMaintenance1.VK_KHR_MAINTENANCE_1_EXTENSION_NAME;
@@ -90,25 +90,31 @@ public class TestBoilerBuilder {
 				.requiredVkInstanceExtensions(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME)
 				.desiredVkInstanceExtensions(VK_KHR_SURFACE_EXTENSION_NAME)
 				.validation(new ValidationFeatures(
-						true, true, false, false, false
+						true, false, false, true
 				))
 				.vkInstanceCreator((ciInstance, callbacks, stack) -> {
 					pDidCallInstanceCreator[0] = true;
 
-					var check = new ValidationFeaturesChecker(stack, callbacks);
-					if (check.gpuAssistedValidation) {
-						assertNotEquals(0L, ciInstance.pNext());
-						var validationFeatures = VkValidationFeaturesEXT.create(ciInstance.pNext());
-						assertEquals(VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT, validationFeatures.sType());
+					assertNotEquals(0L, ciInstance.pNext());
+					var validationSettings = VkLayerSettingsCreateInfoEXT.create(ciInstance.pNext());
+					assertEquals(VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT, validationSettings.sType());
+					assertEquals(4, validationSettings.settingCount());
 
-						var validationFlags = Objects.requireNonNull(validationFeatures.pEnabledValidationFeatures());
-						assertEquals(2, validationFeatures.enabledValidationFeatureCount());
-						assertEquals(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT, validationFlags.get(0));
-						assertEquals(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT, validationFlags.get(1));
-					} else {
-						assertEquals(0L, ciInstance.pNext());
-						System.err.println("Is GPU-assisted validation really not supported?");
+					var settings = validationSettings.pSettings();
+					boolean enabledGpuValidation = false;
+					assertNotNull(settings);
+					while (settings.hasRemaining()) {
+						var setting = settings.get();
+						assertEquals("VK_LAYER_KHRONOS_validation", setting.pLayerNameString());
+						if (setting.pSettingNameString().equals("gpuav_enable")) {
+							enabledGpuValidation = true;
+						}
+						assertNotEquals("validate_best_practices", setting.pSettingNameString());
+						assertEquals(1, setting.valueCount());
+						assertEquals(1, Objects.requireNonNull(setting.pValues(4)).getInt());
 					}
+
+					assertTrue(enabledGpuValidation);
 
 					var appInfo = Objects.requireNonNull(ciInstance.pApplicationInfo());
 					assertEquals("TestComplexVulkan1.4", appInfo.pApplicationNameString());
@@ -129,7 +135,7 @@ public class TestBoilerBuilder {
 					}
 
 					var expectedExtensions = createSet(
-							VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME,
+							VK_EXT_LAYER_SETTINGS_EXTENSION_NAME,
 							VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 							VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
 							VK_KHR_SURFACE_EXTENSION_NAME

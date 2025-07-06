@@ -27,7 +27,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_1, "SimpleRingApproximation", VK_MAKE_VERSION(0, 2, 0)
 		)
-				.validation(new ValidationFeatures(false, false, false, true, true))
+				.validation(new ValidationFeatures(false, false, true, true))
 				.enableDynamicRendering()
 				.addWindow(new WindowBuilder(1000, 8000, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).hideUntilFirstFrame())
 				.build();
