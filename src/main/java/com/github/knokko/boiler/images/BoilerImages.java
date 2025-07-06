@@ -109,7 +109,7 @@ public class BoilerImages {
 	 * @return The created <i>VkSampler</i> handle
 	 */
 	public long createSimpleSampler(int magMinFilter, int mipMapMode, int addressMode, String name) {
-		return createSampler(magMinFilter, mipMapMode, addressMode, 0f, 0f, true, name);
+		return createSampler(magMinFilter, mipMapMode, addressMode, 0f, VK_LOD_CLAMP_NONE, true, name);
 	}
 
 	/**
@@ -143,7 +143,7 @@ public class BoilerImages {
 			ciSampler.compareOp(VK_COMPARE_OP_ALWAYS);
 			ciSampler.minLod(minLod);
 			ciSampler.maxLod(maxLod);
-			ciSampler.borderColor(VK_BORDER_COLOR_INT_OPAQUE_BLACK);
+			ciSampler.borderColor(VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK);
 			ciSampler.unnormalizedCoordinates(!normalized);
 
 			var pSampler = stack.callocLong(1);
