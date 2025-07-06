@@ -35,6 +35,8 @@ void registerSample(String name) {
 	}
 }
 
+registerSample("DecoratedTriangle")
+registerSample("MiniTriangle")
 registerSample("HelloTriangle")
 registerSample("HelloXR")
 registerSample("MultipleWindows")

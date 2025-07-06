@@ -4,6 +4,7 @@ import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.synchronization.AwaitableSubmission;
+import com.github.knokko.boiler.synchronization.VkbFence;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 import org.lwjgl.vulkan.VkSwapchainPresentModeInfoEXT;
 
@@ -108,7 +109,10 @@ class VkbSwapchain {
 		if (outdated) return null;
 
 		try (var stack = stackPush()) {
-			var acquireFence = instance.sync.fenceBank.borrowFence(false, "AcquireFence-" + name + "-" + System.nanoTime());
+			VkbFence acquireFence = useAcquireFence || !instance.extra.swapchainMaintenance() ?
+					instance.sync.fenceBank.borrowFence(
+							false, "AcquireFence-" + name
+					) : null;
 			long acquireSemaphore;
 
 			if (useAcquireFence) {
@@ -120,8 +124,13 @@ class VkbSwapchain {
 			var pImageIndex = stack.callocInt(1);
 			int acquireResult = vkAcquireNextImageKHR(
 					instance.vkDevice(), vkSwapchain, instance.defaultTimeout,
-					acquireSemaphore, acquireFence.getVkFenceAndSubmit(), pImageIndex
+					acquireSemaphore, acquireFence != null ? acquireFence.getVkFenceAndSubmit() : VK_NULL_HANDLE,
+					pImageIndex
 			);
+
+			if (acquireFence != null && (acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR)) {
+				acquireFence.setName("AcquireFence-" + name + "-img" + pImageIndex.get(0), stack);
+			}
 
 			if (acquireResult == VK_SUBOPTIMAL_KHR || acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
 				outdated = true;
@@ -130,7 +139,7 @@ class VkbSwapchain {
 			if (acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR) {
 				int imageIndex = pImageIndex.get(0);
 
-				var presentSemaphore = instance.sync.semaphoreBank.borrowSemaphore("PresentSemaphore-" + name + "-" + System.nanoTime());
+				var presentSemaphore = instance.sync.semaphoreBank.borrowSemaphore("PresentSemaphore-" + name + "-img" + imageIndex);
 				var presentFence = cleaner.getPresentFence(name);
 				AcquiredImage acquiredImage = new AcquiredImage(
 						this, imageIndex, acquireFence, acquireSemaphore,
@@ -143,8 +152,10 @@ class VkbSwapchain {
 			}
 
 			if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
-				acquireFence.forceSignal();
-				instance.sync.fenceBank.returnFence(acquireFence);
+				if (acquireFence != null) {
+					acquireFence.forceSignal();
+					instance.sync.fenceBank.returnFence(acquireFence);
+				}
 				if (!useAcquireFence) instance.sync.semaphoreBank.returnSemaphores(acquireSemaphore);
 				return null;
 			}

@@ -285,6 +285,7 @@ public class VkbWindow {
 	}
 
 	private void recreateSwapchain(int presentMode) {
+		if (cleaner.shouldPostponeSwapchainRecreation()) return;
 		var oldSwapchain = currentSwapchain;
 
 		if (windowLoop == null) createSwapchain(presentMode, true);

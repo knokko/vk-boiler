@@ -66,7 +66,7 @@ abstract class SwapchainCleaner {
 
 	void destroyImageNow(AcquiredImage image, boolean doSafetyChecks) {
 		if (doSafetyChecks) {
-			if (!image.acquireFence.isSignaled()) {
+			if (image.acquireFence != null && !image.acquireFence.isSignaled()) {
 				long startTime = System.nanoTime();
 				image.acquireFence.awaitSignal();
 				long endTime = System.nanoTime();
@@ -84,12 +84,18 @@ abstract class SwapchainCleaner {
 			}
 		}
 
-		instance.sync.fenceBank.returnFence(image.acquireFence);
+		if (image.acquireFence != null) instance.sync.fenceBank.returnFence(image.acquireFence);
 		if (image.presentFence != null) instance.sync.fenceBank.returnFence(image.presentFence);
 		if (image.acquireSemaphore != VK_NULL_HANDLE) {
 			instance.sync.semaphoreBank.returnSemaphores(image.acquireSemaphore);
 		}
 		instance.sync.semaphoreBank.returnSemaphores(image.presentSemaphore());
+	}
+
+	// Don't allow destroyed swapchains to pile up!
+	boolean shouldPostponeSwapchainRecreation() {
+		destroyOldResources();
+		return swapchains.size() > 1;
 	}
 
 	public long getLatestSwapchainHandle() {
@@ -105,16 +111,6 @@ abstract class SwapchainCleaner {
 			if (swapchains.stream().anyMatch(state -> state.swapchain == newSwapchain)) {
 				throw new IllegalStateException("Swapchain used twice? " + newSwapchain);
 			}
-
-			// Prevent swapchains from piling up when they are destroyed too quickly
-			if (swapchains.size() > 5) {
-				for (var state : swapchains) {
-					waitUntilStateCanBeDestroyed(state);
-					destroyStateNow(state, true);
-				}
-				swapchains.clear();
-			}
-
 			swapchains.add(new State(newSwapchain, new ArrayList<>()));
 		}
 	}
@@ -127,7 +123,9 @@ abstract class SwapchainCleaner {
 
 	void destroyEverything() {
 		for (var state : swapchains) {
-			for (var image : state.acquiredImages) image.acquireFence.waitIfSubmitted();
+			for (var image : state.acquiredImages) {
+				if (image.acquireFence != null) image.acquireFence.waitIfSubmitted();
+			}
 			waitUntilStateCanBeDestroyed(state);
 			destroyStateNow(state, false);
 		}
