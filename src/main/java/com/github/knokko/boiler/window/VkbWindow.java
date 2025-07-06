@@ -215,7 +215,7 @@ public class VkbWindow {
 			Set<Integer> compatibleUsedPresentModes = new HashSet<>();
 			compatibleUsedPresentModes.add(presentMode);
 
-			if (instance.hasSwapchainMaintenance() && usedPresentModes.size() > 1) {
+			if (instance.extra.swapchainMaintenance() && usedPresentModes.size() > 1) {
 				var presentModeCompatibility = VkSurfacePresentModeCompatibilityEXT.calloc(stack);
 				presentModeCompatibility.sType$Default();
 
@@ -253,7 +253,7 @@ public class VkbWindow {
 				}
 			}
 
-			if (instance.hasSwapchainMaintenance()) {
+			if (instance.extra.swapchainMaintenance()) {
 				var pPresentModes = stack.callocInt(compatibleUsedPresentModes.size());
 				for (int compatiblePresentMode : compatibleUsedPresentModes) {
 					pPresentModes.put(compatiblePresentMode);

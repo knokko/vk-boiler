@@ -30,10 +30,9 @@ import static org.lwjgl.vulkan.VK10.*;
 
 class BoilerDeviceBuilder {
 
-	static Result createDevice(BoilerBuilder builder, BoilerInstanceBuilder.Result instanceResult) {
+	static Result createDevice(BoilerBuilder builder, VkInstance vkInstance, ExtraBuilder extra) {
 		VkPhysicalDevice vkPhysicalDevice;
 		VkDevice vkDevice;
-		Set<String> enabledExtensions;
 		long[] windowSurfaces;
 		QueueFamilies queueFamilies;
 		long vmaAllocator;
@@ -43,12 +42,12 @@ class BoilerDeviceBuilder {
 			windowSurfaces = builder.windows.stream().mapToLong(windowBuilder -> {
 				if (builder.sdlFlags != 0) {
 					assertSdlSuccess(SDL_Vulkan_CreateSurface(
-							windowBuilder.handle, instanceResult.vkInstance(),
+							windowBuilder.handle, vkInstance,
 							CallbackUserData.SURFACE.put(stack, builder.allocationCallbacks), pSurface
 					), "Vulkan_CreateSurface");
 				} else {
 					assertVkSuccess(glfwCreateWindowSurface(
-							instanceResult.vkInstance(), windowBuilder.handle,
+							vkInstance, windowBuilder.handle,
 							CallbackUserData.SURFACE.put(stack, builder.allocationCallbacks), pSurface
 					), "glfwCreateWindowSurface", null);
 				}
@@ -57,12 +56,12 @@ class BoilerDeviceBuilder {
 			}).toArray();
 
 			VkPhysicalDevice[] candidateDevices = BasicDeviceFilter.getCandidates(
-					builder, instanceResult.vkInstance(), windowSurfaces, builder.printDeviceSelectionInfo
+					builder, vkInstance, windowSurfaces, builder.printDeviceSelectionInfo
 			);
 			if (candidateDevices.length == 0) throw new NoVkPhysicalDeviceException();
 
 			vkPhysicalDevice = builder.deviceSelector.choosePhysicalDevice(
-					stack, candidateDevices, instanceResult.vkInstance()
+					stack, candidateDevices, vkInstance
 			);
 			if (vkPhysicalDevice == null) throw new NoVkPhysicalDeviceException();
 			if (builder.printDeviceSelectionInfo) System.out.println("Chose physical device " + vkPhysicalDevice.address());
@@ -92,9 +91,9 @@ class BoilerDeviceBuilder {
 				}
 			}
 
-			enabledExtensions = new HashSet<>(builder.requiredVulkanDeviceExtensions);
+			extra.deviceExtensions.addAll(builder.requiredVulkanDeviceExtensions);
 			for (var extension : builder.desiredVulkanDeviceExtensions) {
-				if (supportedExtensions.contains(extension)) enabledExtensions.add(extension);
+				if (supportedExtensions.contains(extension)) extra.deviceExtensions.add(extension);
 			}
 		}
 
@@ -180,7 +179,7 @@ class BoilerDeviceBuilder {
 			}
 
 			var queueFamilyMapping = builder.queueFamilyMapper.mapQueueFamilies(
-					pQueueFamilies, enabledExtensions, presentSupportMatrix
+					pQueueFamilies, extra.deviceExtensions, presentSupportMatrix
 			);
 			queueFamilyMapping.validate();
 
@@ -217,15 +216,15 @@ class BoilerDeviceBuilder {
 			ciDevice.flags(0);
 			ciDevice.pQueueCreateInfos(pQueueCreateInfos);
 			ciDevice.ppEnabledLayerNames(null); // Device layers are deprecated
-			ciDevice.ppEnabledExtensionNames(CollectionHelper.encodeStringSet(enabledExtensions, stack));
+			ciDevice.ppEnabledExtensionNames(CollectionHelper.encodeStringSet(extra.deviceExtensions, stack));
 			if (enabledFeatures2 == null) ciDevice.pEnabledFeatures(enabledFeatures10);
 
 			for (var preCreator : builder.preDeviceCreators) {
-				preCreator.beforeDeviceCreation(ciDevice, instanceResult.enabledExtensions(), vkPhysicalDevice, stack);
+				preCreator.beforeDeviceCreation(ciDevice, extra.instanceExtensions, vkPhysicalDevice, stack);
 			}
 
 			vkDevice = builder.vkDeviceCreator.vkCreateDevice(
-					ciDevice, instanceResult.enabledExtensions(), vkPhysicalDevice, builder.allocationCallbacks, stack
+					ciDevice, extra.instanceExtensions, vkPhysicalDevice, builder.allocationCallbacks, stack
 			);
 
 			var queueFamilyMap = new HashMap<Integer, VkbQueueFamily>();
@@ -250,16 +249,16 @@ class BoilerDeviceBuilder {
 			);
 
 			var vmaVulkanFunctions = VmaVulkanFunctions.calloc(stack);
-			vmaVulkanFunctions.set(instanceResult.vkInstance(), vkDevice);
+			vmaVulkanFunctions.set(vkInstance, vkDevice);
 
-			int vmaFlags = getVmaFlags(enabledExtensions);
+			int vmaFlags = getVmaFlags(extra.deviceExtensions);
 
 			var ciAllocator = VmaAllocatorCreateInfo.calloc(stack);
 			ciAllocator.flags(vmaFlags);
 			ciAllocator.physicalDevice(vkPhysicalDevice);
 			ciAllocator.device(vkDevice);
 			ciAllocator.pAllocationCallbacks(CallbackUserData.VMA.put(stack, builder.allocationCallbacks));
-			ciAllocator.instance(instanceResult.vkInstance());
+			ciAllocator.instance(vkInstance);
 			ciAllocator.pVulkanFunctions(vmaVulkanFunctions);
 			ciAllocator.vulkanApiVersion(builder.apiVersion);
 
@@ -272,7 +271,7 @@ class BoilerDeviceBuilder {
 		}
 
 		return new Result(
-				vkPhysicalDevice, vkDevice, enabledExtensions,
+				vkPhysicalDevice, vkDevice,
 				windowSurfaces, presentFamilies, queueFamilies, vmaAllocator
 		);
 	}
@@ -304,7 +303,7 @@ class BoilerDeviceBuilder {
 	}
 
 	record Result(
-			VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice, Set<String> enabledExtensions,
+			VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
 			long[] windowSurfaces, VkbQueueFamily[] presentFamilies, QueueFamilies queueFamilies, long vmaAllocator
 	) {
 	}

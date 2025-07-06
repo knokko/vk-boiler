@@ -5,6 +5,7 @@ import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.util.vma.VmaAllocationCreateInfo;
 import org.lwjgl.util.vma.VmaAllocationInfo;
 import org.lwjgl.vulkan.VkMemoryAllocateInfo;
+import org.lwjgl.vulkan.VkMemoryPriorityAllocateInfoEXT;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import java.util.*;
@@ -17,6 +18,7 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 import static org.lwjgl.util.vma.Vma.*;
 import static org.lwjgl.util.vma.Vma.vmaBindImageMemory2;
+import static org.lwjgl.vulkan.EXTPageableDeviceLocalMemory.vkSetDeviceMemoryPriorityEXT;
 import static org.lwjgl.vulkan.VK10.*;
 
 class MemoryTypeClaims {
@@ -41,7 +43,10 @@ class MemoryTypeClaims {
 		return offset;
 	}
 
-	void allocate(BoilerInstance instance, String name, boolean useVma, MemoryBlock old, int memoryType, MemoryBlock block) {
+	void allocate(
+			BoilerInstance instance, String name, boolean useVma, MemoryBlock old,
+			int memoryType, float priority, MemoryBlock block
+	) {
 		long size = prepareAllocations();
 		long allocation;
 		long hostAddress = 0L;
@@ -71,20 +76,34 @@ class MemoryTypeClaims {
 			} else {
 				var oldAllocation = old != null ? old.getAllocation(memoryType) : null;
 				if (oldAllocation != null) {
-					if (oldAllocation.size >= size && (!mapMemory || oldAllocation.hostAddress != 0L)) {
-						oldAllocation.wasRecycled = true;
-					} else oldAllocation = null;
+					boolean canRecycle = oldAllocation.size >= size &&
+							(!mapMemory || oldAllocation.hostAddress != 0L) &&
+							(oldAllocation.priority == priority || instance.extra.pageableMemory());
+					if (canRecycle) oldAllocation.wasRecycled = true;
+					else oldAllocation = null;
 				}
 
 				if (oldAllocation != null) {
 					allocation = oldAllocation.vkAllocation;
 					size = oldAllocation.size;
 					hostAddress = oldAllocation.hostAddress;
+
+					if (oldAllocation.priority != priority) {
+						vkSetDeviceMemoryPriorityEXT(instance.vkDevice(), allocation, priority);
+					}
 				} else {
 					var aiMemory = VkMemoryAllocateInfo.calloc(stack);
 					aiMemory.sType$Default();
 					aiMemory.allocationSize(size);
 					aiMemory.memoryTypeIndex(memoryType);
+
+					if (instance.extra.memoryPriority()) {
+						var aiPriority = VkMemoryPriorityAllocateInfoEXT.calloc(stack);
+						aiPriority.sType$Default();
+						aiPriority.priority(priority);
+
+						aiMemory.pNext(aiPriority);
+					}
 
 					var pMemory = stack.callocLong(1);
 					assertVkSuccess(vkAllocateMemory(
@@ -105,7 +124,7 @@ class MemoryTypeClaims {
 				}
 
 				block.allocations.add(new MemoryBlock.MemoryAllocation(
-						allocation, size, memoryType, hostAddress
+						allocation, size, memoryType, priority, hostAddress
 				));
 			}
 		}

@@ -76,13 +76,13 @@ public class HelloXR {
 		var persistentCombiner = new MemoryCombiner(boiler, "PersistentMemory");
 		var grassImage = persistentCombiner.addImage(new ImageBuilder(
 				"GrassImage", bufferedGrass.getWidth(), bufferedGrass.getHeight()
-		).texture());
+		).texture(), 0.75f);
 		var mountainImage1 = persistentCombiner.addImage(new ImageBuilder(
 				"ChocoMountainsImage", bufferedMountains1.getWidth(), bufferedMountains1.getHeight()
-		).texture());
+		).texture(), 0.75f);
 		var mountainImage2 = persistentCombiner.addImage(new ImageBuilder(
 				"RainbowMountainsImage", bufferedMountains2.getWidth(), bufferedMountains2.getHeight()
-		).texture());
+		).texture(), 0.75f);
 		var grassStagingBuffer = stagingCombiner.addMappedBuffer(
 				4L * bufferedGrass.getWidth() * bufferedGrass.getHeight(),
 				4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
@@ -129,7 +129,7 @@ public class HelloXR {
 		}
 		var depthImage = persistentCombiner.addImage(new ImageBuilder(
 				"DepthImage", width, height
-		).depthAttachment(depthFormat).arrayLayers(2));
+		).depthAttachment(depthFormat).arrayLayers(2), 1f);
 
 		var commandPools = boiler.commands.createPools(
 				VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, boiler.queueFamilies().graphics().index(),
@@ -140,16 +140,24 @@ public class HelloXR {
 
 		int colorVertexSize = (3 + 3) * Float.BYTES;
 		int imageVertexSize = (3 + 2 + 1) * Float.BYTES;
-		var colorVertexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(4 * colorVertexSize, 12L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var imageVertexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(12 * imageVertexSize, 24L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		var colorIndexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(5L * 3L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-		var imageIndexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(4L * 6L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		var colorVertexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(
+				4 * colorVertexSize, 12L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 0.5f
+		);
+		var imageVertexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(
+				12 * imageVertexSize, 24L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 0.5f
+		);
+		var colorIndexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(
+				5L * 3L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 0.5f
+		);
+		var imageIndexBuffer = persistentCombiner.addMappedDeviceLocalBuffer(
+				4L * 6L * 4L, 4L, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 0.5f
+		);
 
 		var matrixBuffers = new MappedVkbBuffer[NUM_FRAMES_IN_FLIGHT];
 		for (int index = 0; index < NUM_FRAMES_IN_FLIGHT; index++) {
 			matrixBuffers[index] = persistentCombiner.addMappedDeviceLocalBuffer(
 					5L * 64L, boiler.deviceProperties.limits().minUniformBufferOffsetAlignment(),
-					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 0.5f
 			);
 		}
 

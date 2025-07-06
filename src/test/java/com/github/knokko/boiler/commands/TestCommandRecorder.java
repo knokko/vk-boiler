@@ -72,13 +72,15 @@ public class TestCommandRecorder {
 		var imageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 		var combiner = new MemoryCombiner(instance, "TestMemory");
-		var destinationBuffer = combiner.addMappedDeviceLocalBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var destinationBuffer = combiner.addMappedDeviceLocalBuffer(
+				4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT, 0.5f
+		);
 		var sourceImage = combiner.addImage(new ImageBuilder(
 				"SourceImage", width, height
-		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
+		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView(), 1f);
 		var destinationImage = combiner.addImage(new ImageBuilder(
 				"DestinationImage", width, height
-		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
+		).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView(), 1f);
 		var memory = combiner.build(false);
 
 		SingleTimeCommands.submit(instance, "Copying", recorder -> {
@@ -110,10 +112,10 @@ public class TestCommandRecorder {
 		var combiner = new MemoryCombiner(instance, "TestMemory");
 		var sourceImage = combiner.addImage(new ImageBuilder(
 				"Source", 1, 3
-		).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK).setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
+		).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK).setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT), 1f);
 		var destinationImage = combiner.addImage(new ImageBuilder(
 				"Destination", 1, 3
-		).texture().format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK));
+		).texture().format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK), 1f);
 		var memory = combiner.build(true);
 
 		SingleTimeCommands.submit(instance, "Copying", recorder -> {
@@ -148,10 +150,10 @@ public class TestCommandRecorder {
 			);
 			var sourceImage = combiner.addImage(new ImageBuilder(
 					"SourceImage", width1, height1
-			).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
+			).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView(), 1f);
 			var destinationImage = combiner.addImage(new ImageBuilder(
 					"DestinationImage", width2, height2
-			).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView());
+			).format(format).setUsage(imageUsage).aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).doNotCreateView(), 1f);
 			var memory = combiner.build(useVma);
 
 			var hostByteBuffer = hostBuffer.byteBuffer();
@@ -210,14 +212,14 @@ public class TestCommandRecorder {
 			for (int index = 0; index < amount; index++) {
 				sourceBuffers[index] = combiner.addMappedBuffer(4L, 4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 				middleBuffers[index] = combiner.addBuffer(
-						4L, 4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+						4L, 4L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 0.5f
 				);
 				images1[index] = combiner.addImage(new ImageBuilder(
 						"Test1Image" + index, 1, 1
-				).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_R8G8B8A8_UNORM));
+				).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_R8G8B8A8_UNORM), 1f);
 				images2[index] = combiner.addImage(new ImageBuilder(
 						"Test2Image" + index, 1, 1
-				).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_R8G8B8A8_UNORM));
+				).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_R8G8B8A8_UNORM), 1f);
 				destinationBuffers[index] = combiner.addMappedBuffer(4L, 4L, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 			}
 			var memory = combiner.build(true);

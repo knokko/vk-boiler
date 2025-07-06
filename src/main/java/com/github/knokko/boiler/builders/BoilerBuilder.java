@@ -33,6 +33,8 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
 import static org.lwjgl.vulkan.EXTLayerSettings.VK_EXT_LAYER_SETTINGS_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTMemoryBudget.VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
+import static org.lwjgl.vulkan.EXTMemoryPriority.VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME;
+import static org.lwjgl.vulkan.EXTPageableDeviceLocalMemory.VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTSurfaceMaintenance1.VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTSwapchainMaintenance1.VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRBindMemory2.VK_KHR_BIND_MEMORY_2_EXTENSION_NAME;
@@ -643,8 +645,7 @@ public class BoilerBuilder {
 			}
 		}
 
-		boolean[] pHasSwapchainMaintenance = {false};
-
+		ExtraBuilder extra = new ExtraBuilder();
 		if (!windows.isEmpty()) {
 			if (sdlFlags != 0) {
 				var sdlExtensions = SDL_Vulkan_GetInstanceExtensions();
@@ -663,34 +664,67 @@ public class BoilerBuilder {
 			this.desiredVulkanDeviceExtensions.add(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
 			this.desiredVulkanInstanceExtensions.add(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
 			this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
-			if (apiVersion == VK_API_VERSION_1_0) {
-				this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+		}
+		this.desiredVulkanDeviceExtensions.add(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
+		this.desiredVulkanDeviceExtensions.add(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME);
+
+		if (apiVersion == VK_API_VERSION_1_0) {
+			this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+		}
+
+		this.beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> {
+			Set<String> deviceExtensions = decodeStringSet(ciDevice.ppEnabledExtensionNames());
+			var supportedFeatures = VkPhysicalDeviceFeatures2.calloc(stack);
+			supportedFeatures.sType$Default();
+
+			VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchainFeatures = null;
+			if (deviceExtensions.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
+				swapchainFeatures = VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT.calloc(stack);
+				swapchainFeatures.sType$Default();
+
+				supportedFeatures.pNext(swapchainFeatures);
 			}
 
-			this.beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> {
-				Set<String> deviceExtensions = decodeStringSet(ciDevice.ppEnabledExtensionNames());
-				if (deviceExtensions.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
-					var swapchainFeatures = VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT.calloc(stack);
-					swapchainFeatures.sType$Default();
+			VkPhysicalDeviceMemoryPriorityFeaturesEXT memoryPriorityFeatures = null;
+			if (deviceExtensions.contains(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME)) {
+				memoryPriorityFeatures = VkPhysicalDeviceMemoryPriorityFeaturesEXT.calloc(stack);
+				memoryPriorityFeatures.sType$Default();
 
-					var features = VkPhysicalDeviceFeatures2.calloc(stack);
-					features.sType$Default();
-					features.pNext(swapchainFeatures);
+				supportedFeatures.pNext(memoryPriorityFeatures);
+			}
 
-					if (apiVersion != VK_API_VERSION_1_0) {
-						vkGetPhysicalDeviceFeatures2(physicalDevice, features);
-					}
-					if (instanceExtensions.contains(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
-						vkGetPhysicalDeviceFeatures2KHR(physicalDevice, features);
-					}
+			VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageFeatures = null;
+			if (deviceExtensions.contains(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME)) {
+				pageFeatures = VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT.calloc(stack);
+				pageFeatures.sType$Default();
 
-					if (swapchainFeatures.swapchainMaintenance1()) {
-						ciDevice.pNext(swapchainFeatures);
-						pHasSwapchainMaintenance[0] = true;
-					}
+				supportedFeatures.pNext(pageFeatures);
+			}
+
+			if (supportedFeatures.pNext() != 0L) {
+				if (apiVersion != VK_API_VERSION_1_0) {
+					vkGetPhysicalDeviceFeatures2(physicalDevice, supportedFeatures);
 				}
-			});
-		}
+				if (instanceExtensions.contains(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
+					vkGetPhysicalDeviceFeatures2KHR(physicalDevice, supportedFeatures);
+				}
+			}
+
+			if (swapchainFeatures != null && swapchainFeatures.swapchainMaintenance1()) {
+				ciDevice.pNext(swapchainFeatures);
+				extra.swapchainMaintenance = true;
+			}
+
+			if (memoryPriorityFeatures != null && memoryPriorityFeatures.memoryPriority()) {
+				ciDevice.pNext(memoryPriorityFeatures);
+				extra.memoryPriority = true;
+			}
+
+			if (pageFeatures != null && pageFeatures.pageableDeviceLocalMemory()) {
+				ciDevice.pNext(pageFeatures);
+				extra.pageableMemory = true;
+			}
+		});
 
 		XrBoiler xr = null;
 
@@ -754,12 +788,12 @@ public class BoilerBuilder {
 			}
 		}
 
-		var instanceResult = BoilerInstanceBuilder.createInstance(this);
+		var vkInstance = BoilerInstanceBuilder.createInstance(this, extra);
 
 		long validationErrorThrower = 0;
 		BoilerInstance[] propagateInstance = { null };
 		if (forbidValidationErrors) {
-			if (!instanceResult.enabledExtensions().contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+			if (!extra.instanceExtensions.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 				throw new ValidationException("Debug utils extension is not enabled");
 			}
 			try (var stack = stackPush()) {
@@ -780,11 +814,15 @@ public class BoilerBuilder {
 					var error = VkDebugUtilsMessengerCallbackDataEXT.create(data);
 					var instance = propagateInstance[0];
 
+					String message = error.pMessageString();
 					if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
+						if ("VK_ERROR_OUT_OF_HOST_MEMORY".equals(message)) {
+							System.out.println("Hit weird error: " + error.pMessageIdNameString());
+							return VK_FALSE;
+						}
 						if (instance != null) instance.reportFatalValidationError();
 						throw new ValidationException(error.pMessageString());
 					} else {
-						String message = error.pMessageString();
 						if (message == null) return VK_FALSE; // I have no clue whether this is possible
 
 						// These messages are really useless
@@ -798,25 +836,25 @@ public class BoilerBuilder {
 				var pReporter = stack.callocLong(1);
 				var callbacks = CallbackUserData.DEBUG_MESSENGER.put(stack, allocationCallbacks);
 				assertVkSuccess(vkCreateDebugUtilsMessengerEXT(
-						instanceResult.vkInstance(), ciReporter, callbacks, pReporter
+						vkInstance, ciReporter, callbacks, pReporter
 				), "CreateDebugUtilsMessengerEXT", "Validation error thrower");
 				validationErrorThrower = pReporter.get(0);
 			}
 		}
 
-		var deviceResult = BoilerDeviceBuilder.createDevice(this, instanceResult);
+		var deviceResult = BoilerDeviceBuilder.createDevice(this, vkInstance, extra);
 
 		var windows = IntStream.range(0, this.windows.size()).mapToObj(windowIndex -> {
 			var windowBuilder = this.windows.get(windowIndex);
 			var vkSurface = deviceResult.windowSurfaces()[windowIndex];
 			var presentFamily = deviceResult.presentFamilies()[windowIndex];
-			return windowBuilder.build(deviceResult.vkPhysicalDevice(), vkSurface, pHasSwapchainMaintenance[0], presentFamily);
+			return windowBuilder.build(deviceResult.vkPhysicalDevice(), vkSurface, extra.swapchainMaintenance, presentFamily);
 		}).collect(Collectors.toList());
 
 		var instance = new BoilerInstance(
-				xr, defaultTimeout, sdlFlags != 0, windows, pHasSwapchainMaintenance[0],
-				apiVersion, instanceResult.vkInstance(), deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
-				instanceResult.enabledLayers(), instanceResult.enabledExtensions(), deviceResult.enabledExtensions(),
+				xr, defaultTimeout, sdlFlags != 0, windows, apiVersion,
+				vkInstance, deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
+				extra.build(),
 				deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower, allocationCallbacks
 		);
 		propagateInstance[0] = instance;

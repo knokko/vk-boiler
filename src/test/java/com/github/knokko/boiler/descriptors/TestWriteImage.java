@@ -35,7 +35,9 @@ public class TestWriteImage {
 		);
 		var sourceBuffer = combiner.addMappedBuffer(4, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
-		var image = combiner.addImage(new ImageBuilder("Image", 1, 1).texture().format(VK_FORMAT_R32_SINT));
+		var image = combiner.addImage(new ImageBuilder(
+				"Image", 1, 1
+		).texture().format(VK_FORMAT_R32_SINT), 0.5f);
 		var memory = combiner.build(true);
 
 		memPutInt(sourceBuffer.hostAddress, 100);

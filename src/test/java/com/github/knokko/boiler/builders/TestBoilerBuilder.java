@@ -365,7 +365,7 @@ public class TestBoilerBuilder {
 		).validation().forbidValidationErrors().requiredDeviceExtensions(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 
 		String message = assertThrows(ValidationException.class, builder::build).getMessage();
-		assertTrue(message.contains("VUID-vkCreateDevice-ppEnabledExtensionNames"), "Message was " + message);
+		assertTrue(message.contains("device chain"), "Message was " + message);
 	}
 
 	@Test
@@ -392,7 +392,7 @@ public class TestBoilerBuilder {
 				VK_API_VERSION_1_0, "TestDesiredLayers", 1
 		).desiredVkLayers("bullshit", "VK_LAYER_KHRONOS_validation").build();
 
-		assertEquals(createSet("VK_LAYER_KHRONOS_validation"), instance.explicitLayers);
+		assertEquals(createSet("VK_LAYER_KHRONOS_validation"), instance.extra.layers());
 
 		instance.destroyInitialObjects();
 	}
@@ -405,8 +405,8 @@ public class TestBoilerBuilder {
 				.desiredVkDeviceExtensions(createSet("bullshit", VK_KHR_MAINTENANCE_1_EXTENSION_NAME))
 				.validation().forbidValidationErrors().build();
 
-		assertTrue(instance.deviceExtensions.contains(VK_KHR_MAINTENANCE_1_EXTENSION_NAME));
-		assertFalse(instance.deviceExtensions.contains("bullshit"));
+		assertTrue(instance.extra.deviceExtensions().contains(VK_KHR_MAINTENANCE_1_EXTENSION_NAME));
+		assertFalse(instance.extra.deviceExtensions().contains("bullshit"));
 
 		instance.destroyInitialObjects();
 	}

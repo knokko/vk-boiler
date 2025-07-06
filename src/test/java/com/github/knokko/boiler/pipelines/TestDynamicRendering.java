@@ -35,7 +35,7 @@ public class TestDynamicRendering {
 		var combiner = new MemoryCombiner(instance, "Memory");
 		var image = combiner.addImage(new ImageBuilder("TestColorAttachment", width, height).format(format).setUsage(
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-		));
+		), 1f);
 		var destinationBuffer = combiner.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		var memory = combiner.build(true);
 
@@ -142,7 +142,7 @@ public class TestDynamicRendering {
 		var combiner = new MemoryCombiner(instance, "Memory");
 		var image = combiner.addImage(new ImageBuilder(
 				"DepthImage", width, height
-		).depthAttachment(VK_FORMAT_D32_SFLOAT).addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
+		).depthAttachment(VK_FORMAT_D32_SFLOAT).addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT), 1f);
 		var destinationBuffer = combiner.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		var memory = combiner.build(false);
 

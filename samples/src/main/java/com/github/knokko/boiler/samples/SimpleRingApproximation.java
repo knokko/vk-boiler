@@ -17,6 +17,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import static com.github.knokko.boiler.utilities.ColorPacker.rgb;
+import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
@@ -40,7 +41,9 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 	private VkbFence[] commandFences;
 
 	public SimpleRingApproximation(VkbWindow window) {
-		super(window, 3, false, VK_PRESENT_MODE_MAILBOX_KHR);
+		super(window, 3, false,
+				window.supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR
+		);
 	}
 
 	@Override

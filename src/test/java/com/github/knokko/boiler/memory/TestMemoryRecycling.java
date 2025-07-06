@@ -21,14 +21,14 @@ public class TestMemoryRecycling {
 
 		var oldCombiner = new MemoryCombiner(instance, "OldMemory");
 		var oldMappedBuffer = oldCombiner.addMappedBuffer(10_000, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		oldCombiner.addBuffer(10_000, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-		oldCombiner.addImage(new ImageBuilder("OldImage", 10, 10).texture());
+		oldCombiner.addBuffer(10_000, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 1f);
+		oldCombiner.addImage(new ImageBuilder("OldImage", 10, 10).texture(), 1f);
 		var oldBlock = oldCombiner.build(false);
 
 		var newCombiner = new MemoryCombiner(instance, "OldMemory");
 		var newMappedBuffer = newCombiner.addMappedBuffer(40_000, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var newDeviceBuffer = newCombiner.addBuffer(55_000, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var newImage = newCombiner.addImage(new ImageBuilder("NewImage", 20, 20).texture());
+		var newDeviceBuffer = newCombiner.addBuffer(55_000, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT, 1f);
+		var newImage = newCombiner.addImage(new ImageBuilder("NewImage", 20, 20).texture(), 1f);
 		var newBlock = newCombiner.buildAndRecycle(oldBlock);
 
 		assertNotEquals(oldMappedBuffer.hostAddress, newMappedBuffer.hostAddress);
@@ -61,14 +61,14 @@ public class TestMemoryRecycling {
 
 		var oldCombiner = new MemoryCombiner(instance, "OldMemory");
 		var oldMappedBuffer = oldCombiner.addMappedBuffer(100_000, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		oldCombiner.addBuffer(100_000, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-		oldCombiner.addImage(new ImageBuilder("OldImage", 50, 50).texture());
+		oldCombiner.addBuffer(100_000, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0.5f);
+		oldCombiner.addImage(new ImageBuilder("OldImage", 50, 50).texture(), 1f);
 		var oldBlock = oldCombiner.build(false);
 
 		var newCombiner = new MemoryCombiner(instance, "OldMemory");
 		var newMappedBuffer = newCombiner.addMappedBuffer(40_000, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var newDeviceBuffer = newCombiner.addBuffer(55_000, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var newImage = newCombiner.addImage(new ImageBuilder("NewImage", 20, 20).texture());
+		var newDeviceBuffer = newCombiner.addBuffer(55_000, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT, 1f);
+		var newImage = newCombiner.addImage(new ImageBuilder("NewImage", 20, 20).texture(), 0.5f);
 		var newBlock = newCombiner.buildAndRecycle(oldBlock);
 
 		assertEquals(oldMappedBuffer.hostAddress, newMappedBuffer.hostAddress);

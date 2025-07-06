@@ -9,7 +9,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class TestSharedBufferBuilder {
@@ -26,9 +26,9 @@ public class TestSharedBufferBuilder {
 	@Test
 	public void testAlignment() {
 		var combiner = new MemoryCombiner(instance, "Memory");
-		var buffer0 = combiner.addBuffer(1, 1234, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		var buffer1 = combiner.addBuffer(100, 13, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		var buffer2 = combiner.addBuffer(50, 57, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		var buffer0 = combiner.addBuffer(1, 1234, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 1f);
+		var buffer1 = combiner.addBuffer(100, 13, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 1f);
+		var buffer2 = combiner.addBuffer(50, 57, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 1f);
 		var memory = combiner.build(false);
 
 		assertEquals(1, buffer0.size);
@@ -42,17 +42,59 @@ public class TestSharedBufferBuilder {
 	}
 
 	@Test
+	public void testPriorities() {
+		var combiner = new MemoryCombiner(instance, "PriorityMemory");
+		var buffer0 = combiner.addBuffer(1, 1234, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 1f);
+		var buffer1 = combiner.addBuffer(100, 13, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 0f);
+		var buffer2 = combiner.addBuffer(50, 57, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 1f);
+		var memory = combiner.build(false);
+
+		assertEquals(buffer0.vkBuffer, buffer2.vkBuffer);
+		if (instance.extra.memoryPriority()) {
+			assertNotEquals(buffer0.vkBuffer, buffer1.vkBuffer);
+		} else {
+			assertEquals(buffer0.vkBuffer, buffer1.vkBuffer);
+		}
+
+		assertEquals(1, buffer0.size);
+		assertEquals(0, buffer0.offset);
+		if (instance.extra.memoryPriority()) {
+			assertEquals(100, buffer1.size);
+			assertEquals(0, buffer1.offset);
+			assertEquals(50, buffer2.size);
+			assertEquals(57, buffer2.offset);
+		} else {
+			assertEquals(100, buffer1.size);
+			assertEquals(13, buffer1.offset);
+			assertEquals(50, buffer2.size);
+			assertEquals(114, buffer2.offset);
+		}
+
+		memory.destroy(instance);
+	}
+
+	@Test
 	public void testBufferCopyShuffle() {
 		var combiner = new MemoryCombiner(instance, "Memory");
 		var source0 = combiner.addMappedBuffer(7, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-		var source1 = combiner.addMappedDeviceLocalBuffer(8, 8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+		var source1 = combiner.addMappedDeviceLocalBuffer(
+				8, 8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0.5f
+		);
 		var source2 = combiner.addMappedBuffer(1, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
-		var middle2 = combiner.addBuffer(1, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var middle0 = combiner.addBuffer(7, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		var middle1 = combiner.addBuffer(8, 8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var middle2 = combiner.addBuffer(
+				1, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 1f
+		);
+		var middle0 = combiner.addBuffer(
+				7, 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 1f
+		);
+		var middle1 = combiner.addBuffer(
+				8, 8, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 1f
+		);
 
-		var destination1 = combiner.addMappedDeviceLocalBuffer(8, 8, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var destination1 = combiner.addMappedDeviceLocalBuffer(
+				8, 8, VK_BUFFER_USAGE_TRANSFER_DST_BIT, 0.5f
+		);
 		var destination2 = combiner.addMappedBuffer(1, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		var destination0 = combiner.addMappedBuffer(7, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		var memory = combiner.build(false);

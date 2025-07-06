@@ -78,7 +78,8 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 
 	public TranslucentWindowPlayground(VkbWindow window) {
 		super(
-				window, 5, false, VK_PRESENT_MODE_MAILBOX_KHR,
+				window, 5, false,
+				window.supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
 				ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_DEST
 		);
 	}

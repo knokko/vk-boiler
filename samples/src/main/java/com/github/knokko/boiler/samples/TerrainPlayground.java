@@ -203,8 +203,12 @@ public class TerrainPlayground {
 			ShortBuffer hostHeightBuffer = ByteBuffer.wrap(content).order(ByteOrder.BIG_ENDIAN).asShortBuffer();
 			ShortBuffer deltaHeightBuffer = ShortBuffer.allocate(hostHeightBuffer.capacity());
 
-			var heightImage = persistentCombiner.addImage(new ImageBuilder("HeightImage", gridSize, gridSize).texture().format(VK_FORMAT_R16_SINT));
-			var normalImage = persistentCombiner.addImage(new ImageBuilder("NormalImage", gridSize, gridSize).texture().format(VK_FORMAT_R8G8B8A8_SNORM));
+			var heightImage = persistentCombiner.addImage(new ImageBuilder(
+					"HeightImage", gridSize, gridSize
+			).texture().format(VK_FORMAT_R16_SINT), 0.75f);
+			var normalImage = persistentCombiner.addImage(new ImageBuilder(
+					"NormalImage", gridSize, gridSize
+			).texture().format(VK_FORMAT_R8G8B8A8_SNORM), 0.75f);
 			var persistentMemory = persistentCombiner.build(false);
 
 			var stagingCombiner = new MemoryCombiner(boiler, "StagingMemory");
@@ -307,7 +311,7 @@ public class TerrainPlayground {
 		for (int index = 0; index < numFramesInFlight; index++) {
 			uniformBuffers[index] = persistentCombiner.addMappedDeviceLocalBuffer(
 					64, boiler.deviceProperties.limits().minUniformBufferOffsetAlignment(),
-					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 0.5f
 			);
 		}
 
@@ -411,7 +415,7 @@ public class TerrainPlayground {
 				for (int index = 0; index < depthImages.length; index++) {
 					depthImages[index] = combiner.addImage(new ImageBuilder(
 							"DepthImage" + index, width, height
-					).depthAttachment(depthFormat));
+					).depthAttachment(depthFormat), 1f);
 				}
 				return combiner;
 			}

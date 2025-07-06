@@ -46,7 +46,9 @@ public class TestPerFrameBuffer {
 	@Test
 	public void testOverflowFirstFrame() {
 		var combiner = new MemoryCombiner(instance, "Memory");
-		var buffer = combiner.addMappedDeviceLocalBuffer(10, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var buffer = combiner.addMappedDeviceLocalBuffer(
+				10, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 0.5f
+		);
 		var memory = combiner.build(true);
 
 		var perFrame = new PerFrameBuffer(buffer);
@@ -76,7 +78,9 @@ public class TestPerFrameBuffer {
 	@Test
 	public void testRespectAlignmentWithRangeOffset() {
 		var combiner = new MemoryCombiner(instance, "Memory");
-		var buffer = combiner.addMappedDeviceLocalBuffer(15, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		var buffer = combiner.addMappedDeviceLocalBuffer(
+				15, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 0.5f
+		);
 		var memory = combiner.build(true);
 		var perFrame = new PerFrameBuffer(buffer.child(3, 8));
 

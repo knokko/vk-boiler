@@ -35,7 +35,7 @@ public class TestComputePipelines {
 			var buffer = combiner.addMappedDeviceLocalBuffer(
 					4 * valuesPerInvocation * invocationsPerGroup * groupCount,
 					instance.deviceProperties.limits().minStorageBufferOffsetAlignment(),
-					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 0.5f
 			);
 			var memory = combiner.build(false);
 			var hostBuffer = buffer.intBuffer();

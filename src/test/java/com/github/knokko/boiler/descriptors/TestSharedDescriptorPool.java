@@ -3,7 +3,6 @@ package com.github.knokko.boiler.descriptors;
 import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.memory.MemoryCombiner;
 import org.junit.jupiter.api.Test;
-import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
 import java.util.HashSet;
 
@@ -42,11 +41,11 @@ public class TestSharedDescriptorPool {
 		var combiner = new MemoryCombiner(instance, "Memory");
 		var uniformBuffer = combiner.addBuffer(
 				1234L, instance.deviceProperties.limits().minUniformBufferOffsetAlignment(),
-				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 1f
 		);
 		var storageBuffer = combiner.addBuffer(
 				456L, instance.deviceProperties.limits().minStorageBufferOffsetAlignment(),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 1f
 		);
 		var memory = combiner.build(false);
 

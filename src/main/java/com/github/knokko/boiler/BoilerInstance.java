@@ -18,8 +18,6 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Set;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.vmaDestroyAllocator;
@@ -35,7 +33,6 @@ public class BoilerInstance {
 
 	public final boolean useSDL;
 	private final Collection<VkbWindow> windows;
-	private final boolean hasSwapchainMaintenance;
 
 	private final XrBoiler xr;
 
@@ -47,7 +44,12 @@ public class BoilerInstance {
 	private final VkPhysicalDevice vkPhysicalDevice;
 	public final VkPhysicalDeviceProperties deviceProperties;
 	private final VkDevice vkDevice;
-	public final Set<String> explicitLayers, instanceExtensions, deviceExtensions;
+
+	/**
+	 * Captures the layers, instance extensions, and device extensions that were enabled, as well as some features that
+	 * are important for vk-boiler internally.
+	 */
+	public final BoilerExtra extra;
 	private final QueueFamilies queueFamilies;
 	private final long vmaAllocator;
 	private final long validationErrorThrower;
@@ -78,25 +80,20 @@ public class BoilerInstance {
 	 */
 	public BoilerInstance(
 			XrBoiler xr, long defaultTimeout, boolean useSDL, Collection<VkbWindow> windows,
-			boolean hasSwapchainMaintenance, int apiVersion, VkInstance vkInstance,
-			VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
-			Set<String> explicitLayers, Set<String> instanceExtensions, Set<String> deviceExtensions,
-			QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower,
+			int apiVersion, VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
+			BoilerExtra extra, QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower,
 			VkbAllocationCallbacks allocationCallbacks
 	) {
 		this.allocationCallbacks = allocationCallbacks;
 		this.useSDL = useSDL;
 		this.windows = windows;
-		this.hasSwapchainMaintenance = hasSwapchainMaintenance;
 		this.xr = xr;
 		this.defaultTimeout = defaultTimeout;
 		this.apiVersion = apiVersion;
 		this.vkInstance = vkInstance;
 		this.vkPhysicalDevice = vkPhysicalDevice;
 		this.vkDevice = vkDevice;
-		this.explicitLayers = Collections.unmodifiableSet(explicitLayers);
-		this.instanceExtensions = Collections.unmodifiableSet(instanceExtensions);
-		this.deviceExtensions = Collections.unmodifiableSet(deviceExtensions);
+		this.extra = extra;
 		this.queueFamilies = queueFamilies;
 		this.vmaAllocator = vmaAllocator;
 		this.validationErrorThrower = validationErrorThrower;
@@ -141,13 +138,6 @@ public class BoilerInstance {
 			);
 		}
 		return windows.iterator().next();
-	}
-
-	/**
-	 * @return True if and only if the swapchain maintenance extension can be used
-	 */
-	public boolean hasSwapchainMaintenance() {
-		return hasSwapchainMaintenance;
 	}
 
 	/**

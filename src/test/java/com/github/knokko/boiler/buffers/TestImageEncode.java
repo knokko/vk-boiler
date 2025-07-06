@@ -24,7 +24,9 @@ public class TestImageEncode {
 
 		var combiner = new MemoryCombiner(instance, "Memory");
 		var buffer = combiner.addMappedBuffer(10, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		var buffer2 = combiner.addMappedDeviceLocalBuffer(50, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+		var buffer2 = combiner.addMappedDeviceLocalBuffer(
+				50, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 0.5f
+		);
 		var memory = combiner.build(false);
 
 		var image = new BufferedImage(1, 2, BufferedImage.TYPE_INT_ARGB);

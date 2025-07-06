@@ -273,7 +273,7 @@ public class WindowBuilder {
 			throw new UnsupportedOperationException("No enabled queue family supports this window surface");
 		}
 
-		var window = build(instance.vkPhysicalDevice(), vkSurface, instance.hasSwapchainMaintenance(), presentFamily);
+		var window = build(instance.vkPhysicalDevice(), vkSurface, instance.extra.swapchainMaintenance(), presentFamily);
 		window.setInstance(instance);
 		return window;
 	}

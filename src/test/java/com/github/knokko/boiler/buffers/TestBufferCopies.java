@@ -37,9 +37,11 @@ public class TestBufferCopies {
 					var combiner = new MemoryCombiner(instance, "Memory" + deviceType + useVma);
 
 					int sourceAndDestination = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-					var sourceBuffer = combiner.addMappedDeviceLocalBuffer(100, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-					var middleBuffer1 = combiner.addBuffer(100, 1, sourceAndDestination);
-					var middleBuffer2 = combiner.addBuffer(100, 1, sourceAndDestination);
+					var sourceBuffer = combiner.addMappedDeviceLocalBuffer(
+							100, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0.5f
+					);
+					var middleBuffer1 = combiner.addBuffer(100, 1, sourceAndDestination, 1f);
+					var middleBuffer2 = combiner.addBuffer(100, 1, sourceAndDestination, 1f);
 					var destinationBuffer = combiner.addMappedBuffer(100L, 1L, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
 					var memory = combiner.build(useVma);
@@ -90,7 +92,7 @@ public class TestBufferCopies {
 
 		var destinationImage = combiner.addImage(new ImageBuilder(
 				"Destination", 1, 3
-		).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK));
+		).texture().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT).format(VK_FORMAT_BC1_RGBA_SRGB_BLOCK), 1f);
 		var memory = combiner.build(false);
 
 		SingleTimeCommands.submit(instance, "Copying", recorder -> {

@@ -93,7 +93,7 @@ public class TestTimelineSemaphores {
 			semaphore.waitUntil(4);
 
 			String functionName = "vkWaitSemaphores";
-			if (instance.deviceExtensions.contains(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)) {
+			if (instance.extra.deviceExtensions().contains(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)) {
 				functionName += "KHR";
 			}
 			assertEquals(functionName + " (Test) returned 2 (VK_TIMEOUT)", assertThrows(

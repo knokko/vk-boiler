@@ -132,7 +132,7 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 		super.setup(boiler, stack);
 		var combiner = new MemoryCombiner(boiler, "VertexMemory");
 		this.vertexBuffer = combiner.addMappedDeviceLocalBuffer(
-				20 * 3 * NUM_TRIANGLES, 4, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+				20 * 3 * NUM_TRIANGLES, 4, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 0.5f
 		);
 		this.memory = combiner.build(false);
 

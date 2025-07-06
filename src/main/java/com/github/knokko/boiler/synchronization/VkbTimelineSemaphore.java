@@ -36,7 +36,7 @@ public class VkbTimelineSemaphore {
 		this.instance = instance;
 		this.vkSemaphore = vkSemaphore;
 		this.name = name;
-		this.usesTimelineSemaphoreExtension = instance.deviceExtensions.contains(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+		this.usesTimelineSemaphoreExtension = instance.extra.deviceExtensions().contains(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
 	}
 
 	/**

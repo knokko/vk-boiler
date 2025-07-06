@@ -53,8 +53,7 @@ public class MemoryBlock {
 
 	MemoryAllocation getAllocation(int memoryType) {
 		for (MemoryAllocation allocation : allocations) {
-			if (allocation.memoryType == memoryType) {
-				if (allocation.wasRecycled) throw new IllegalStateException();
+			if (allocation.memoryType == memoryType && !allocation.wasRecycled) {
 				return allocation;
 			}
 		}
@@ -66,14 +65,16 @@ public class MemoryBlock {
 		final long vkAllocation;
 		final long size;
 		final int memoryType;
+		final float priority;
 		final long hostAddress;
 
 		boolean wasRecycled = false;
 
-		MemoryAllocation(long vkAllocation, long size, int memoryType, long hostAddress) {
+		MemoryAllocation(long vkAllocation, long size, int memoryType, float priority, long hostAddress) {
 			this.vkAllocation = vkAllocation;
 			this.size = size;
 			this.memoryType = memoryType;
+			this.priority = priority;
 			this.hostAddress = hostAddress;
 		}
 	}

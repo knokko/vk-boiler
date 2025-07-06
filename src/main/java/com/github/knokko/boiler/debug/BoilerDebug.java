@@ -26,7 +26,7 @@ public class BoilerDebug {
 	 */
 	public BoilerDebug(BoilerInstance instance) {
 		this.instance = instance;
-		this.hasDebug = instance.instanceExtensions.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		this.hasDebug = instance.extra.instanceExtensions().contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
 
 	/**

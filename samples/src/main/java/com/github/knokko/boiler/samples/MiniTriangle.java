@@ -39,7 +39,9 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 	protected void setup(BoilerInstance boiler, MemoryStack stack) {
 		super.setup(boiler, stack);
 		var combiner = new MemoryCombiner(boiler, "VertexMemory");
-		this.vertexBuffer = combiner.addMappedDeviceLocalBuffer(3 * Float.BYTES * (2 + 3), 24, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		this.vertexBuffer = combiner.addMappedDeviceLocalBuffer(
+				3 * Float.BYTES * (2 + 3), 24, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 0.5f
+		);
 		this.memory = combiner.build(false);
 
 		var vertices = vertexBuffer.floatBuffer();

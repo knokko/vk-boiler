@@ -57,7 +57,7 @@ public class MemoryCombiner {
 	private final BoilerInstance instance;
 	private final String name;
 	final Map<BufferUsageKey, BufferUsageClaims> buffers = new HashMap<>();
-	final MemoryTypeClaims[] claims;
+	final Map<MemoryTypeKey, MemoryTypeClaims> claims = new HashMap<>();
 
 	/**
 	 * Constructs a new empty memory combiner
@@ -66,29 +66,32 @@ public class MemoryCombiner {
 	public MemoryCombiner(BoilerInstance instance, String name) {
 		this.instance = instance;
 		this.name = name;
-		this.claims = new MemoryTypeClaims[instance.memoryInfo.numMemoryTypes];
 	}
 
-	private MemoryTypeClaims getClaims(int memoryTypeIndex) {
-		if (claims[memoryTypeIndex] == null) claims[memoryTypeIndex] = new MemoryTypeClaims();
-		return claims[memoryTypeIndex];
+	private MemoryTypeClaims getClaims(int memoryTypeIndex, float priority) {
+		if (!instance.extra.memoryPriority()) priority = 0f;
+		var key = new MemoryTypeKey(memoryTypeIndex, priority);
+		return claims.computeIfAbsent(key, k -> new MemoryTypeClaims());
 	}
 
 	/**
 	 * Adds a {@link VkbBuffer} that will probably be <b>device-local</b>, and probably <i>not</i> <b>host-visible</b>.
-	 * It will have the same `VkBuffer` as all other buffers added via this method, if their {@code usage} flags are
-	 * the same.
+	 * It will have the same `VkBuffer` as all other buffers added via this method, if their {@code usage} flags and
+	 * priority are the same.
 	 * @param size The size of the buffer, in bytes
 	 * @param alignment The alignment of the buffer, in bytes. The {@link VkbBuffer#offset} will be a multiple of
 	 *                  {@code alignment}. Furthermore, the bound memory offset of the <b>VkBuffer</b> will be a
 	 *                  multiple of {@code alignment}.
 	 * @param usage The buffer usage flags: {@link VkBufferCreateInfo#usage()}
+	 * @param priority Will be propagated to {@link VkMemoryPriorityAllocateInfoEXT#priority()} if
+	 *                 <i>VK_EXT_memory_priority</i> is enabled. Otherwise, it is ignored.
 	 * @return The created {@link VkbBuffer}. <b>Note that its fields may be 0 until you call {@link #build}!</b>
 	 */
-	public VkbBuffer addBuffer(long size, long alignment, int usage) {
+	public VkbBuffer addBuffer(long size, long alignment, int usage, float priority) {
+		if (!instance.extra.memoryPriority()) priority = 0f;
 		VkbBuffer buffer = new VkbBuffer(size);
 		buffers.computeIfAbsent(
-				new BufferUsageKey(usage, false, false),
+				new BufferUsageKey(usage, false, false, priority),
 				key -> new BufferUsageClaims()
 		).claims.add(new BufferClaim(buffer, alignment));
 		return buffer;
@@ -109,7 +112,7 @@ public class MemoryCombiner {
 	public MappedVkbBuffer addMappedBuffer(long size, long alignment, int usage) {
 		MappedVkbBuffer buffer = new MappedVkbBuffer(size);
 		buffers.computeIfAbsent(
-				new BufferUsageKey(usage, true, false),
+				new BufferUsageKey(usage, true, false, 0f),
 				key -> new BufferUsageClaims()
 		).claims.add(new BufferClaim(buffer, alignment));
 		return buffer;
@@ -118,19 +121,22 @@ public class MemoryCombiner {
 	/**
 	 * Adds a {@link MappedVkbBuffer} that will certainly be <b>host-visible</b> and <b>host-coherent</b>,
 	 * and preferably also <b>device-local</b>. Its memory will be mapped as soon as you call {@link #build}.
-	 * It will have the same `VkBuffer` as all other buffers added via this method, if their {@code usage} flags are
-	 * the same.
+	 * It will have the same `VkBuffer` as all other buffers added via this method, if their {@code usage} flags and
+	 * priority are the same.
 	 * @param size The size of the buffer, in bytes
 	 * @param alignment The alignment of the buffer, in bytes. The {@link MappedVkbBuffer#offset} will be a multiple of
 	 *                  {@code alignment}. Furthermore, the bound memory offset of the <b>VkBuffer</b> will be a
 	 *                  multiple of {@code alignment}.
 	 * @param usage The buffer usage flags: {@link VkBufferCreateInfo#usage()}
+	 * @param priority Will be propagated to {@link VkMemoryPriorityAllocateInfoEXT#priority()} if
+	 *                 <i>VK_EXT_memory_priority</i> is enabled. Otherwise, it is ignored.
 	 * @return The created {@link MappedVkbBuffer}. <b>Note that its fields may be 0 until you call {@link #build}!</b>
 	 */
-	public MappedVkbBuffer addMappedDeviceLocalBuffer(long size, long alignment, int usage) {
+	public MappedVkbBuffer addMappedDeviceLocalBuffer(long size, long alignment, int usage, float priority) {
+		if (!instance.extra.memoryPriority()) priority = 0f;
 		MappedVkbBuffer buffer = new MappedVkbBuffer(size);
 		buffers.computeIfAbsent(
-				new BufferUsageKey(usage, true, true),
+				new BufferUsageKey(usage, true, true, priority),
 				key -> new BufferUsageClaims()
 		).claims.add(new BufferClaim(buffer, alignment));
 		return buffer;
@@ -138,18 +144,21 @@ public class MemoryCombiner {
 
 	/**
 	 * Adds a {@link VkbImage} that will probably be <b>device-local</b>, and probably <i>not</i> <b>host-visible</b>.
-	 * It will probably share the same memory allocation as the other images, as well as the device-local buffers.
+	 * It will probably share the same memory allocation as the other images with the same priority,
+	 * as well as the device-local buffers.
 	 * @param builder The {@link ImageBuilder} containing all the required image properties
+	 * @param priority This will be propagated to {@link VkMemoryPriorityAllocateInfoEXT#priority()} if
+	 *                 <i>VK_EXT_memory_priority</i> is enabled. Otherwise, it is ignored.
 	 * @return The created {@link VkbImage}. <b>Note that its memory will not be bound until you call {@link #build}!</b>
 	 */
-	public VkbImage addImage(ImageBuilder builder) {
+	public VkbImage addImage(ImageBuilder builder, float priority) {
 		VkbImage image = builder.createRaw(instance);
 		try (var stack = stackPush()) {
 			var requirements = VkMemoryRequirements.calloc(stack);
 			vkGetImageMemoryRequirements(instance.vkDevice(), image.vkImage, requirements);
 
 			int memoryTypeIndex = builder.memoryTypeSelector.chooseMemoryType(instance, requirements.memoryTypeBits());
-			getClaims(memoryTypeIndex).images.add(new ImageClaim(image, builder, requirements.size(), requirements.alignment()));
+			getClaims(memoryTypeIndex, priority).images.add(new ImageClaim(image, builder, requirements.size(), requirements.alignment()));
 		}
 		return image;
 	}
@@ -194,7 +203,7 @@ public class MemoryCombiner {
 				} else {
 					memoryTypeIndex = instance.memoryInfo.recommendedDeviceLocalMemoryType(requirements.memoryTypeBits());
 				}
-				getClaims(memoryTypeIndex).buffers.add(claim);
+				getClaims(memoryTypeIndex, key.priority()).buffers.add(claim);
 			});
 			buffers.clear();
 		}
@@ -208,11 +217,12 @@ public class MemoryCombiner {
 	public MemoryBlock build(boolean useVma) {
 		createBuffers();
 		MemoryBlock block = new MemoryBlock();
-		for (int index = 0; index < claims.length; index++) {
-			MemoryTypeClaims claim = claims[index];
-			if (claim == null) continue;
-			claim.allocate(instance, name + ": memory type " + index, useVma, null, index, block);
-		}
+		claims.forEach((key, claim) -> {
+			claim.allocate(
+					instance, name + ": memory type " + key, useVma,
+					null, key.memoryType(), key.priority(), block
+			);
+		});
 		return block;
 	}
 
@@ -239,11 +249,12 @@ public class MemoryCombiner {
 		toRecycle.destroy(instance, true);
 		createBuffers();
 		MemoryBlock block = new MemoryBlock();
-		for (int index = 0; index < claims.length; index++) {
-			MemoryTypeClaims claim = claims[index];
-			if (claim == null) continue;
-			claim.allocate(instance, name + ": memory type " + index, false, toRecycle, index, block);
-		}
+		claims.forEach((key, claim) -> {
+			claim.allocate(
+					instance, name + ": memory type " + key, false,
+					toRecycle, key.memoryType(), key.priority(), block
+			);
+		});
 		try (var stack = stackPush()) {
 			var memoryCallbacks = CallbackUserData.MEMORY.put(stack, instance);
 			for (var allocation : toRecycle.allocations) {
