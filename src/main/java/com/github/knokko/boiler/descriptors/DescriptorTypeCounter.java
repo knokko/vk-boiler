@@ -46,6 +46,7 @@ class DescriptorTypeCounter {
 	}
 
 	void add(DescriptorTypeCounter other, int amount) {
+		if (amount == 0) return;
 		if (!mutable) throw new UnsupportedOperationException("This counter is immutable");
 		for (int index = 0; index < other.data.length; index += 2) {
 			if (other.data[index] == -1) return;
