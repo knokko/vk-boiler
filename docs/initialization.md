@@ -82,6 +82,12 @@ When you have also chained `.validation()`, the builder will
 automatically enable the debug utils and validation features
 extensions as well, so you do **not** need to think about this.
 
+### VMA
+By default, the `BoilerBuiler` will create a `VmaAllocator` for you,
+which can be accessed using the `vmaAllocator()` method of the created
+`BoilerInstance`. If you don't want to create a `VmaAllocator` (or
+you want to do it yourself), you can chain `.doNotUseVma()`.
+
 ### Engine name/version
 You can use `.engine(name, version)` to propagate the given name
 and version to `VkApplicationInfo.engineName` and

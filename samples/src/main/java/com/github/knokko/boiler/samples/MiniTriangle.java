@@ -128,7 +128,7 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 		)
 				.validation().forbidValidationErrors()
 				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
-				.enableDynamicRendering().build();
+				.doNotUseVma().enableDynamicRendering().build();
 
 		var eventLoop = new WindowEventLoop();
 		eventLoop.addWindow(new MiniTriangle(boiler.window()));

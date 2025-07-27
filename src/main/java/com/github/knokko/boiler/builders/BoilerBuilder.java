@@ -88,6 +88,8 @@ public class BoilerBuilder {
 	boolean initWindowingAPI = true;
 	int sdlFlags = 0;
 
+	boolean useVma = true;
+
 	BoilerXrBuilder xrBuilder;
 
 	String engineName = "VkBoiler";
@@ -243,6 +245,16 @@ public class BoilerBuilder {
 	 */
 	public BoilerBuilder requiredVkInstanceExtensions(String... instanceExtensions) {
 		Collections.addAll(requiredVulkanInstanceExtensions, instanceExtensions);
+		return this;
+	}
+
+	/**
+	 * By default, a <b>VmaAllocator</b> will be created during {@link #build()}. If you chain this method (before
+	 * calling {@link #build()}), that will not happen, and {@link BoilerInstance#vmaAllocator()} will be
+	 * {@link VK10#VK_NULL_HANDLE}.
+	 */
+	public BoilerBuilder doNotUseVma() {
+		this.useVma = false;
 		return this;
 	}
 

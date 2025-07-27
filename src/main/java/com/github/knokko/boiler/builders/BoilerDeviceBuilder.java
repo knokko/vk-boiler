@@ -248,26 +248,30 @@ class BoilerDeviceBuilder {
 					Collections.unmodifiableCollection(queueFamilyMap.values())
 			);
 
-			var vmaVulkanFunctions = VmaVulkanFunctions.calloc(stack);
-			vmaVulkanFunctions.set(vkInstance, vkDevice);
+			if (builder.useVma) {
+				var vmaVulkanFunctions = VmaVulkanFunctions.calloc(stack);
+				vmaVulkanFunctions.set(vkInstance, vkDevice);
 
-			int vmaFlags = getVmaFlags(extra.deviceExtensions);
+				int vmaFlags = getVmaFlags(extra.deviceExtensions);
 
-			var ciAllocator = VmaAllocatorCreateInfo.calloc(stack);
-			ciAllocator.flags(vmaFlags);
-			ciAllocator.physicalDevice(vkPhysicalDevice);
-			ciAllocator.device(vkDevice);
-			ciAllocator.pAllocationCallbacks(CallbackUserData.VMA.put(stack, builder.allocationCallbacks));
-			ciAllocator.instance(vkInstance);
-			ciAllocator.pVulkanFunctions(vmaVulkanFunctions);
-			ciAllocator.vulkanApiVersion(builder.apiVersion);
+				var ciAllocator = VmaAllocatorCreateInfo.calloc(stack);
+				ciAllocator.flags(vmaFlags);
+				ciAllocator.physicalDevice(vkPhysicalDevice);
+				ciAllocator.device(vkDevice);
+				ciAllocator.pAllocationCallbacks(CallbackUserData.VMA.put(stack, builder.allocationCallbacks));
+				ciAllocator.instance(vkInstance);
+				ciAllocator.pVulkanFunctions(vmaVulkanFunctions);
+				ciAllocator.vulkanApiVersion(builder.apiVersion);
 
-			var pAllocator = stack.callocPointer(1);
+				var pAllocator = stack.callocPointer(1);
 
-			assertVmaSuccess(vmaCreateAllocator(
-					ciAllocator, pAllocator
-			), "CreateAllocator", "BoilerDeviceBuilder");
-			vmaAllocator = pAllocator.get(0);
+				assertVmaSuccess(vmaCreateAllocator(
+						ciAllocator, pAllocator
+				), "CreateAllocator", "BoilerDeviceBuilder");
+				vmaAllocator = pAllocator.get(0);
+			} else {
+				vmaAllocator = VK_NULL_HANDLE;
+			}
 		}
 
 		return new Result(

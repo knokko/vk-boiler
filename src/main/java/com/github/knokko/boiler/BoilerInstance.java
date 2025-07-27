@@ -204,7 +204,7 @@ public class BoilerInstance {
 			for (var window : windows) window.destroy();
 			sync.fenceBank.destroy();
 			sync.semaphoreBank.destroy();
-			vmaDestroyAllocator(vmaAllocator);
+			if (vmaAllocator != VK_NULL_HANDLE) vmaDestroyAllocator(vmaAllocator);
 			vkDestroyDevice(vkDevice, CallbackUserData.DEVICE.put(stack, allocationCallbacks));
 			if (validationErrorThrower != VK_NULL_HANDLE) {
 				vkDestroyDebugUtilsMessengerEXT(
