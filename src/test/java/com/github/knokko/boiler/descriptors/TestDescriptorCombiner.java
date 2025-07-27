@@ -129,7 +129,7 @@ public class TestDescriptorCombiner {
 
 	@Test
 	public void testAllocateZeroArrayCase1() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_0, "TestAllocateZeroArray1", 1
 		).validation().forbidValidationErrors().build();
 
@@ -137,22 +137,22 @@ public class TestDescriptorCombiner {
 		try (var stack = stackPush()) {
 			var builder = new DescriptorSetLayoutBuilder(stack, 1);
 			builder.set(0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-			layout = builder.build(boiler, "CombinedImage");
+			layout = builder.build(instance, "CombinedImage");
 		}
 
-		var combiner = new DescriptorCombiner(boiler);
+		var combiner = new DescriptorCombiner(instance);
 		combiner.addMultiple(layout, 0);
 		long vkDescriptorPool = combiner.build("Nothing?");
 		assertEquals(VK_NULL_HANDLE, vkDescriptorPool);
 
-		vkDestroyDescriptorPool(boiler.vkDevice(), vkDescriptorPool, null);
-		vkDestroyDescriptorSetLayout(boiler.vkDevice(), layout.vkDescriptorSetLayout, null);
-		boiler.destroyInitialObjects();
+		vkDestroyDescriptorPool(instance.vkDevice(), vkDescriptorPool, null);
+		vkDestroyDescriptorSetLayout(instance.vkDevice(), layout.vkDescriptorSetLayout, null);
+		instance.destroyInitialObjects();
 	}
 
 	@Test
 	public void testAllocateZeroArrayCase2() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_0, "TestAllocateZeroArray2", 1
 		).validation().forbidValidationErrors().build();
 
@@ -160,22 +160,22 @@ public class TestDescriptorCombiner {
 		try (var stack = stackPush()) {
 			var builder = new DescriptorSetLayoutBuilder(stack, 1);
 			builder.set(0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-			layout1 = builder.build(boiler, "CombinedImage");
+			layout1 = builder.build(instance, "CombinedImage");
 
 			builder = new DescriptorSetLayoutBuilder(stack, 1);
 			builder.set(0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-			layout2 = builder.build(boiler, "Storage");
+			layout2 = builder.build(instance, "Storage");
 		}
 
-		var combiner = new DescriptorCombiner(boiler);
+		var combiner = new DescriptorCombiner(instance);
 		combiner.addSingle(layout1, nope -> {});
 		combiner.addMultiple(layout2, 0);
 		long vkDescriptorPool = combiner.build("Nothing?");
 		assertNotEquals(VK_NULL_HANDLE, vkDescriptorPool);
 
-		vkDestroyDescriptorPool(boiler.vkDevice(), vkDescriptorPool, null);
-		vkDestroyDescriptorSetLayout(boiler.vkDevice(), layout1.vkDescriptorSetLayout, null);
-		vkDestroyDescriptorSetLayout(boiler.vkDevice(), layout2.vkDescriptorSetLayout, null);
-		boiler.destroyInitialObjects();
+		vkDestroyDescriptorPool(instance.vkDevice(), vkDescriptorPool, null);
+		vkDestroyDescriptorSetLayout(instance.vkDevice(), layout1.vkDescriptorSetLayout, null);
+		vkDestroyDescriptorSetLayout(instance.vkDevice(), layout2.vkDescriptorSetLayout, null);
+		instance.destroyInitialObjects();
 	}
 }

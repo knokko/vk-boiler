@@ -17,12 +17,12 @@ public class TestFenceSubmission {
 
 	@Test
 	public void testHasCompleted() throws InterruptedException {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_0, "TestFenceSubmission", 1
 		).validation().forbidValidationErrors().build();
 
-		var fence0 = boiler.sync.fenceBank.borrowFence(false, "StartZero");
-		var fence1 = boiler.sync.fenceBank.borrowFence(true, "StartOne");
+		var fence0 = instance.sync.fenceBank.borrowFence(false, "StartZero");
+		var fence1 = instance.sync.fenceBank.borrowFence(true, "StartOne");
 
 		var submission0a = new FenceSubmission(fence0);
 		var submission1a = new FenceSubmission(fence1);
@@ -52,7 +52,7 @@ public class TestFenceSubmission {
 		var submission0c = new FenceSubmission(fence0);
 		assertFalse(submission0c.hasCompleted());
 
-		emptySubmission(boiler, fence0);
+		emptySubmission(instance, fence0);
 		sleep(100);
 		assertTrue(submission0a.hasCompleted());
 		assertTrue(submission0c.hasCompleted());
@@ -62,25 +62,25 @@ public class TestFenceSubmission {
 		assertTrue(submission0c.hasCompleted());
 		assertFalse(submission0d.hasCompleted());
 
-		emptySubmission(boiler, fence0);
+		emptySubmission(instance, fence0);
 		sleep(100);
 		assertTrue(submission0a.hasCompleted());
 		assertTrue(submission0b.hasCompleted());
 		assertTrue(submission0c.hasCompleted());
 		assertTrue(submission0d.hasCompleted());
 
-		boiler.sync.fenceBank.returnFences(fence0, fence1);
-		boiler.destroyInitialObjects();
+		instance.sync.fenceBank.returnFences(fence0, fence1);
+		instance.destroyInitialObjects();
 	}
 
 	@Test
 	public void testAwaitCompletion() {
-		var boiler = new BoilerBuilder(
+		var instance = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TestAwaitCompletion", 1
 		).validation().forbidValidationErrors().build();
 
-		var fence0 = boiler.sync.fenceBank.borrowFence(false, "Start0");
-		var fence1 = boiler.sync.fenceBank.borrowFence(true, "Start1");
+		var fence0 = instance.sync.fenceBank.borrowFence(false, "Start0");
+		var fence1 = instance.sync.fenceBank.borrowFence(true, "Start1");
 
 		var submission0a = new FenceSubmission(fence0);
 		var submission1a = new FenceSubmission(fence1);
@@ -99,11 +99,11 @@ public class TestFenceSubmission {
 		assertInstantAwait(submission0b);
 		assertCannotAwait(submission1b);
 
-		emptySubmission(boiler, fence1);
+		emptySubmission(instance, fence1);
 		assertInstantAwait(submission1b);
 
-		boiler.sync.fenceBank.returnFences(fence0, fence1);
-		boiler.destroyInitialObjects();
+		instance.sync.fenceBank.returnFences(fence0, fence1);
+		instance.destroyInitialObjects();
 	}
 
 	private void assertInstantAwait(FenceSubmission submission) {
