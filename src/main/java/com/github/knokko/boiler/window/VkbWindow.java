@@ -4,6 +4,8 @@ import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.synchronization.AwaitableSubmission;
+import org.lwjgl.glfw.GLFW;
+import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
@@ -13,6 +15,8 @@ import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlS
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static java.lang.Math.max;
 import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_CLOSE_REQUESTED;
+import static org.lwjgl.sdl.SDLEvents.SDL_PushEvent;
 import static org.lwjgl.sdl.SDLVideo.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.vkGetPhysicalDeviceSurfaceCapabilities2KHR;
@@ -355,6 +359,22 @@ public class VkbWindow {
 			if (windowLoop == null) showWindowNow();
 			else windowLoop.queueMainThreadAction(this::showWindowNow, this);
 			calledShowWindow = true;
+		}
+	}
+
+	/**
+	 * Requests GLFW or SDL to close this window. This should cause this window to close after at most 1 frame.
+	 */
+	public void requestClose() {
+		if (instance.useSDL) {
+			try (var stack = stackPush()) {
+				var event = SDL_Event.calloc(stack);
+				event.type(SDL_EVENT_WINDOW_CLOSE_REQUESTED);
+				event.window().windowID(SDL_GetWindowID(handle));
+				SDL_PushEvent(event);
+			}
+		} else {
+			glfwSetWindowShouldClose(handle, true);
 		}
 	}
 

@@ -29,7 +29,6 @@ import static java.lang.Math.abs;
 import static org.lwjgl.sdl.SDLEvents.*;
 import static org.lwjgl.sdl.SDLMouse.SDL_GetMouseState;
 import static org.lwjgl.sdl.SDLVideo.*;
-import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
@@ -63,14 +62,7 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 				mouseY = (int) SDL_MouseMotionEvent.ny(rawEvent);
 			}
 			if (eventType == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-				if (isMouseOver(-1)) {
-					try (var stack = stackPush()) {
-						var event = SDL_Event.calloc(stack);
-						event.type(SDL_EVENT_WINDOW_CLOSE_REQUESTED);
-						event.window().windowID(SDL_GetWindowID(window.handle));
-						SDL_PushEvent(event);
-					}
-				}
+				if (isMouseOver(-1)) window.requestClose();
 				if (isMouseOver(-2)) {
 					if ((SDL_GetWindowFlags(window.handle) & SDL_WINDOW_MAXIMIZED) == 0) SDL_MaximizeWindow(window.handle);
 					else SDL_RestoreWindow(window.handle);

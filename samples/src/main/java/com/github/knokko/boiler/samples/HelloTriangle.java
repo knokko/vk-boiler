@@ -211,6 +211,7 @@ public class HelloTriangle {
 					pPresentMode[0] = VK_PRESENT_MODE_IMMEDIATE_KHR;
 				if (key == GLFW_KEY_R && spm.contains(VK_PRESENT_MODE_FIFO_RELAXED_KHR))
 					pPresentMode[0] = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+				if (key == GLFW_KEY_X) boiler.window().requestClose();
 			}
 		}));
 
