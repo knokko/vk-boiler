@@ -184,4 +184,65 @@ public class ColorPacker {
 				normalize(alpha(packedLinear))
 		);
 	}
+
+	/**
+	 * Creates a new color with the same red, green, and blue component as {@code color}, but with an alpha of
+	 * {@code newAlpha}
+	 * @param color The original color
+	 * @param newAlpha The new alpha component
+	 * @return The new color
+	 */
+	public static int changeAlpha(int color, byte newAlpha) {
+		return rgba(red(color), green(color), blue(color), newAlpha);
+	}
+
+	/**
+	 * Creates a new color with the same red, green, and blue component as {@code color}, but with an alpha of
+	 * {@code newAlpha} (which should be at least 0 and at most 255)
+	 * @param color The original color
+	 * @param newAlpha The new alpha component
+	 * @return The new color
+	 */
+	public static int changeAlpha(int color, int newAlpha) {
+		return changeAlpha(color, (byte) newAlpha);
+	}
+
+	/**
+	 * Creates a new color with the same red, green, and blue component as {@code color}, but with an alpha of
+	 * {@code newAlpha} (which should be at least 0f and at most 1f)
+	 * @param color The original color
+	 * @param newAlpha The new alpha component
+	 * @return The new color
+	 */
+	public static int changeAlpha(int color, float newAlpha) {
+		return changeAlpha(color, denormalize(newAlpha));
+	}
+
+	/**
+	 * Creates a new color with the same red, green, and blue component as {@code color}, but with an alpha of
+	 * {@code factor * alpha(color)}
+	 * @param color The original color
+	 * @param factor The number with which the alpha component of {@code color} should be multiplied
+	 * @return The new color
+	 */
+	public static int multiplyAlpha(int color, float factor) {
+		return changeAlpha(color, factor * normalize(alpha(color)));
+	}
+
+	/**
+	 * Performs a component-wise multiplication of the colors {@code a} and {@code b}, and returns the result.
+	 * To perform the multiplication, all components (red, green, blue, and alpha) are normalized such that they are at
+	 * least 0f and at most 1f.
+	 * @param a The 'left' color
+	 * @param b The 'right' color
+	 * @return The 'product' of {@code a} and {@code b}
+	 */
+	public static int multiplyColors(int a, int b) {
+		return rgba(
+				normalize(red(a)) * normalize(red(b)),
+				normalize(green(a)) * normalize(green(b)),
+				normalize(blue(a)) * normalize(blue(b)),
+				normalize(alpha(a)) * normalize(alpha(b))
+		);
+	}
 }

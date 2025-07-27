@@ -96,4 +96,47 @@ public class TestColorPacker {
 		assertEquals(42, unsigned(blue(testCase)));
 		assertEquals(123, unsigned(alpha(testCase)));
 	}
+
+	@Test
+	public void testChangeAlpha() {
+		int original = rgba(0, 100, 255, 200);
+
+		assertEquals(rgba(0, 100, 255, 0), changeAlpha(original, (byte) 0));
+		assertEquals(rgba(0, 100, 255, 0), changeAlpha(original, 0));
+		assertEquals(rgba(0, 100, 255, 0), changeAlpha(original, 0f));
+
+		assertEquals(rgba(0, 100, 255, 255), changeAlpha(original, (byte) -1));
+		assertEquals(rgba(0, 100, 255, 255), changeAlpha(original, 255));
+		assertEquals(rgba(0, 100, 255, 255), changeAlpha(original, 1f));
+
+		assertEquals(rgba(0, 100, 255, 128), changeAlpha(original, (byte) -128));
+		assertEquals(rgba(0, 100, 255, 128), changeAlpha(original, 128));
+		assertEquals(rgba(0, 100, 255, 128), changeAlpha(original, 0.501f));
+	}
+
+	@Test
+	public void testMultiplyAlphaFromOpaque() {
+		int original = rgb(0, 100, 255);
+		assertEquals(rgba(0, 100, 255, 0), multiplyAlpha(original, 0f));
+		assertEquals(rgba(0, 100, 255, 255), multiplyAlpha(original, 1f));
+		assertEquals(rgba(0, 100, 255, 128), multiplyAlpha(original, 0.501f));
+	}
+
+	@Test
+	public void testMultiplyAlphaFromTranslucent() {
+		int original = rgba(0, 100, 255, 200);
+		assertEquals(rgba(0, 100, 255, 0), multiplyAlpha(original, 0f));
+		assertEquals(rgba(0, 100, 255, 200), multiplyAlpha(original, 1f));
+		assertEquals(rgba(0, 100, 255, 100), multiplyAlpha(original, 0.5f));
+	}
+
+	@Test
+	public void testMultiplyColors() {
+		assertEquals(
+				rgba(0.36f, 0.42f, 0.72f, 0.9f), multiplyColors(
+						rgba(0.4f, 0.6f, 0.9f, 0.9f),
+						rgba(0.9f, 0.7f, 0.8f, 1f)
+				)
+		);
+	}
 }
