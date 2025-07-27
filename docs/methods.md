@@ -176,7 +176,9 @@ descriptor type.
 
 ### Updating descriptor sets
 You can use the `DescriptorUpdater` class to conveniently update
-descriptor sets, without too much boilerplate code.
+descriptor sets, without too much boilerplate code. Alternatively,
+you can use the `BulkDescriptorUpdater` class, which is more
+convenient in some cases.
 
 ## Images
 Almost all applications need to use images, but creating them

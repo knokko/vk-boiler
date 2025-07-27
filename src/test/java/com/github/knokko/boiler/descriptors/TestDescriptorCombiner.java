@@ -73,17 +73,17 @@ public class TestDescriptorCombiner {
 		long vkDescriptorPool = descriptors.build("SharedPool");
 
 		try (var stack = stackPush()) {
-			var updater = new DescriptorUpdater(stack, 26);
-			updater.writeUniformBuffer(0, uniformSets[0], 0, uniformBuffer);
-			updater.writeUniformBuffer(1, uniformSets[1], 0, uniformBuffer);
+			var updater = new BulkDescriptorUpdater(instance, stack, 3, 2, 0);
+			updater.writeUniformBuffer(uniformSets[0], 0, uniformBuffer);
+			updater.writeUniformBuffer(uniformSets[1], 0, uniformBuffer);
 			for (int index = 0; index < 6; index++) {
 				long combinedSet = index < 5 ? combinedSets1[index] : combinedSets2[index - 5];
-				updater.writeStorageBuffer(2 + 4 * index, combinedSet, 0, storageBuffer);
-				updater.writeStorageBuffer(3 + 4 * index, combinedSet, 2, storageBuffer);
-				updater.writeStorageBuffer(4 + 4 * index, combinedSet, 3, storageBuffer);
-				updater.writeUniformBuffer(5 + 4 * index, combinedSet, 1, uniformBuffer);
+				updater.writeStorageBuffer(combinedSet, 0, storageBuffer);
+				updater.writeStorageBuffer(combinedSet, 2, storageBuffer);
+				updater.writeStorageBuffer(combinedSet, 3, storageBuffer);
+				updater.writeUniformBuffer(combinedSet, 1, uniformBuffer);
 			}
-			updater.update(instance);
+			updater.finish();
 		}
 
 		vkDestroyDescriptorPool(instance.vkDevice(), vkDescriptorPool, null);

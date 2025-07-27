@@ -8,10 +8,7 @@ import com.github.knokko.boiler.builders.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.commands.SingleTimeCommands;
 import com.github.knokko.boiler.culling.FrustumCuller;
-import com.github.knokko.boiler.descriptors.DescriptorCombiner;
-import com.github.knokko.boiler.descriptors.DescriptorSetLayoutBuilder;
-import com.github.knokko.boiler.descriptors.DescriptorUpdater;
-import com.github.knokko.boiler.descriptors.VkbDescriptorSetLayout;
+import com.github.knokko.boiler.descriptors.*;
 import com.github.knokko.boiler.images.ImageBuilder;
 import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.BoilerInstance;
@@ -348,13 +345,16 @@ public class TerrainPlayground {
 					VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, "NormalSampler"
 			);
 
-			var updater = new DescriptorUpdater(stack, 3 * numFramesInFlight);
+			var updater = new BulkDescriptorUpdater(
+					boiler, null, 3 * numFramesInFlight,
+					numFramesInFlight, 2 * numFramesInFlight
+			);
 			for (int frame = 0; frame < numFramesInFlight; frame++) {
-				updater.writeUniformBuffer(3 * frame, descriptorSets[frame], 0, uniformBuffers[frame]);
-				updater.writeImage(3 * frame + 1, descriptorSets[frame], 1, persistent.heightImage.vkImageView, heightSampler);
-				updater.writeImage(3 * frame + 2, descriptorSets[frame], 2, persistent.normalImage.vkImageView, normalSampler);
+				updater.writeUniformBuffer(descriptorSets[frame], 0, uniformBuffers[frame]);
+				updater.writeImage(descriptorSets[frame], 1, persistent.heightImage.vkImageView, heightSampler);
+				updater.writeImage(descriptorSets[frame], 2, persistent.normalImage.vkImageView, normalSampler);
 			}
-			updater.update(boiler);
+			updater.finish();
 		}
 
 		var commandPool = boiler.commands.createPool(
