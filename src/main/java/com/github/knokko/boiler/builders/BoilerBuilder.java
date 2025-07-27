@@ -189,8 +189,9 @@ public class BoilerBuilder {
 	 * if the validation layer is not supported.
 	 */
 	public BoilerBuilder validation() {
+		boolean supportsGpuValidation = apiVersion != VK_API_VERSION_1_0 && apiVersion != VK_API_VERSION_1_1;
 		return this.validation(new ValidationFeatures(
-				apiVersion != VK_API_VERSION_1_0, apiVersion != VK_API_VERSION_1_0,
+				supportsGpuValidation, supportsGpuValidation,
 				true, true
 		));
 	}
