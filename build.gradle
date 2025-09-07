@@ -69,7 +69,7 @@ dependencies {
 	testRuntimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
 	testRuntimeOnly "org.lwjgl:lwjgl-sdl::$lwjglNatives"
 	testRuntimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
-	if (lwjglNatives == "natives-macos") testRuntimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
+	if (lwjglNatives.contains("macos")) testRuntimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
 
 	test {
 		useJUnitPlatform()

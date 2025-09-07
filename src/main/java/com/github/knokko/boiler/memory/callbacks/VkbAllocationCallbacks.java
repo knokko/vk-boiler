@@ -1,12 +1,15 @@
 package com.github.knokko.boiler.memory.callbacks;
 
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.Pointer;
 import org.lwjgl.vulkan.*;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.github.knokko.boiler.utilities.BoilerMath.nextMultipleOf;
 import static java.lang.Long.min;
+import static java.lang.Math.max;
 import static org.lwjgl.system.MemoryUtil.*;
 
 /**
@@ -34,11 +37,19 @@ public abstract class VkbAllocationCallbacks {
 	 */
 	protected final Map<Long, Long> allocationSizes = new ConcurrentHashMap<>();
 
+	protected long validAlignment(long alignment) {
+		return max(Pointer.POINTER_SIZE, alignment);
+	}
+
 	/**
 	 * Implements {@link VkAllocationCallbacks#pfnAllocation(VkAllocationFunctionI)}
 	 */
 	protected long allocate(long userData, long size, long alignment, int scope) {
-		if (size == 0L) return 0L;
+		if (size == 0L) return alignment;
+
+		alignment = validAlignment(alignment);
+		size = nextMultipleOf(size, alignment);
+
 		long allocation = nmemAlignedAlloc(alignment, size);
 		if (allocation != 0L) allocationSizes.put(allocation, size);
 		return allocation;
@@ -49,19 +60,22 @@ public abstract class VkbAllocationCallbacks {
 	 */
 	protected long relocate(long userData, long oldAllocation, long size, long alignment, int scope) {
 		if (size == 0L) {
-			if (oldAllocation != 0L) {
-				nmemAlignedFree(oldAllocation);
-				allocationSizes.remove(oldAllocation);
-			}
-			return 0L;
+			if (oldAllocation != 0L && allocationSizes.remove(oldAllocation) != null) nmemAlignedFree(oldAllocation);
+			return alignment;
 		}
+
+		alignment = validAlignment(alignment);
+		size = nextMultipleOf(size, alignment);
+
 		long newAllocation = nmemAlignedAlloc(alignment, size);
 		if (newAllocation == 0L) return 0L;
 
 		if (oldAllocation != 0L) {
-			long oldSize = allocationSizes.remove(oldAllocation);
-			memCopy(oldAllocation, newAllocation, min(oldSize, size));
-			nmemAlignedFree(oldAllocation);
+			Long oldSize = allocationSizes.remove(oldAllocation);
+			if (oldSize != null) {
+				memCopy(oldAllocation, newAllocation, min(oldSize, size));
+				nmemAlignedFree(oldAllocation);
+			}
 		}
 		allocationSizes.put(newAllocation, size);
 
@@ -72,10 +86,7 @@ public abstract class VkbAllocationCallbacks {
 	 * Implements {@link VkAllocationCallbacks#pfnFree(VkFreeFunctionI)}
 	 */
 	protected void free(long userData, long allocation) {
-		if (allocation != 0L) {
-			if (allocationSizes.remove(allocation) == null) throw new InvalidFreeException(allocation);
-			nmemAlignedFree(allocation);
-		}
+		if (allocation != 0L && allocationSizes.remove(allocation) != null) nmemAlignedFree(allocation);
 	}
 
 	/**
