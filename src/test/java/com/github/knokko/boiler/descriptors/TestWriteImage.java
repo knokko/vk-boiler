@@ -78,6 +78,11 @@ public class TestWriteImage {
 				vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 				recorder.bindComputeDescriptors(pipelineLayout, descriptorSet);
 				vkCmdDispatch(recorder.commandBuffer, 1, 1, 1);
+				recorder.bufferBarrier(
+						destinationBuffer,
+						ResourceUsage.computeBuffer(VK_ACCESS_SHADER_WRITE_BIT),
+						ResourceUsage.HOST_READ
+				);
 			}).destroy();
 
 			assertEquals(100, memGetInt(destinationBuffer.hostAddress));

@@ -235,6 +235,7 @@ public class TestCommandRecorder {
 				recorder.bulkCopyImages(images1, images2);
 				recorder.bulkTransitionLayout(ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE, images2);
 				recorder.bulkCopyImageToBuffers(images2, destinationBuffers);
+				recorder.bulkBufferBarrier(ResourceUsage.TRANSFER_DEST, ResourceUsage.HOST_READ, destinationBuffers);
 			}).destroy();
 
 			for (int index = 0; index < amount; index++) assertEquals(index, destinationBuffers[index].intBuffer().get());

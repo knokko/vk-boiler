@@ -62,6 +62,7 @@ public class TestBufferCopies {
 						recorder.copyBuffer(middleBuffer1, middleBuffer2);
 						recorder.bufferBarrier(middleBuffer2, ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE);
 						recorder.copyBuffer(middleBuffer2, destinationBuffer);
+						recorder.bufferBarrier(destinationBuffer, ResourceUsage.TRANSFER_DEST, ResourceUsage.HOST_READ);
 					}).destroy();
 
 					var destinationHostBuffer = destinationBuffer.byteBuffer();

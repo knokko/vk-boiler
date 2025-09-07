@@ -114,9 +114,9 @@ public class TestFenceSubmission {
 	}
 
 	private void assertCannotAwait(FenceSubmission submission) {
-		assertEquals(assertThrows(
+		assertEquals("Fence is not signaled, nor pending", assertThrows(
 				IllegalStateException.class, submission::awaitCompletion
-		).getMessage(), "Fence is not signaled, nor pending");
+		).getMessage());
 	}
 
 	static void emptySubmission(BoilerInstance instance, VkbFence fence) {

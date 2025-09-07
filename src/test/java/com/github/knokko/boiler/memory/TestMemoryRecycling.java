@@ -38,6 +38,7 @@ public class TestMemoryRecycling {
 		SingleTimeCommands.submit(instance, "SimpleCopyCheck", recorder -> {
 			for (var buffer : new VkbBuffer[] { newMappedBuffer, newDeviceBuffer }) {
 				vkCmdFillBuffer(recorder.commandBuffer, buffer.vkBuffer, buffer.offset, buffer.size, 123456);
+				recorder.bufferBarrier(buffer, ResourceUsage.TRANSFER_DEST, ResourceUsage.HOST_READ);
 			}
 			recorder.transitionLayout(newImage, null, ResourceUsage.TRANSFER_DEST);
 			recorder.clearColorImage(newImage.vkImage, 1f, 0f, 1f, 1f);
@@ -78,6 +79,7 @@ public class TestMemoryRecycling {
 		SingleTimeCommands.submit(instance, "SimpleCopyCheck", recorder -> {
 			for (var buffer : new VkbBuffer[] { newMappedBuffer, newDeviceBuffer }) {
 				vkCmdFillBuffer(recorder.commandBuffer, buffer.vkBuffer, buffer.offset, buffer.size, 123456);
+				recorder.bufferBarrier(buffer, ResourceUsage.TRANSFER_DEST, ResourceUsage.HOST_READ);
 			}
 			recorder.transitionLayout(newImage, null, ResourceUsage.TRANSFER_DEST);
 			recorder.clearColorImage(newImage.vkImage, 1f, 0f, 1f, 1f);

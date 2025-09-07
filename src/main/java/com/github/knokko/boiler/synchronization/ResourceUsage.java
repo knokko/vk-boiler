@@ -30,6 +30,10 @@ public record ResourceUsage(int imageLayout, int accessMask, int stageMask) {
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
 	);
 
+	public static final ResourceUsage HOST_READ = new ResourceUsage(
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_ACCESS_HOST_READ_BIT, VK_PIPELINE_STAGE_HOST_BIT
+	);
+
 	public static ResourceUsage depthStencilAttachmentWrite(int imageLayout) {
 		return new ResourceUsage(
 				imageLayout, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,

@@ -81,6 +81,7 @@ public class TestDynamicRendering {
 
 			recorder.transitionLayout(image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.TRANSFER_SOURCE);
 			recorder.copyImageToBuffer(image, destinationBuffer);
+			recorder.bufferBarrier(destinationBuffer, ResourceUsage.TRANSFER_DEST, ResourceUsage.HOST_READ);
 		}).destroy();
 
 		assertEquals((byte) 255, memGetByte(destinationBuffer.hostAddress));
@@ -164,6 +165,7 @@ public class TestDynamicRendering {
 					ResourceUsage.TRANSFER_SOURCE
 			);
 			recorder.copyImageToBuffer(image, destinationBuffer);
+			recorder.bufferBarrier(destinationBuffer, ResourceUsage.TRANSFER_DEST, ResourceUsage.HOST_READ);
 		}).destroy();
 
 		assertEquals(0.75f, memGetFloat(destinationBuffer.hostAddress));

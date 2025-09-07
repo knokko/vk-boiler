@@ -104,9 +104,12 @@ public class TestSharedBufferBuilder {
 		source2.byteBuffer().put((byte) 123);
 
 		SingleTimeCommands.submit(instance, "SharedShuffle", recorder -> {
-			recorder.bulkCopyBuffers(new VkbBuffer[] { source0, source1, source2 }, new VkbBuffer[] { middle0, middle1, middle2 });
-			recorder.bulkBufferBarrier(ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE, middle0, middle1, middle2);
-			recorder.bulkCopyBuffers(new VkbBuffer[] { middle0, middle1, middle2 }, new VkbBuffer[] { destination0, destination1, destination2 });
+			VkbBuffer[] middleBuffers = { middle0, middle1, middle2 };
+			recorder.bulkCopyBuffers(new VkbBuffer[] { source0, source1, source2 }, middleBuffers);
+			recorder.bulkBufferBarrier(ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_SOURCE, middleBuffers);
+			VkbBuffer[] destinationBuffers = { destination0, destination1, destination2 };
+			recorder.bulkCopyBuffers(middleBuffers, destinationBuffers);
+			recorder.bulkBufferBarrier(ResourceUsage.TRANSFER_DEST, ResourceUsage.HOST_READ, destinationBuffers);
 		}).destroy();
 
 		assertEquals(1234, destination0.intBuffer().get());

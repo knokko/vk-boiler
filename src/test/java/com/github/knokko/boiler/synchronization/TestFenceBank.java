@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.synchronization;
 
 import com.github.knokko.boiler.builders.BoilerBuilder;
-import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.BoilerInstance;
 import org.junit.jupiter.api.Test;
 
@@ -9,7 +8,6 @@ import java.util.Arrays;
 
 import static com.github.knokko.boiler.synchronization.TestFenceSubmission.emptySubmission;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class TestFenceBank {
