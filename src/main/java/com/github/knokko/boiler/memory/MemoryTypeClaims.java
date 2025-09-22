@@ -27,7 +27,7 @@ class MemoryTypeClaims {
 	final Collection<ImageClaim> images = new ArrayList<>();
 	private boolean mapMemory;
 
-	private long prepareAllocations() {
+	long prepareAllocations(long bufferImageGranularity) {
 		long offset = 0L;
 		for (BufferUsageClaims claim : buffers) {
 			offset = nextMultipleOf(offset, claim.memoryAlignment);
@@ -35,7 +35,22 @@ class MemoryTypeClaims {
 			offset += claim.memorySize;
 			if (claim.shouldMapMemory) mapMemory = true;
 		}
+
+		int numLinearImages = 0;
 		for (ImageClaim claim : images) {
+			if (claim.builder.tiling != VK_IMAGE_TILING_LINEAR) continue;
+			offset = nextMultipleOf(offset, claim.alignment);
+			claim.memoryOffset = offset;
+			offset += claim.memorySize;
+		}
+
+		if (numLinearImages == images.size()) return offset;
+
+		long bufferEndPage = offset & -bufferImageGranularity;
+		offset = bufferEndPage + bufferImageGranularity;
+
+		for (ImageClaim claim : images) {
+			if (claim.builder.tiling == VK_IMAGE_TILING_LINEAR) continue;
 			offset = nextMultipleOf(offset, claim.alignment);
 			claim.memoryOffset = offset;
 			offset += claim.memorySize;
@@ -47,7 +62,7 @@ class MemoryTypeClaims {
 			BoilerInstance instance, String name, boolean useVma, MemoryBlock old,
 			int memoryType, float priority, MemoryBlock block
 	) {
-		long size = prepareAllocations();
+		long size = prepareAllocations(instance.deviceProperties.limits().bufferImageGranularity());
 		long allocation;
 		long hostAddress = 0L;
 
