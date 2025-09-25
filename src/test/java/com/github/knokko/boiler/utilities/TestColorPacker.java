@@ -131,6 +131,17 @@ public class TestColorPacker {
 	}
 
 	@Test
+	public void testAddColors() {
+		assertEquals(
+				rgba(0, 100, 200, 255),
+				addColors(
+						rgba(0, 80, 20, 200),
+						rgb(0, 20, 180)
+				)
+		);
+	}
+
+	@Test
 	public void testMultiplyColors() {
 		assertEquals(
 				rgba(0.36f, 0.42f, 0.72f, 0.9f), multiplyColors(

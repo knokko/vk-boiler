@@ -230,6 +230,22 @@ public class ColorPacker {
 	}
 
 	/**
+	 * Performs a component-wise addition of the colors {@code a} and {@code b}, and returns the result. If the sum
+	 * of any component is larger than 255, it will be clamped to 255.
+	 * @param a The 'left' color
+	 * @param b The 'right' color
+	 * @return The 'sum' of {@code a} and {@code b}
+	 */
+	public static int addColors(int a, int b) {
+		return rgba(
+				min(255, unsigned(red(a)) + unsigned(red(b))),
+				min(255, unsigned(green(a)) + unsigned(green(b))),
+				min(255, unsigned(blue(a)) + unsigned(blue(b))),
+				min(255, unsigned(alpha(a)) + unsigned(alpha(b)))
+		);
+	}
+
+	/**
 	 * Performs a component-wise multiplication of the colors {@code a} and {@code b}, and returns the result.
 	 * To perform the multiplication, all components (red, green, blue, and alpha) are normalized such that they are at
 	 * least 0f and at most 1f.
