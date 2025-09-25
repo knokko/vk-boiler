@@ -7,10 +7,11 @@ import com.github.knokko.boiler.synchronization.ResourceUsage;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import java.nio.LongBuffer;
+
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static com.github.knokko.boiler.utilities.ColorPacker.*;
-import static org.lwjgl.system.MemoryUtil.NULL;
-import static org.lwjgl.system.MemoryUtil.memFree;
+import static org.lwjgl.system.MemoryUtil.*;
 import static org.lwjgl.vulkan.KHRDynamicRendering.vkCmdBeginRenderingKHR;
 import static org.lwjgl.vulkan.KHRDynamicRendering.vkCmdEndRenderingKHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -21,7 +22,7 @@ import static org.lwjgl.vulkan.VK13.*;
  * This is a wrapper class for <i>VkCommandBuffer</i> that provides convenient methods to get rid of boilerplate code
  * for command buffer recording.
  */
-@SuppressWarnings("resource")
+@SuppressWarnings({"resource", "NullableProblems"})
 public class CommandRecorder {
 
 	/**
@@ -69,6 +70,20 @@ public class CommandRecorder {
 	public final VkCommandBuffer commandBuffer;
 	private final BoilerInstance instance;
 
+	private final ReuseStruct<VkBufferCopy, VkBufferCopy.Buffer> reuseBufferCopy;
+	private final ReuseStruct<VkImageCopy, VkImageCopy.Buffer> reuseImageCopy;
+	private final ReuseStruct<VkBufferImageCopy, VkBufferImageCopy.Buffer> reuseBufferImageCopy;
+	private final ReuseStruct<VkImageBlit, VkImageBlit.Buffer> reuseImageBlit;
+	private final ReuseStruct<VkClearColorValue, VkClearColorValue.Buffer> reuseClearColors;
+	private final ReuseStruct<VkImageSubresourceRange, VkImageSubresourceRange.Buffer> reuseSubresourceRange;
+	private final ReuseStruct<VkBufferMemoryBarrier, VkBufferMemoryBarrier.Buffer> reuseBufferBarriers;
+	private final ReuseStruct<VkImageMemoryBarrier, VkImageMemoryBarrier.Buffer> reuseImageBarriers;
+	private final ReuseStruct<VkRenderingInfo, VkRenderingInfo.Buffer> reuseRenderingInfo;
+	private final ReuseStruct<VkViewport, VkViewport.Buffer> reuseViewports;
+	private final ReuseStruct<VkRect2D, VkRect2D.Buffer> reuseRectangles;
+	private LongBuffer reuseLongs;
+	private boolean reuseLongsOnHeap;
+
 	/**
 	 * The <i>MemoryStack</i> that the recorder may use. It is guaranteed to be valid until recording is finished.
 	 */
@@ -80,6 +95,55 @@ public class CommandRecorder {
 		this.instance = instance;
 		this.stack = stack;
 		this.context = context;
+
+		this.reuseBufferCopy = new ReuseStruct<>(
+				capacity -> VkBufferCopy.calloc(capacity, stack), VkBufferCopy::calloc
+		);
+		this.reuseImageCopy = new ReuseStruct<>(
+				capacity -> VkImageCopy.calloc(capacity, stack), VkImageCopy::calloc
+		);
+		this.reuseBufferImageCopy = new ReuseStruct<>(
+				capacity -> VkBufferImageCopy.calloc(capacity, stack), VkBufferImageCopy::calloc
+		);
+		this.reuseImageBlit = new ReuseStruct<>(
+				capacity -> VkImageBlit.calloc(capacity, stack), VkImageBlit::calloc
+		);
+		this.reuseClearColors = new ReuseStruct<>(
+				capacity -> VkClearColorValue.calloc(capacity, stack), VkClearColorValue::calloc
+		);
+		this.reuseSubresourceRange = new ReuseStruct<>(
+				capacity -> VkImageSubresourceRange.calloc(capacity, stack), VkImageSubresourceRange::calloc
+		);
+		this.reuseBufferBarriers = new ReuseStruct<>(
+				capacity -> VkBufferMemoryBarrier.calloc(capacity, stack), VkBufferMemoryBarrier::calloc
+		);
+		this.reuseImageBarriers = new ReuseStruct<>(
+				capacity -> VkImageMemoryBarrier.calloc(capacity, stack), VkImageMemoryBarrier::calloc
+		);
+		this.reuseRenderingInfo = new ReuseStruct<>(
+				capacity -> VkRenderingInfo.calloc(capacity, stack), VkRenderingInfo::calloc
+		);
+		this.reuseViewports = new ReuseStruct<>(
+				capacity -> VkViewport.calloc(capacity, stack), VkViewport::calloc
+		);
+		this.reuseRectangles = new ReuseStruct<>(
+				capacity -> VkRect2D.calloc(capacity, stack), VkRect2D::calloc
+		);
+	}
+
+	private LongBuffer allocateLongs(int capacity) {
+		if (reuseLongs == null || reuseLongs.capacity() < capacity) {
+			if (capacity >= 5) {
+				if (reuseLongsOnHeap) memFree(reuseLongs);
+				reuseLongs = memCallocLong(capacity);
+				reuseLongsOnHeap = true;
+			} else reuseLongs = stack.callocLong(capacity);
+		} else {
+			reuseLongs.position(0);
+			reuseLongs.limit(capacity);
+			memSet(reuseLongs, 0);
+		}
+		return reuseLongs;
 	}
 
 	/**
@@ -91,7 +155,8 @@ public class CommandRecorder {
 		if (source.size != destination.size) throw new IllegalArgumentException(
 				"Source size is " + source.size + ", but destination size is " + destination.size
 		);
-		var copyStruct = VkBufferCopy.calloc(1, stack);
+
+		var copyStruct = reuseBufferCopy.allocate(1);
 		copyStruct.srcOffset(source.offset);
 		copyStruct.dstOffset(destination.offset);
 		copyStruct.size(source.size);
@@ -112,10 +177,9 @@ public class CommandRecorder {
 		);
 		if (sources.length == 0) return;
 
-		boolean useHeap = sources.length > 10;
 		int capacity = Math.min(sources.length, 100);
+		var copyStructs = reuseBufferCopy.allocate(capacity);
 
-		var copyStructs = useHeap ? VkBufferCopy.calloc(capacity) : VkBufferCopy.calloc(capacity, stack);
 		int structIndex = 0;
 		long sourceVkBuffer = sources[0].vkBuffer;
 		long destinationVkBuffer = destinations[0].vkBuffer;
@@ -141,8 +205,6 @@ public class CommandRecorder {
 
 		copyStructs.limit(structIndex);
 		vkCmdCopyBuffer(commandBuffer, sourceVkBuffer, destinationVkBuffer, copyStructs);
-
-		if (useHeap) copyStructs.free();
 	}
 
 	/**
@@ -151,7 +213,7 @@ public class CommandRecorder {
 	 * @param destination The destination image
 	 */
 	public void copyImage(VkbImage source, VkbImage destination) {
-		var copyStruct = VkImageCopy.calloc(1, stack);
+		var copyStruct = reuseImageCopy.allocate(1);
 		instance.images.subresourceLayers(copyStruct.srcSubresource(), source.aspectMask);
 		copyStruct.srcOffset().set(0, 0, 0);
 		instance.images.subresourceLayers(copyStruct.dstSubresource(), destination.aspectMask);
@@ -171,7 +233,7 @@ public class CommandRecorder {
 	 * @param destinations The destination images
 	 */
 	public void bulkCopyImages(VkbImage[] sources, VkbImage[] destinations) {
-		var copyStruct = VkImageCopy.calloc(1, stack);
+		var copyStruct = reuseImageCopy.allocate(1);
 		copyStruct.srcOffset().set(0, 0, 0);
 		copyStruct.dstOffset().set(0, 0, 0);
 
@@ -194,7 +256,7 @@ public class CommandRecorder {
 	 * @param destination The destination image
 	 */
 	public void blitImage(int filter, VkbImage source, VkbImage destination) {
-		var imageBlitRegions = VkImageBlit.calloc(1, stack);
+		var imageBlitRegions = reuseImageBlit.allocate(1);
 		var blitRegion = imageBlitRegions.get(0);
 		instance.images.subresourceLayers(blitRegion.srcSubresource(), source.aspectMask);
 		blitRegion.srcOffsets().get(0).set(0, 0, 0);
@@ -210,7 +272,7 @@ public class CommandRecorder {
 	}
 
 	public void bulkBlitImages(int filter, VkbImage[] sources, VkbImage[] destinations) {
-		var imageBlitRegions = VkImageBlit.calloc(1, stack);
+		var imageBlitRegions = reuseImageBlit.allocate(1);
 		var blitRegion = imageBlitRegions.get(0);
 		blitRegion.srcOffsets().get(0).set(0, 0, 0);
 		blitRegion.dstOffsets().get(0).set(0, 0, 0);
@@ -237,7 +299,7 @@ public class CommandRecorder {
 	 * @param buffer The destination buffer
 	 */
 	public void copyImageToBuffer(VkbImage image, VkbBuffer buffer) {
-		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
+		var bufferCopyRegions = reuseBufferImageCopy.allocate(1);
 		var copyRegion = bufferCopyRegions.get(0);
 		copyRegion.bufferOffset(buffer.offset);
 		copyRegion.bufferRowLength(0);
@@ -258,7 +320,7 @@ public class CommandRecorder {
 	 * @param buffers The destination buffers
 	 */
 	public void bulkCopyImageToBuffers(VkbImage[] images, VkbBuffer[] buffers) {
-		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
+		var bufferCopyRegions = reuseBufferImageCopy.allocate(1);
 		var copyRegion = bufferCopyRegions.get(0);
 		copyRegion.bufferRowLength(0);
 		copyRegion.bufferImageHeight(0);
@@ -282,7 +344,7 @@ public class CommandRecorder {
 	 * @param buffer The source buffer (segment)
 	 */
 	public void copyBufferToImage(VkbImage image, VkbBuffer buffer) {
-		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
+		var bufferCopyRegions = reuseBufferImageCopy.allocate(1);
 		var copyRegion = bufferCopyRegions.get(0);
 		copyRegion.bufferOffset(buffer.offset);
 		copyRegion.bufferRowLength(0);
@@ -306,7 +368,7 @@ public class CommandRecorder {
 	public void bulkCopyBufferToImage(VkbImage[] images, VkbBuffer[] buffers) {
 		if (images.length != buffers.length) throw new IllegalArgumentException("#images must be equal to #buffers");
 
-		var bufferCopyRegions = VkBufferImageCopy.calloc(1, stack);
+		var bufferCopyRegions = reuseBufferImageCopy.allocate(1);
 		var copyRegion = bufferCopyRegions.get(0);
 		copyRegion.bufferRowLength(0);
 		copyRegion.bufferImageHeight(0);
@@ -331,7 +393,7 @@ public class CommandRecorder {
 	 * @param dstUsage The <i>dstAccessMask</i> and <i>dstStageMask</i>
 	 */
 	public void bufferBarrier(VkbBuffer buffer, ResourceUsage srcUsage, ResourceUsage dstUsage) {
-		var bufferBarrier = VkBufferMemoryBarrier.calloc(1, stack);
+		var bufferBarrier = reuseBufferBarriers.allocate(1);
 		bufferBarrier.sType$Default();
 		bufferBarrier.srcAccessMask(srcUsage.accessMask());
 		bufferBarrier.dstAccessMask(dstUsage.accessMask());
@@ -355,9 +417,8 @@ public class CommandRecorder {
 	 * @param buffers The buffer (segments) for which a pipeline barrier should be recorded
 	 */
 	public void bulkBufferBarrier(ResourceUsage srcUsage, ResourceUsage dstUsage, VkbBuffer... buffers) {
-		boolean useHeap = buffers.length > 10;
 		int capacity = Math.min(buffers.length, 100);
-		var pBufferBarriers = useHeap ? VkBufferMemoryBarrier.calloc(capacity) : VkBufferMemoryBarrier.calloc(capacity, stack);
+		var pBufferBarriers = reuseBufferBarriers.allocate(capacity);
 
 		for (int index = 0; index < capacity; index++) {
 			var bufferBarrier = pBufferBarriers.get(index);
@@ -387,8 +448,6 @@ public class CommandRecorder {
 				index = 0;
 			}
 		}
-
-		if (useHeap) memFree(pBufferBarriers);
 	}
 
 	/**
@@ -400,10 +459,12 @@ public class CommandRecorder {
 	 * @param alpha The alpha component of the clear color, in range [0, 1]
 	 */
 	public void clearColorImage(long vkImage, float red, float green, float blue, float alpha) {
-		var pColor = VkClearColorValue.calloc(stack);
+		var pColor = reuseClearColors.allocate(1).get(0);
 		pColor.float32(stack.floats(red, green, blue, alpha));
 
-		var pRange = instance.images.subresourceRange(stack, null, VK_IMAGE_ASPECT_COLOR_BIT);
+		var pRange = instance.images.subresourceRange(
+				stack, reuseSubresourceRange.allocate(1).get(0), VK_IMAGE_ASPECT_COLOR_BIT
+		);
 		vkCmdClearColorImage(commandBuffer, vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pColor, pRange);
 	}
 
@@ -417,7 +478,7 @@ public class CommandRecorder {
 	public void transitionLayout(
 			VkbImage image, ResourceUsage oldUsage, ResourceUsage newUsage
 	) {
-		var pImageBarrier = VkImageMemoryBarrier.calloc(1, stack);
+		var pImageBarrier = reuseImageBarriers.allocate(1);
 		pImageBarrier.sType$Default();
 		pImageBarrier.srcAccessMask(oldUsage != null ? oldUsage.accessMask() : 0);
 		pImageBarrier.dstAccessMask(newUsage.accessMask());
@@ -442,9 +503,8 @@ public class CommandRecorder {
 	 * @param images The images whose layout should be transitioned
 	 */
 	public void bulkTransitionLayout(ResourceUsage oldUsage, ResourceUsage newUsage, VkbImage... images) {
-		boolean useHeap = images.length > 10;
 		int capacity = Math.min(images.length, 100);
-		var pImageBarriers = useHeap ? VkImageMemoryBarrier.calloc(capacity) : VkImageMemoryBarrier.calloc(capacity, stack);
+		var pImageBarriers = reuseImageBarriers.allocate(capacity);
 
 		for (int index = 0; index < capacity; index++) {
 			var pImageBarrier = pImageBarriers.get(index);
@@ -475,8 +535,6 @@ public class CommandRecorder {
 				index = 0;
 			}
 		}
-
-		if (useHeap) memFree(pImageBarriers);
 	}
 
 	/**
@@ -559,7 +617,7 @@ public class CommandRecorder {
 			VkRenderingAttachmentInfo depthAttachment,
 			VkRenderingAttachmentInfo stencilAttachment
 	) {
-		var renderingInfo = VkRenderingInfo.calloc(stack);
+		var renderingInfo = reuseRenderingInfo.allocate(1).get(0);
 		renderingInfo.sType$Default();
 		renderingInfo.flags(0);
 		renderingInfo.renderArea().offset().set(0, 0);
@@ -575,8 +633,10 @@ public class CommandRecorder {
 	}
 
 	private void bindDescriptors(int bindPoint, long pipelineLayout, long... descriptorSets) {
+		LongBuffer pDescriptorSets = allocateLongs(descriptorSets.length);
+		pDescriptorSets.put(0, descriptorSets);
 		vkCmdBindDescriptorSets(
-				commandBuffer, bindPoint, pipelineLayout, 0, stack.longs(descriptorSets), null
+				commandBuffer, bindPoint, pipelineLayout, 0, pDescriptorSets, null
 		);
 	}
 
@@ -605,8 +665,9 @@ public class CommandRecorder {
 	 * @param vertexBuffers The vertex buffer (segments) that should be propagated to {@code pBuffers} and {@code pOffsets}
 	 */
 	public void bindVertexBuffers(int firstBinding, VkbBuffer... vertexBuffers) {
-		var pBuffers = stack.callocLong(vertexBuffers.length);
-		var pOffsets = stack.callocLong(vertexBuffers.length);
+		LongBuffer pointers = allocateLongs(2 * vertexBuffers.length);
+		LongBuffer pBuffers = pointers.slice(0, vertexBuffers.length);
+		LongBuffer pOffsets = pointers.slice(vertexBuffers.length, vertexBuffers.length);
 		for (int index = 0; index < vertexBuffers.length; index++) {
 			pBuffers.put(index, vertexBuffers[index].vkBuffer);
 			pOffsets.put(index, vertexBuffers[index].offset);
@@ -637,7 +698,7 @@ public class CommandRecorder {
 	 * @param height The height of the viewport and scissor, in pixels
 	 */
 	public void dynamicViewportAndScissor(int width, int height) {
-		var pViewport = VkViewport.calloc(1, stack);
+		var pViewport = reuseViewports.allocate(1);
 		pViewport.x(0f);
 		pViewport.y(0f);
 		pViewport.width((float) width);
@@ -645,7 +706,7 @@ public class CommandRecorder {
 		pViewport.minDepth(0f);
 		pViewport.maxDepth(1f);
 
-		var pScissor = VkRect2D.calloc(1, stack);
+		var pScissor = reuseRectangles.allocate(1);
 		pScissor.offset().set(0, 0);
 		pScissor.extent().set(width, height);
 
@@ -661,6 +722,18 @@ public class CommandRecorder {
 	 */
 	public void end(String context) {
 		assertVkSuccess(vkEndCommandBuffer(commandBuffer), "EndCommandBuffer", context);
+		reuseBufferCopy.cleanUp();
+		reuseImageCopy.cleanUp();
+		reuseBufferImageCopy.cleanUp();
+		reuseImageBlit.cleanUp();
+		reuseClearColors.cleanUp();
+		reuseSubresourceRange.cleanUp();
+		reuseBufferBarriers.cleanUp();
+		reuseImageBarriers.cleanUp();
+		reuseRenderingInfo.cleanUp();
+		reuseViewports.cleanUp();
+		reuseRectangles.cleanUp();
+		if (reuseLongsOnHeap) memFree(reuseLongs);
 	}
 
 	/**

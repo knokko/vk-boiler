@@ -26,8 +26,8 @@ import static org.lwjgl.vulkan.VK10.*;
  *     </li>
  * </ol>
  * After following these steps, it's time to actually create the image. The recommended approach is to use the
- * {@link com.github.knokko.boiler.memory.MemoryCombiner#addImage(ImageBuilder)} method. Alternatively, you can use
- * the {@link #createRaw} method.
+ * {@link com.github.knokko.boiler.memory.MemoryCombiner#addImage(ImageBuilder, float)} method.
+ * Alternatively, you can use the {@link #createRaw} method.
  */
 public class ImageBuilder {
 
@@ -241,6 +241,17 @@ public class ImageBuilder {
 	 */
 	public ImageBuilder depthAttachment(int format) {
 		return this.format(format).setUsage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT).aspectMask(VK_IMAGE_ASPECT_DEPTH_BIT);
+	}
+
+	/**
+	 * <ul>
+	 *     <li>Sets {@code this.format} to <i>VK_FORMAT_R8G8B8A8_SRGB</i></li>
+	 *     <li>Adds <i>VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT</i> to {@link #usage}</li>
+	 * </ul>
+	 * @return this
+	 */
+	public ImageBuilder colorAttachment() {
+		return this.format(VK_FORMAT_R8G8B8A8_SRGB).addUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 	}
 
 	/**

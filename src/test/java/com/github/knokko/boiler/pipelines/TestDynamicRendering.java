@@ -30,13 +30,14 @@ public class TestDynamicRendering {
 
 		int width = 100;
 		int height = 50;
-		var format = VK_FORMAT_R8G8B8A8_UNORM;
 
 		var combiner = new MemoryCombiner(instance, "Memory");
-		var image = combiner.addImage(new ImageBuilder("TestColorAttachment", width, height).format(format).setUsage(
-				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-		), 1f);
-		var destinationBuffer = combiner.addMappedBuffer(4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		var image = combiner.addImage(new ImageBuilder(
+				"TestColorAttachment", width, height
+		).colorAttachment().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT), 1f);
+		var destinationBuffer = combiner.addMappedBuffer(
+				4 * width * height, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT
+		);
 		var memory = combiner.build(true);
 
 		long pipelineLayout;
@@ -60,7 +61,7 @@ public class TestDynamicRendering {
 			pipeline.noMultisampling();
 			pipeline.simpleColorBlending(1);
 			ciPipeline.pDynamicState(null);
-			pipeline.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, format);
+			pipeline.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, VK_FORMAT_R8G8B8A8_SRGB);
 			ciPipeline.basePipelineHandle(VK_NULL_HANDLE);
 			ciPipeline.basePipelineIndex(0);
 
