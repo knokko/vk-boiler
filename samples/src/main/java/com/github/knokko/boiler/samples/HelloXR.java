@@ -50,6 +50,7 @@ public class HelloXR {
 		}
 	}
 
+	@SuppressWarnings("resource")
 	public static void main(String[] args) throws InterruptedException {
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_3, "HelloXR", 1

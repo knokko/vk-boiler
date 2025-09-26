@@ -275,8 +275,20 @@ public class TestBoilerBuilder {
 	}
 
 	@Test
+	public void doNotUseVk11FeaturesBeforeVk12() {
+		// For some reason, VkPhysicalDeviceVulkan11Features requires VK 1.2
+		var builder = new BoilerBuilder(VK_API_VERSION_1_1, "TestVk11FeaturesBeforeVk12", 1)
+				.featurePicker11((stack, supported, enable) -> fail())
+				.requiredFeatures11("nope", supportedFeatures -> {
+					assertNull(supportedFeatures);
+					return false;
+				});
+		assertThrows(NoVkPhysicalDeviceException.class, builder::build);
+	}
+
+	@Test
 	public void testRequiredFeatures11() {
-		int[] versions = {VK_API_VERSION_1_1, VK_API_VERSION_1_2, VK_API_VERSION_1_3, VK_API_VERSION_1_4};
+		int[] versions = {VK_API_VERSION_1_2, VK_API_VERSION_1_3, VK_API_VERSION_1_4};
 		for (int version : versions) testRequiredFeatures11(version);
 	}
 

@@ -34,7 +34,9 @@ record SupportedFeatures(
 			VkPhysicalDeviceVulkan12Features supportedFeatures12 = null;
 			VkPhysicalDeviceVulkan13Features supportedFeatures13 = null;
 			VkPhysicalDeviceVulkan14Features supportedFeatures14 = null;
-			if (minorVersion >= 1 && check11) {
+
+			// Yeah... for some reason... Vulkan11Features requires VK 1.2 rather than VK 1.1
+			if (minorVersion >= 2 && check11) {
 				supportedFeatures11 = VkPhysicalDeviceVulkan11Features.calloc(stack);
 				supportedFeatures11.sType$Default();
 				supportedFeatures.pNext(supportedFeatures11);
