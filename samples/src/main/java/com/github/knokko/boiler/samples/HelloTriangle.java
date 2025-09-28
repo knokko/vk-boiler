@@ -8,7 +8,7 @@ import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
-import com.github.knokko.boiler.window.AcquiredImage;
+import com.github.knokko.boiler.window.AcquiredImage2;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
@@ -177,10 +177,10 @@ public class HelloTriangle {
 		var swapchainResources = new SwapchainResourceManager<Object, Long>() {
 
 			@Override
-			protected Long createImage(Object swapchain, AcquiredImage swapchainImage) {
+			protected Long createImage(Object swapchain, AcquiredImage2 swapchainImage) {
 				return boiler.images.createFramebuffer(
-						renderPass, swapchainImage.width(), swapchainImage.height(),
-						"TriangleFramebuffer", swapchainImage.image().vkImageView
+						renderPass, swapchainImage.getWidth(), swapchainImage.getHeight(),
+						"TriangleFramebuffer", swapchainImage.image.vkImageView
 				);
 			}
 
@@ -260,12 +260,12 @@ public class HelloTriangle {
 				biRenderPass.renderPass(renderPass);
 				biRenderPass.framebuffer(framebuffer);
 				biRenderPass.renderArea().offset().set(0, 0);
-				biRenderPass.renderArea().extent().set(swapchainImage.width(), swapchainImage.height());
+				biRenderPass.renderArea().extent().set(swapchainImage.getWidth(), swapchainImage.getHeight());
 				biRenderPass.clearValueCount(1);
 				biRenderPass.pClearValues(pColorClear);
 
 				vkCmdBeginRenderPass(commandBuffer, biRenderPass, VK_SUBPASS_CONTENTS_INLINE);
-				recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
+				recorder.dynamicViewportAndScissor(swapchainImage.getWidth(), swapchainImage.getHeight());
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
 				recorder.bindVertexBuffers(0, vertexBuffer);
@@ -274,11 +274,11 @@ public class HelloTriangle {
 				vkCmdEndRenderPass(commandBuffer);
 				assertVkSuccess(vkEndCommandBuffer(commandBuffer), "TriangleDrawing", null);
 
-				var renderSubmission = boiler.queueFamilies().graphics().first().submit(
-						commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
+				boiler.queueFamilies().graphics().first().submit(
+						commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore
 				);
 
-				boiler.window().presentSwapchainImage(swapchainImage, renderSubmission);
+				boiler.window().presentSwapchainImage(swapchainImage);
 				frameCounter += 1;
 			}
 		}

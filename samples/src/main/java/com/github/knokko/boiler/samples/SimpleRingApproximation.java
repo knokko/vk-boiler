@@ -11,6 +11,7 @@ import com.github.knokko.boiler.synchronization.VkbFence;
 import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
+import com.github.knokko.boiler.window.AcquiredImage2;
 import com.github.knokko.boiler.window.VkbWindow;
 import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.system.MemoryStack;
@@ -82,8 +83,8 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 	}
 
 	@Override
-	protected AwaitableSubmission renderFrame(
-			MemoryStack stack, int frameIndex, AcquiredImage swapchainImage, BoilerInstance boiler
+	protected void renderFrame(
+			MemoryStack stack, int frameIndex, AcquiredImage2 swapchainImage, BoilerInstance boiler
 	) {
 		WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
 				swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
@@ -96,22 +97,22 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 
 		recorder.transitionLayout(
-				swapchainImage.image(),
+				swapchainImage.image,
 				ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
 				ResourceUsage.COLOR_ATTACHMENT_WRITE
 		);
 
 		var colorAttachments = recorder.singleColorRenderingAttachment(
-				swapchainImage.image().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
+				swapchainImage.image.vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 				VK_ATTACHMENT_STORE_OP_STORE, rgb(20, 120, 180)
 		);
 
 		recorder.beginSimpleDynamicRendering(
-				swapchainImage.width(), swapchainImage.height(),
+				swapchainImage.getWidth(), swapchainImage.getHeight(),
 				colorAttachments, null, null
 		);
 
-		recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
+		recorder.dynamicViewportAndScissor(swapchainImage.getWidth(), swapchainImage.getHeight());
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
 		int numTriangles = 30_000_000;
@@ -127,12 +128,12 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		vkCmdDraw(commandBuffer, 6 * numTriangles, 1, 0, 0);
 		recorder.endDynamicRendering();
 
-		recorder.transitionLayout(swapchainImage.image(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
+		recorder.transitionLayout(swapchainImage.image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
 
 		recorder.end();
 
-		return boiler.queueFamilies().graphics().first().submit(
-				commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore()
+		boiler.queueFamilies().graphics().first().submit(
+				commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore
 		);
 	}
 

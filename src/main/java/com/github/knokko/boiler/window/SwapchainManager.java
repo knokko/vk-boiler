@@ -3,6 +3,7 @@ package com.github.knokko.boiler.window;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -11,26 +12,45 @@ class SwapchainManager {
 	private final int maxOldSwapchains;
 	private final List<SwapchainWrapper> oldSwapchains = new ArrayList<>();
 
+	private final long[] acquireSemaphores;
 	private final Set<Integer> supportedPresentModes = new HashSet<>();
 	private final Set<Integer> usedPresentModes = new HashSet<>();
+	private final Set<SwapchainResourceManager<?, ?>> associations = ConcurrentHashMap.newKeySet();
 
 	private final SwapchainFunctions functions;
 	private final String debugName;
 
 	private SwapchainWrapper currentSwapchain;
 	private int currentSwapchainID;
-	private int currentWidth, currentHeight;
+	int currentWidth, currentHeight;
 
 	private final VkSurfaceCapabilitiesKHR surfaceCapabilities = VkSurfaceCapabilitiesKHR.calloc();
 
 	SwapchainManager(
-			int maxOldSwapchains, Collection<Integer> supportedPresentModes,
-			SwapchainFunctions functions, String debugName
+			int framesInFlight, int maxOldSwapchains, Collection<Integer> supportedPresentModes,
+			Collection<Integer> preparedPresentModes, SwapchainFunctions functions, String debugName
 	) {
+		this.acquireSemaphores = new long[framesInFlight];
+		for (int frame = 0; frame < framesInFlight; frame++) {
+			acquireSemaphores[frame] = functions.borrowSemaphore(debugName + "Acquire" + frame);
+		}
 		this.maxOldSwapchains = maxOldSwapchains;
+		this.usedPresentModes.addAll(preparedPresentModes);
 		this.supportedPresentModes.addAll(supportedPresentModes);
 		this.functions = functions;
 		this.debugName = debugName;
+	}
+
+	private void maybeRecreateSwapchain(int presentMode) {
+		int oldWidth = currentWidth;
+		int oldHeight = currentHeight;
+
+		updateSize();
+
+		boolean shouldRecreate = oldWidth != currentWidth || oldHeight != currentHeight;
+		if (currentWidth == 0 || currentHeight == 0) shouldRecreate = false;
+
+		if (shouldRecreate) recreateSwapchain(presentMode);
 	}
 
 	AcquiredImage2 acquire(int presentMode, boolean useFence) {
@@ -62,7 +82,7 @@ class SwapchainManager {
 	}
 
 	private void recreateSwapchain(int presentMode) {
-		oldSwapchains.add(currentSwapchain);
+		if (currentSwapchain != null) oldSwapchains.add(currentSwapchain);
 		if (maxOldSwapchains > oldSwapchains.size()) {
 			functions.deviceWaitIdle();
 			for (var swapchain : oldSwapchains) swapchain.destroy();
@@ -84,12 +104,12 @@ class SwapchainManager {
 		currentSwapchainID += 1;
 
 		currentSwapchain = functions.createSwapchain(
-				presentMode, usedPresentModes, currentWidth, currentHeight,
+				presentMode, usedPresentModes, associations, currentWidth, currentHeight, acquireSemaphores,
 				oldSwapchain, surfaceCapabilities, "Swapchain-" + debugName + currentSwapchainID
 		);
 	}
 
-	private void updateSize() {
+	void updateSize() {
 		//assertMainThread();
 		functions.getSurfaceCapabilities(surfaceCapabilities);
 		int width = surfaceCapabilities.currentExtent().width();
@@ -128,10 +148,12 @@ class SwapchainManager {
 	}
 
 	void destroy() {
+		for (var association : associations) association.destroy();
 		surfaceCapabilities.free();
 		if (currentSwapchain != null || !oldSwapchains.isEmpty()) functions.deviceWaitIdle();
 		for (SwapchainWrapper swapchain : oldSwapchains) swapchain.destroy();
 		oldSwapchains.clear();
 		if (currentSwapchain != null) currentSwapchain.destroy();
+		for (long semaphore : acquireSemaphores) functions.returnSemaphore(semaphore);
 	}
 }

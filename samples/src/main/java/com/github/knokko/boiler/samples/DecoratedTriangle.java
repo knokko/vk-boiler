@@ -9,10 +9,7 @@ import com.github.knokko.boiler.memory.MemoryBlock;
 import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
-import com.github.knokko.boiler.window.AcquiredImage;
-import com.github.knokko.boiler.window.SimpleWindowRenderLoop;
-import com.github.knokko.boiler.window.VkbWindow;
-import com.github.knokko.boiler.window.WindowEventLoop;
+import com.github.knokko.boiler.window.*;
 import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.sdl.SDL_MouseMotionEvent;
 import org.lwjgl.sdl.SDL_Point;
@@ -170,17 +167,17 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 	}
 
 	@Override
-	protected void recordFrame(MemoryStack stack, int frameIndex, CommandRecorder recorder, AcquiredImage acquiredImage, BoilerInstance instance) {
+	protected void recordFrame(MemoryStack stack, int frameIndex, CommandRecorder recorder, AcquiredImage2 acquiredImage, BoilerInstance instance) {
 		var colorAttachments = recorder.singleColorRenderingAttachment(
-				acquiredImage.image().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
+				acquiredImage.image.vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 				VK_ATTACHMENT_STORE_OP_STORE, rgb(20, 120, 180)
 		);
 
 		recorder.beginSimpleDynamicRendering(
-				acquiredImage.width(), acquiredImage.height(),
+				acquiredImage.getWidth(), acquiredImage.getHeight(),
 				colorAttachments, null, null
 		);
-		recorder.dynamicViewportAndScissor(acquiredImage.width(), acquiredImage.height());
+		recorder.dynamicViewportAndScissor(acquiredImage.getWidth(), acquiredImage.getHeight());
 		vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 		recorder.bindVertexBuffers(0, vertexBuffer);
 		vkCmdDraw(recorder.commandBuffer, 3 * NUM_TRIANGLES, 1, 0, 0);

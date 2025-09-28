@@ -82,9 +82,9 @@ public class MultipleWindows {
 		@Override
 		protected void recordFrame(
 				MemoryStack stack, int frameIndex, CommandRecorder recorder,
-				AcquiredImage swapchainImage, BoilerInstance boiler
+				AcquiredImage2 swapchainImage, BoilerInstance boiler
 		) {
-			recorder.clearColorImage(swapchainImage.image().vkImage, red, green, blue, 1f);
+			recorder.clearColorImage(swapchainImage.image.vkImage, red, green, blue, 1f);
 		}
 	}
 
@@ -133,19 +133,19 @@ public class MultipleWindows {
 		@Override
 		protected void recordFrame(
 				MemoryStack stack, int frameIndex, CommandRecorder recorder,
-				AcquiredImage swapchainImage, BoilerInstance boiler
+				AcquiredImage2 swapchainImage, BoilerInstance boiler
 		) {
 			var colorAttachments = recorder.singleColorRenderingAttachment(
-					swapchainImage.image().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
+					swapchainImage.image.vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 					VK_ATTACHMENT_STORE_OP_STORE, rgb(0, 0, 200)
 			);
 
 			recorder.beginSimpleDynamicRendering(
-					swapchainImage.width(), swapchainImage.height(),
+					swapchainImage.getWidth(), swapchainImage.getHeight(),
 					colorAttachments, null, null
 			);
 
-			recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
+			recorder.dynamicViewportAndScissor(swapchainImage.getWidth(), swapchainImage.getHeight());
 			vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 			long periodFactor = 6_000_000L;

@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public abstract class SwapchainResourceManager<S, I> {
 
-	private VkbSwapchain currentSwapchain;
+	private SwapchainWrapper currentSwapchain;
 	private S currentSwapchainResource;
 	private List<I> currentImageResources;
 
@@ -23,7 +23,7 @@ public abstract class SwapchainResourceManager<S, I> {
 		return null;
 	}
 
-	protected I createImage(S swapchain, AcquiredImage swapchainImage) {
+	protected I createImage(S swapchain, AcquiredImage2 swapchainImage) {
 		return null;
 	}
 
@@ -36,21 +36,21 @@ public abstract class SwapchainResourceManager<S, I> {
 		return createSwapchain(newWidth, newHeight, newNumImages);
 	}
 
-	public I get(AcquiredImage swapchainImage) {
+	public I get(AcquiredImage2 swapchainImage) {
 		if (currentImageResources == null || currentSwapchain != swapchainImage.swapchain) {
-			currentImageResources = new ArrayList<>(swapchainImage.swapchain.images.length);
-			for (int counter = 0; counter < swapchainImage.swapchain.images.length; counter++) {
+			currentImageResources = new ArrayList<>(swapchainImage.swapchain.getNumImages());
+			for (int counter = 0; counter < swapchainImage.swapchain.getNumImages(); counter++) {
 				currentImageResources.add(null);
 			}
 			currentSwapchain = swapchainImage.swapchain;
 			var oldSwapchainResource = recycledSwapchains.poll();
 			if (oldSwapchainResource == null) {
 				currentSwapchainResource = createSwapchain(
-						swapchainImage.width(), swapchainImage.height(), currentImageResources.size()
+						swapchainImage.getWidth(), swapchainImage.getHeight(), currentImageResources.size()
 				);
 			} else {
 				currentSwapchainResource = recreateSwapchain(
-						oldSwapchainResource, swapchainImage.width(), swapchainImage.height(), currentImageResources.size()
+						oldSwapchainResource, swapchainImage.getWidth(), swapchainImage.getHeight(), currentImageResources.size()
 				);
 			}
 
@@ -61,10 +61,10 @@ public abstract class SwapchainResourceManager<S, I> {
 			swapchainImage.swapchain.associations.add(this);
 		}
 
-		var currentResource = currentImageResources.get(swapchainImage.index());
+		var currentResource = currentImageResources.get(swapchainImage.index);
 		if (currentResource == null) {
 			currentResource = createImage(currentSwapchainResource, swapchainImage);
-			currentImageResources.set(swapchainImage.index(), currentResource);
+			currentImageResources.set(swapchainImage.index, currentResource);
 
 			var rememberResource = currentResource;
 			if (rememberResource != null) {

@@ -12,7 +12,7 @@ public class AcquiredImage2 {
 
 	final SwapchainWrapper swapchain;
 	public final int index;
-	public final VkbImage swapchainImage;
+	public final VkbImage image;
 	final int presentMode;
 
 	private final long acquireSemaphore;
@@ -27,13 +27,13 @@ public class AcquiredImage2 {
 	Consumer<VkPresentInfoKHR> beforePresentCallback;
 
 	AcquiredImage2(
-			SwapchainWrapper swapchain, int index, VkbImage swapchainImage, int presentMode,
+			SwapchainWrapper swapchain, int index, VkbImage image, int presentMode,
 			long acquireSemaphore, VkbFence acquireFence,
 			long presentSemaphore, VkbFence presentFence
 	) {
 		this.swapchain = swapchain;
 		this.index = index;
-		this.swapchainImage = swapchainImage;
+		this.image = image;
 		this.presentMode = presentMode;
 		this.acquireSemaphore = acquireSemaphore;
 		this.acquireFence = acquireFence;
@@ -42,11 +42,11 @@ public class AcquiredImage2 {
 	}
 
 	public int getWidth() {
-		return swapchainImage.width;
+		return image.width;
 	}
 
 	public int getHeight() {
-		return swapchainImage.height;
+		return image.height;
 	}
 
 	/**

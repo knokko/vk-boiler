@@ -3,7 +3,6 @@ package com.github.knokko.boiler.window;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
-import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
@@ -59,8 +58,8 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 	}
 
 	@Override
-	protected AwaitableSubmission renderFrame(
-			MemoryStack stack, int frameIndex, AcquiredImage acquiredImage, BoilerInstance instance
+	protected void renderFrame(
+			MemoryStack stack, int frameIndex, AcquiredImage2 acquiredImage, BoilerInstance instance
 	) {
 		var fence = commandFences[frameIndex];
 		fence.waitAndReset();
@@ -75,17 +74,17 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 				VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 				getClass().getSimpleName()
 		);
-		recorder.transitionLayout(acquiredImage.image(), ResourceUsage.fromPresent(lastUsage.stageMask()), firstUsage);
+		recorder.transitionLayout(acquiredImage.image, ResourceUsage.fromPresent(lastUsage.stageMask()), firstUsage);
 		recordFrame(stack, frameIndex, recorder, acquiredImage, instance);
-		recorder.transitionLayout(acquiredImage.image(), lastUsage, ResourceUsage.PRESENT);
+		recorder.transitionLayout(acquiredImage.image, lastUsage, ResourceUsage.PRESENT);
 		recorder.end();
 
 		var waitSemaphores = acquireSwapchainImageWithFence ? null : new WaitSemaphore[]{new WaitSemaphore(
 				acquiredImage.acquireSemaphore(), lastUsage.stageMask()
 		)};
 
-		return instance.queueFamilies().graphics().first().submit(
-				commandBuffer, "Fill", waitSemaphores, fence, acquiredImage.presentSemaphore()
+		instance.queueFamilies().graphics().first().submit(
+				commandBuffer, "Fill", waitSemaphores, fence, acquiredImage.presentSemaphore
 		);
 	}
 
@@ -104,7 +103,7 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 			MemoryStack stack,
 			int frameIndex,
 			CommandRecorder recorder,
-			AcquiredImage acquiredImage,
+			AcquiredImage2 acquiredImage,
 			BoilerInstance instance
 	);
 

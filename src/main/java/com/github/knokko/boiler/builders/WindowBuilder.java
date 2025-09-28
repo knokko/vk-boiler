@@ -128,6 +128,7 @@ public class WindowBuilder {
 			boolean hasSwapchainMaintenance, VkbQueueFamily presentFamily
 	) {
 		// Note: do NOT allocate the capabilities on the stack because it needs to be read later!
+		// TODO But... if SwapchainManager makes its own copy...
 		var capabilities = VkSurfaceCapabilitiesKHR.calloc();
 
 		try (var stack = stackPush()) {

@@ -24,7 +24,6 @@ public abstract class WindowRenderLoop {
 	protected int presentMode;
 	private volatile boolean didStart;
 	volatile Thread thread;
-	private boolean didResize;
 	private boolean sdlCloseRequested;
 
 	/**
@@ -80,11 +79,11 @@ public abstract class WindowRenderLoop {
 				int frameIndex = (int) (currentFrame % numFramesInFlight);
 
 				try (var stack = stackPush()) {
-					AcquiredImage acquiredImage;
-					if (didResize) {
-						window.maybeRecreateSwapchain(presentMode);
-						didResize = false;
-					}
+					AcquiredImage2 acquiredImage;
+//					if (didResize) {
+//						window.maybeRecreateSwapchain(presentMode);
+//						didResize = false;
+//					}
 					if (acquireSwapchainImageWithFence) {
 						acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
 					} else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);
@@ -96,11 +95,8 @@ public abstract class WindowRenderLoop {
 
 					if (acquireSwapchainImageWithFence) acquiredImage.acquireFence.awaitSignal();
 
-					var renderSubmission = renderFrame(stack, frameIndex, acquiredImage, window.instance);
-					if (renderSubmission == null) throw new RuntimeException(
-							"Submission must not be null, make sure to submit a fence or timeline signal semaphore"
-					);
-					window.presentSwapchainImage(acquiredImage, renderSubmission);
+					renderFrame(stack, frameIndex, acquiredImage, window.instance);
+					window.presentSwapchainImage(acquiredImage);
 				} catch (InterruptedException e) {
 					throw new RuntimeException(e);
 				}
@@ -136,14 +132,16 @@ public abstract class WindowRenderLoop {
 			if (window.instance.useSDL) {
 				assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
 					if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED &&
-							nSDL_GetWindowFromEvent(rawEvent) == window.handle) this.didResize = true;
+							nSDL_GetWindowFromEvent(rawEvent) == window.handle) {
+						// TODO Update window size in SwapchainManager
+					}
 					return false;
 				}, 0L), "AddEventWatch");
 			} else {
 				//noinspection resource
-				glfwSetFramebufferSizeCallback(
-						window.handle, (glfwWindow, width, height) -> this.didResize = true
-				);
+				glfwSetFramebufferSizeCallback(window.handle, (glfwWindow, width, height) -> {
+					// TODO Update window size in swapchain manager
+				});
 			}
 
 			this.run();
@@ -171,8 +169,8 @@ public abstract class WindowRenderLoop {
 	 * @return The last queue submission that renders onto the swapchain image. Hint: <i>VkbQueue.submit</i> will return
 	 * an <i>AwaitableSubmission</i> when you provide a non-null fence.
 	 */
-	protected abstract AwaitableSubmission renderFrame(
-			MemoryStack stack, int frameIndex, AcquiredImage acquiredImage, BoilerInstance instance
+	protected abstract void renderFrame(
+			MemoryStack stack, int frameIndex, AcquiredImage2 acquiredImage, BoilerInstance instance
 	);
 
 	/**

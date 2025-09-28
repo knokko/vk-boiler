@@ -65,8 +65,8 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 
 	@Override
 	public SwapchainWrapper createSwapchain(
-			int presentMode, Set<Integer> usedPresentModes, int width, int height,
-			long oldSwapchain, VkSurfaceCapabilitiesKHR surfaceCapabilities, String debugName
+			int presentMode, Set<Integer> usedPresentModes, Set<SwapchainResourceManager<?, ?>> associations,
+			int width, int height, long oldSwapchain, VkSurfaceCapabilitiesKHR surfaceCapabilities, String debugName
 	) {
 		try (var stack = stackPush()) {
 			int desiredImageCount = presentMode == VK_PRESENT_MODE_MAILBOX_KHR ? 3 : 2;
@@ -168,7 +168,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 			instance.debug.name(stack, vkSwapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, debugName);
 
 			return new SwapchainWrapper(
-					this, compatibleUsedPresentModes, vkSwapchain,
+					this, compatibleUsedPresentModes, associations, vkSwapchain,
 					width, height, swapchainImageUsage, presentMode, debugName
 			);
 		}
@@ -252,7 +252,10 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 			String debugName = image.swapchain.debugName + "Present" + image.index;
 			int presentResult = presentFamily.first().present(presentInfo);
 			assertVkSuccess(presentResult, "QueuePresentKHR", debugName, VK_ERROR_OUT_OF_DATE_KHR, VK_SUBOPTIMAL_KHR);
-			assertVkSuccess(Objects.requireNonNull(presentInfo.pResults()).get(0), "QueuePresentKHR", debugName);
+			assertVkSuccess(
+					Objects.requireNonNull(presentInfo.pResults()).get(0),
+					"QueuePresentKHR", debugName, VK_ERROR_OUT_OF_DATE_KHR, VK_SUBOPTIMAL_KHR
+			);
 			return presentResult;
 		}
 	}

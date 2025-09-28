@@ -17,7 +17,7 @@ import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
-import com.github.knokko.boiler.window.AcquiredImage;
+import com.github.knokko.boiler.window.AcquiredImage2;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.TimelineInstant;
@@ -378,11 +378,11 @@ public class TerrainPlayground {
 			}
 
 			@Override
-			protected ImageResources createImage(SwapchainResources swapchain, AcquiredImage swapchainImage) {
-				var depthImage = swapchain.depthImages[swapchainImage.index()];
+			protected ImageResources createImage(SwapchainResources swapchain, AcquiredImage2 swapchainImage) {
+				var depthImage = swapchain.depthImages[swapchainImage.index];
 				long framebuffer = boiler.images.createFramebuffer(
-						renderPass, swapchainImage.width(), swapchainImage.height(),
-						"TerrainFramebuffer", swapchainImage.image().vkImageView, depthImage.vkImageView
+						renderPass, swapchainImage.getWidth(), swapchainImage.getHeight(),
+						"TerrainFramebuffer", swapchainImage.image.vkImageView, depthImage.vkImageView
 				);
 				return new ImageResources(framebuffer, depthImage);
 			}
@@ -521,17 +521,17 @@ public class TerrainPlayground {
 				biRenderPass.renderPass(renderPass);
 				biRenderPass.framebuffer(imageResources.framebuffer);
 				biRenderPass.renderArea().offset().set(0, 0);
-				biRenderPass.renderArea().extent().set(swapchainImage.width(), swapchainImage.height());
+				biRenderPass.renderArea().extent().set(swapchainImage.getWidth(), swapchainImage.getHeight());
 				biRenderPass.clearValueCount(2);
 				biRenderPass.pClearValues(clearValues);
 
 				vkCmdBeginRenderPass(commandBuffer, biRenderPass, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, groundPipeline);
-				recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
+				recorder.dynamicViewportAndScissor(swapchainImage.getWidth(), swapchainImage.getHeight());
 				recorder.bindGraphicsDescriptors(pipelineLayout, descriptorSets[frameIndex]);
 
 				float fieldOfView = 45f;
-				float aspectRatio = (float) swapchainImage.width() / (float) swapchainImage.height();
+				float aspectRatio = (float) swapchainImage.getWidth() / (float) swapchainImage.getHeight();
 
 				float nearPlane = 0.1f;
 				float farPlane = 50_000f;
@@ -605,10 +605,10 @@ public class TerrainPlayground {
 				var timelineFinished = new TimelineInstant(timeline, frameCounter + numFramesInFlight);
 				boiler.queueFamilies().graphics().first().submit(
 						commandBuffer, "TerrainDraw", waitSemaphores, null,
-						new long[]{ swapchainImage.presentSemaphore() }, null, timelineFinished
+						new long[]{ swapchainImage.presentSemaphore }, null, timelineFinished
 				);
 
-				boiler.window().presentSwapchainImage(swapchainImage, timelineFinished);
+				boiler.window().presentSwapchainImage(swapchainImage);
 				frameCounter += 1;
 			}
 		}
