@@ -4,7 +4,6 @@ import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.synchronization.AwaitableSubmission;
-import org.lwjgl.glfw.GLFW;
 import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.vulkan.*;
 
@@ -140,7 +139,7 @@ public class VkbWindow {
 	}
 
 	private void updateSize() {
-		assertMainThread();
+		//assertMainThread();
 		try (var stack = stackPush()) {
 			assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
 					instance.vkPhysicalDevice(), vkSurface, surfaceCapabilities
@@ -180,7 +179,7 @@ public class VkbWindow {
 	}
 
 	private void createSwapchain(int presentMode, boolean updateSize) {
-		assertMainThread();
+		//assertMainThread();
 		try (var stack = stackPush()) {
 			if (updateSize) updateSize();
 			if (width == 0 || height == 0) {
@@ -292,8 +291,9 @@ public class VkbWindow {
 		if (cleaner.shouldPostponeSwapchainRecreation()) return;
 		var oldSwapchain = currentSwapchain;
 
-		if (windowLoop == null) createSwapchain(presentMode, true);
-		else windowLoop.queueMainThreadAction(() -> createSwapchain(presentMode, true), this);
+		createSwapchain(presentMode, true);
+//		if (windowLoop == null) createSwapchain(presentMode, true);
+//		else windowLoop.queueMainThreadAction(() -> createSwapchain(presentMode, true), this);
 
 		cleaner.onChangeCurrentSwapchain(oldSwapchain, currentSwapchain);
 	}
@@ -321,9 +321,11 @@ public class VkbWindow {
 		this.usedPresentModes.add(presentMode);
 
 		instance.checkForFatalValidationErrors();
-		if (windowLoop != null && windowLoop.shouldCheckResize(this)) {
-			windowLoop.queueMainThreadAction(() -> maybeRecreateSwapchain(presentMode), this);
-		}
+		maybeRecreateSwapchain(presentMode);
+
+//		if (windowLoop != null && windowLoop.shouldCheckResize(this)) {
+//			windowLoop.queueMainThreadAction(() -> maybeRecreateSwapchain(presentMode), this);
+//		}
 
 		if (currentSwapchain == null) recreateSwapchain(presentMode);
 		if (currentSwapchain == null) return null;
@@ -341,6 +343,7 @@ public class VkbWindow {
 	}
 
 	private void showWindowNow() {
+		assertMainThread();
 		if (instance.useSDL) {
 			assertSdlSuccess(SDL_ShowWindow(handle), "ShowWindow");
 		} else glfwShowWindow(handle);
