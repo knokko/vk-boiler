@@ -9,10 +9,7 @@ import com.github.knokko.boiler.memory.MemoryBlock;
 import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
-import com.github.knokko.boiler.window.AcquiredImage;
-import com.github.knokko.boiler.window.SimpleWindowRenderLoop;
-import com.github.knokko.boiler.window.VkbWindow;
-import com.github.knokko.boiler.window.WindowEventLoop;
+import com.github.knokko.boiler.window.*;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPipelineVertexInputStateCreateInfo;
 import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
@@ -30,7 +27,7 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 
 	public MiniTriangle(VkbWindow window) {
 		super(
-				window, 2, false, VK_PRESENT_MODE_FIFO_KHR,
+				window, false, VK_PRESENT_MODE_FIFO_KHR,
 				ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.COLOR_ATTACHMENT_WRITE
 		);
 	}
@@ -91,7 +88,10 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 		pipelineBuilder.noDepthStencil();
 		pipelineBuilder.noColorBlending(1);
 		pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-		pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
+		pipelineBuilder.dynamicRendering(
+				0, VK_FORMAT_UNDEFINED,
+				VK_FORMAT_UNDEFINED, window.properties.surfaceFormat()
+		);
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
 		this.graphicsPipeline = pipelineBuilder.build("TrianglePipeline");
 	}
@@ -99,15 +99,15 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 	@Override
 	protected void recordFrame(MemoryStack stack, int frameIndex, CommandRecorder recorder, AcquiredImage acquiredImage, BoilerInstance instance) {
 		var colorAttachments = recorder.singleColorRenderingAttachment(
-				acquiredImage.image().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
+				acquiredImage.getImage().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 				VK_ATTACHMENT_STORE_OP_STORE, rgb(20, 120, 180)
 		);
 
 		recorder.beginSimpleDynamicRendering(
-				acquiredImage.width(), acquiredImage.height(),
+				acquiredImage.getWidth(), acquiredImage.getHeight(),
 				colorAttachments, null, null
 		);
-		recorder.dynamicViewportAndScissor(acquiredImage.width(), acquiredImage.height());
+		recorder.dynamicViewportAndScissor(acquiredImage.getWidth(), acquiredImage.getHeight());
 		vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 		recorder.bindVertexBuffers(0, vertexBuffer);
 		vkCmdDraw(recorder.commandBuffer, 3, 1, 0, 0);
@@ -126,8 +126,8 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_0, "MiniTriangle", VK_MAKE_VERSION(0, 1, 0)
 		)
-				.validation().forbidValidationErrors()
-				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+				.validation().forbidValidationErrors().doNotEnableSwapchainMaintenance()
+				.addWindow(new WindowBuilder(1000, 800, 2))
 				.doNotUseVma().enableDynamicRendering().build();
 
 		var eventLoop = new WindowEventLoop();

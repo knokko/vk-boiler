@@ -47,16 +47,16 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 		)
 				.validation(new ValidationFeatures(
 						false, false, true, true
-				))
+				)).forbidValidationErrors()
 				.dontInitWindowingAPI()
 				.addWindow(new WindowBuilder(
-						800, 600, VK_IMAGE_USAGE_TRANSFER_DST_BIT
+						800, 600, 5
 				).compositeAlphaPicker(new SimpleCompositeAlphaPicker(
 						VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
 						VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
 						VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
 						VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
-				)))
+				)).swapchainImageUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT).maxOldSwapchains(10))
 				// Avoid annoying crashes on laptops with multiple GPUs by preferring the integrated GPU
 				.physicalDeviceSelector(new SimpleDeviceSelector(VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU))
 				.build();
@@ -64,8 +64,8 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 		System.out.printf(
 				"GLFW platform is %s and GLFW transparent framebuffer is %b and composite alpha mode is %s\n",
 				getIntConstantName(GLFW.class, glfwGetPlatform(), "GLFW_PLATFORM", "", "unknown"),
-				glfwGetWindowAttrib(boiler.window().handle, GLFW_TRANSPARENT_FRAMEBUFFER),
-				getIntConstantName(KHRSurface.class, boiler.window().swapchainCompositeAlpha,
+				glfwGetWindowAttrib(boiler.window().properties.handle(), GLFW_TRANSPARENT_FRAMEBUFFER),
+				getIntConstantName(KHRSurface.class, boiler.window().properties.swapchainCompositeAlpha(),
 						"VK_COMPOSITE_ALPHA", "BIT_KHR", "unknown")
 		);
 
@@ -78,8 +78,9 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 
 	public TranslucentWindowPlayground(VkbWindow window) {
 		super(
-				window, 5, false,
-				window.supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
+				window, true,
+				window.getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
+						VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
 				ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_DEST
 		);
 	}
@@ -89,7 +90,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 			MemoryStack stack, int frameIndex, CommandRecorder recorder, AcquiredImage acquired, BoilerInstance boiler
 	) {
 		float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
-		float colorScale = boiler.window().swapchainCompositeAlpha == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
-		recorder.clearColorImage(acquired.image().vkImage, 0f, 0.6f * colorScale, colorScale, alpha);
+		float colorScale = boiler.window().properties.swapchainCompositeAlpha() == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
+		recorder.clearColorImage(acquired.getImage().vkImage, 0f, 0.6f * colorScale, colorScale, alpha);
 	}
 }

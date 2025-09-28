@@ -1,87 +1,66 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.images.VkbImage;
-import com.github.knokko.boiler.synchronization.AwaitableSubmission;
+import com.github.knokko.boiler.synchronization.FenceSubmission;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 
 import java.util.function.Consumer;
 
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_ASPECT_COLOR_BIT;
 import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 
 public class AcquiredImage {
 
-	final VkbSwapchain swapchain;
-	private final int index;
-	final VkbFence acquireFence;
-	final long acquireSemaphore;
-	private final long presentSemaphore;
-	final VkbFence presentFence;
-	AwaitableSubmission renderSubmission;
+	final SwapchainWrapper swapchain;
+	final int index;
+	final VkbImage image;
 	final int presentMode;
 
-	/**
-	 * This callback will be called right before the swapchain manager class <i>vkQueuePresentKHR</i>. You can use this
-	 * to e.g. chain structures to the <i>pNext</i> chain of the <i>VkPresentInfoKHR</i>.<br>
-	 *
-	 * When you acquire an image, this field will initially be <i>null</i>. You can simply change the value of this
-	 * field to your callback.
-	 */
-	public Consumer<VkPresentInfoKHR> beforePresentCallback;
+	final long acquireSemaphore;
+	final long presentSemaphore;
+	final FenceSubmission acquireSubmission;
+	final VkbFence presentFence;
+
+	Consumer<VkPresentInfoKHR> beforePresentCallback;
 
 	AcquiredImage(
-			VkbSwapchain swapchain, int index, VkbFence acquireFence, long acquireSemaphore,
-			long presentSemaphore, VkbFence presentFence, int presentMode
+			SwapchainWrapper swapchain, int index, VkbImage image, int presentMode,
+			long acquireSemaphore, FenceSubmission acquireSubmission,
+			long presentSemaphore, VkbFence presentFence
 	) {
 		this.swapchain = swapchain;
 		this.index = index;
-		this.acquireFence = acquireFence;
+		this.image = image;
+		this.presentMode = presentMode;
 		this.acquireSemaphore = acquireSemaphore;
+		this.acquireSubmission = acquireSubmission;
 		this.presentSemaphore = presentSemaphore;
 		this.presentFence = presentFence;
-		this.presentMode = presentMode;
 	}
 
-	/**
-	 * @return The swapchain image index
-	 */
-	public int index() {
+	public int getIndex() {
 		return index;
 	}
 
-	/**
-	 * @return The wrapped swapchain image handle
-	 */
-	public VkbImage image() {
-		VkbImage image = new VkbImage(
-				swapchain.images[index], swapchain.width, swapchain.height, VK_IMAGE_ASPECT_COLOR_BIT
-		);
-		image.vkImageView = swapchain.imageViews[index];
+	public VkbImage getImage() {
 		return image;
 	}
 
-	/**
-	 * @return The width of the swapchain (image), in pixels
-	 */
-	public int width() {
-		return swapchain.width;
+	public int getWidth() {
+		return image.width;
+	}
+
+	public int getHeight() {
+		return image.height;
 	}
 
 	/**
-	 * @return The height of the swapchain (image), in pixels
+	 * If you acquired this swapchain image using <i>acquireSwapchainImageWithFence</i>, you must wait on this
+	 * submission before submitting any commands that use this swapchain image. If not, you must not use this method.
 	 */
-	public int height() {
-		return swapchain.height;
-	}
-
-	/**
-	 * If you acquired this swapchain image using <i>acquireSwapchainImageWithFence</i>, you must wait on this fence
-	 * before submitting any commands that use this swapchain image. If not, you must not use this method.
-	 */
-	public VkbFence acquireFence() {
+	public FenceSubmission getAcquireSubmission() {
 		if (acquireSemaphore != VK_NULL_HANDLE) throw new UnsupportedOperationException("You asked for a semaphore");
-		return acquireFence;
+		return acquireSubmission;
 	}
 
 	/**
@@ -89,7 +68,7 @@ public class AcquiredImage {
 	 * semaphore to the wait semaphores of the first queue submission that uses this swapchain image. If not, you
 	 * must not use this method.
 	 */
-	public long acquireSemaphore() {
+	public long getAcquireSemaphore() {
 		if (acquireSemaphore == VK_NULL_HANDLE) throw new UnsupportedOperationException("You asked for a fence");
 		return acquireSemaphore;
 	}
@@ -98,7 +77,7 @@ public class AcquiredImage {
 	 * When you do the last submission that uses the swapchain image, you must add this semaphore to the signal
 	 * semaphores of that submission.
 	 */
-	public long presentSemaphore() {
+	public long getPresentSemaphore() {
 		return presentSemaphore;
 	}
 }

@@ -3,6 +3,8 @@ package com.github.knokko.boiler.queues;
 import com.github.knokko.boiler.synchronization.*;
 import org.lwjgl.vulkan.*;
 
+import java.util.concurrent.locks.ReadWriteLock;
+
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSwapchain.vkQueuePresentKHR;
@@ -14,7 +16,7 @@ import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
  * access to <i>VkQueue</i>s to be externally synchronized.
  * @param vkQueue
  */
-public record VkbQueue(VkQueue vkQueue) {
+public record VkbQueue(VkQueue vkQueue, ReadWriteLock waitIdleLock) {
 
 	/**
 	 * This is a variant of the <i>submit</i> method, but without the timeline semaphore parameters.
@@ -53,7 +55,7 @@ public record VkbQueue(VkQueue vkQueue) {
 	 * @return When <i>fence</i> is not <b>null</b>, this will be a <i>FenceSubmission</i> that will be signalled when
 	 * the command completes. When <i>fence</i> is <b>null</b>, this method will return <b>null</b>.
 	 */
-	public synchronized FenceSubmission submit(
+	public FenceSubmission submit(
 			VkCommandBuffer commandBuffer, String context,
 			WaitSemaphore[] waitSemaphores, VkbFence fence, long[] vkSignalSemaphores,
 			WaitTimelineSemaphore[] timelineWaits, TimelineInstant... timelineSignals
@@ -124,7 +126,15 @@ public record VkbQueue(VkQueue vkQueue) {
 			}
 
 			long fenceHandle = fence != null ? fence.getVkFenceAndSubmit() : VK_NULL_HANDLE;
-			assertVkSuccess(vkQueueSubmit(vkQueue, submission, fenceHandle), "QueueSubmit", context);
+			synchronized (this) {
+				waitIdleLock.readLock().lock();
+				try {
+					assertVkSuccess(vkQueueSubmit(vkQueue, submission, fenceHandle), "QueueSubmit", context);
+				} finally {
+					waitIdleLock.readLock().unlock();
+				}
+			}
+
 			return fence != null ? new FenceSubmission(fence) : null;
 		}
 	}
@@ -132,7 +142,14 @@ public record VkbQueue(VkQueue vkQueue) {
 	/**
 	 * Calls <i>vkQueuePresentKHR</i>, and returns the result
 	 */
-	public synchronized int present(VkPresentInfoKHR presentInfo) {
-		return vkQueuePresentKHR(vkQueue, presentInfo);
+	public int present(VkPresentInfoKHR presentInfo) {
+		synchronized (this) {
+			waitIdleLock.readLock().lock();
+			try {
+				return vkQueuePresentKHR(vkQueue, presentInfo);
+			} finally {
+				waitIdleLock.readLock().unlock();
+			}
+		}
 	}
 }

@@ -31,10 +31,11 @@ public class MultipleWindows {
 				.validation()
 				.enableDynamicRendering()
 				.addWindow(new WindowBuilder(
-						800, 500, VK_IMAGE_USAGE_TRANSFER_DST_BIT
-				).callback(window -> windows[0] = window).title("FillWindow"))
+						800, 500, 2
+				).swapchainImageUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+						.callback(window -> windows[0] = window).title("FillWindow"))
 				.addWindow(new WindowBuilder(
-						800, 500, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+						800, 500, 1
 				).callback(window -> windows[1] = window).title("SpinWindow"))
 				.build();
 
@@ -43,7 +44,7 @@ public class MultipleWindows {
 		eventLoop.addWindow(new FillWindowLoop(windows[0], 1f, 0f, 1f));
 
 		//noinspection resource
-		glfwSetMouseButtonCallback(windows[1].handle, (clickedWindow, button, action, modifiers) -> {
+		glfwSetMouseButtonCallback(windows[1].properties.handle(), (clickedWindow, button, action, modifiers) -> {
 			if (action == GLFW_PRESS) startNewWindowThread(boiler, eventLoop);
 		});
 
@@ -60,9 +61,11 @@ public class MultipleWindows {
 		float blue = rng.nextFloat();
 
 		String contextSuffix = String.format("Extra(%.1f, %.1f, %.1f)", red, green, blue);
-		windowLoop.addWindow(new FillWindowLoop(boiler.addWindow(
-				new WindowBuilder(1000, 700, VK_IMAGE_USAGE_TRANSFER_DST_BIT).title(contextSuffix).hideUntilFirstFrame()
-		), red, green, blue));
+		WindowBuilder builder = new WindowBuilder(
+				1000, 700, 2
+		).title(contextSuffix).hideFirstFrames(5)
+				.swapchainImageUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+		windowLoop.addWindow(new FillWindowLoop(boiler.addWindow(builder), red, green, blue));
 	}
 
 	private static class FillWindowLoop extends SimpleWindowRenderLoop {
@@ -71,7 +74,7 @@ public class MultipleWindows {
 
 		public FillWindowLoop(VkbWindow window, float red, float green, float blue) {
 			super(
-					window, 2, false, VK_PRESENT_MODE_FIFO_KHR,
+					window, false, VK_PRESENT_MODE_FIFO_KHR,
 					ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_DEST
 			);
 			this.red = red;
@@ -84,7 +87,7 @@ public class MultipleWindows {
 				MemoryStack stack, int frameIndex, CommandRecorder recorder,
 				AcquiredImage swapchainImage, BoilerInstance boiler
 		) {
-			recorder.clearColorImage(swapchainImage.image().vkImage, red, green, blue, 1f);
+			recorder.clearColorImage(swapchainImage.getImage().vkImage, red, green, blue, 1f);
 		}
 	}
 
@@ -94,8 +97,8 @@ public class MultipleWindows {
 
 		public SpinWindowLoop(VkbWindow window) {
 			super(
-					window, 1, true,
-					window.supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
+					window, true,
+					window.getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
 							VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
 					ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.COLOR_ATTACHMENT_WRITE
 			);
@@ -126,7 +129,10 @@ public class MultipleWindows {
 			builder.noColorBlending(1);
 			builder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
 			builder.ciPipeline.layout(pipelineLayout);
-			builder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
+			builder.dynamicRendering(
+					0, VK_FORMAT_UNDEFINED,
+					VK_FORMAT_UNDEFINED, window.properties.surfaceFormat()
+			);
 			pipeline = builder.build("SpinPipeline");
 		}
 
@@ -136,16 +142,16 @@ public class MultipleWindows {
 				AcquiredImage swapchainImage, BoilerInstance boiler
 		) {
 			var colorAttachments = recorder.singleColorRenderingAttachment(
-					swapchainImage.image().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
+					swapchainImage.getImage().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 					VK_ATTACHMENT_STORE_OP_STORE, rgb(0, 0, 200)
 			);
 
 			recorder.beginSimpleDynamicRendering(
-					swapchainImage.width(), swapchainImage.height(),
+					swapchainImage.getWidth(), swapchainImage.getHeight(),
 					colorAttachments, null, null
 			);
 
-			recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
+			recorder.dynamicViewportAndScissor(swapchainImage.getWidth(), swapchainImage.getHeight());
 			vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 			long periodFactor = 6_000_000L;

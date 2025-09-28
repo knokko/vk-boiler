@@ -112,7 +112,7 @@ public class BoilerBuilder {
 	VkInstanceCreator vkInstanceCreator = DEFAULT_VK_INSTANCE_CREATOR;
 	Collection<PreVkInstanceCreator> preInstanceCreators = new ArrayList<>();
 	PhysicalDeviceSelector deviceSelector = new SimpleDeviceSelector(
-			VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
+			//VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
 			VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
 	);
 	VkDeviceCreator vkDeviceCreator = DEFAULT_VK_DEVICE_CREATOR;
@@ -133,6 +133,7 @@ public class BoilerBuilder {
 	Collection<NamedExtraDeviceRequirements> extraDeviceRequirements = new ArrayList<>();
 
 	boolean printDeviceSelectionInfo = true;
+	boolean enableSwapchainMaintenance = true;
 
 	QueueFamilyMapper queueFamilyMapper = new MinimalQueueFamilyMapper();
 
@@ -289,6 +290,16 @@ public class BoilerBuilder {
 			throw new IllegalStateException("Attempted to set multiple instance creators");
 		}
 		this.vkInstanceCreator = creator;
+		return this;
+	}
+
+	/**
+	 * By default, the {@code VK_EXT_swapchain_maintenance1} extension will be enabled when it is supported. If you
+	 * chain this method, it won't be enabled. (This is mostly useful for internal testing and debugging.)
+	 * @return this
+	 */
+	public BoilerBuilder doNotEnableSwapchainMaintenance() {
+		this.enableSwapchainMaintenance = false;
 		return this;
 	}
 
@@ -674,9 +685,12 @@ public class BoilerBuilder {
 			}
 
 			this.requiredVulkanDeviceExtensions.add(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-			this.desiredVulkanDeviceExtensions.add(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
-			this.desiredVulkanInstanceExtensions.add(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
-			this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+
+			if (this.enableSwapchainMaintenance) {
+				this.desiredVulkanDeviceExtensions.add(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+				this.desiredVulkanInstanceExtensions.add(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+				this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+			}
 		}
 		this.desiredVulkanDeviceExtensions.add(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 		this.desiredVulkanDeviceExtensions.add(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME);
@@ -867,8 +881,8 @@ public class BoilerBuilder {
 		var instance = new BoilerInstance(
 				xr, defaultTimeout, sdlFlags != 0, windows, apiVersion,
 				vkInstance, deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
-				extra.build(),
-				deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower, allocationCallbacks
+				extra.build(), deviceResult.queueFamilies(), deviceResult.waitIdleLock(),
+				deviceResult.vmaAllocator(), validationErrorThrower, allocationCallbacks
 		);
 		propagateInstance[0] = instance;
 		if (xr != null) xr.boilerInstance = instance;

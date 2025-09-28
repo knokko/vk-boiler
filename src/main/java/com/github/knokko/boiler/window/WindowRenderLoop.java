@@ -1,7 +1,6 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.BoilerInstance;
-import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.system.MemoryStack;
 
@@ -24,29 +23,26 @@ public abstract class WindowRenderLoop {
 	protected int presentMode;
 	private volatile boolean didStart;
 	volatile Thread thread;
-	private boolean didResize;
 	private boolean sdlCloseRequested;
 
 	/**
 	 * @param window The window
-	 * @param numFramesInFlight The number of frames in-flight that will be used for rendering, which determines the
-	 *                          <i>frameIndex</i> parameter that will be supplied to <i>renderFrame</i>
 	 * @param acquireSwapchainImageWithFence <i>true</i> when swapchain images should be acquired using a 'ready fence',
 	 *                                       <i>false</i> when swapchain images should be acquired using a
 	 *                                       'ready semaphore'
 	 * @param presentMode The initial present mode of the initial swapchain. You can change this whenever you want.
 	 */
 	public WindowRenderLoop(
-			VkbWindow window, int numFramesInFlight, boolean acquireSwapchainImageWithFence, int presentMode
+			VkbWindow window, boolean acquireSwapchainImageWithFence, int presentMode
 	) {
 		this.window = window;
-		this.numFramesInFlight = numFramesInFlight;
+		this.numFramesInFlight = window.properties.maxFramesInFlight();
 		this.acquireSwapchainImageWithFence = acquireSwapchainImageWithFence;
 		this.presentMode = presentMode;
 		if (window.instance.useSDL) {
 			assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
 				if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
-						nSDL_GetWindowFromEvent(rawEvent) == window.handle) sdlCloseRequested = true;
+						nSDL_GetWindowFromEvent(rawEvent) == window.properties.handle()) sdlCloseRequested = true;
 				return false;
 			}, 0L), "AddEventWatch");
 		}
@@ -62,18 +58,19 @@ public abstract class WindowRenderLoop {
 
 		try {
 			long currentFrame = 0;
-			while (!sdlCloseRequested && (window.instance.useSDL || !glfwWindowShouldClose(window.handle))) {
+			while (!sdlCloseRequested && (window.instance.useSDL || !glfwWindowShouldClose(window.properties.handle()))) {
 				if (window.windowLoop == null) {
-					if (window.instance.useSDL) {
-						try (var stack = stackPush()) {
+					try (var stack = stackPush()) {
+						if (window.instance.useSDL) {
 							var event = SDL_Event.calloc(stack);
 							//noinspection StatementWithEmptyBody
 							while (SDL_PollEvent(event)) {
 								// Users should use SDL_AddEventWatch to listen for events
 							}
+						} else {
+							glfwPollEvents();
 						}
-					} else {
-						glfwPollEvents();
+						window.updateSize();
 					}
 				}
 
@@ -81,10 +78,6 @@ public abstract class WindowRenderLoop {
 
 				try (var stack = stackPush()) {
 					AcquiredImage acquiredImage;
-					if (didResize) {
-						window.maybeRecreateSwapchain(presentMode);
-						didResize = false;
-					}
 					if (acquireSwapchainImageWithFence) {
 						acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
 					} else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);
@@ -94,13 +87,10 @@ public abstract class WindowRenderLoop {
 						continue;
 					}
 
-					if (acquireSwapchainImageWithFence) acquiredImage.acquireFence.awaitSignal();
+					if (acquireSwapchainImageWithFence) acquiredImage.acquireSubmission.awaitCompletion();
 
-					var renderSubmission = renderFrame(stack, frameIndex, acquiredImage, window.instance);
-					if (renderSubmission == null) throw new RuntimeException(
-							"Submission must not be null, make sure to submit a fence or timeline signal semaphore"
-					);
-					window.presentSwapchainImage(acquiredImage, renderSubmission);
+					renderFrame(stack, frameIndex, acquiredImage, window.instance);
+					window.presentSwapchainImage(acquiredImage);
 				} catch (InterruptedException e) {
 					throw new RuntimeException(e);
 				}
@@ -133,22 +123,9 @@ public abstract class WindowRenderLoop {
 		didStart = true;
 
 		if (window.windowLoop == null) {
-			if (window.instance.useSDL) {
-				assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
-					if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED &&
-							nSDL_GetWindowFromEvent(rawEvent) == window.handle) this.didResize = true;
-					return false;
-				}, 0L), "AddEventWatch");
-			} else {
-				//noinspection resource
-				glfwSetFramebufferSizeCallback(
-						window.handle, (glfwWindow, width, height) -> this.didResize = true
-				);
-			}
-
+			window.registerCallbacks();
 			this.run();
-		}
-		else {
+		} else {
 			this.thread = new Thread(this::run);
 			thread.setDaemon(true); // Ensure that the render thread dies when the main thread dies (unexpectedly)
 			thread.start();
@@ -168,10 +145,8 @@ public abstract class WindowRenderLoop {
 	 *                   <i>counter</i> every frame, and <i>frameIndex = counter % numFramesInFlight</i>
 	 * @param acquiredImage The swapchain image that has been acquired. This will <b>not</b> be <i>null</i>
 	 * @param instance The VkBoiler instance
-	 * @return The last queue submission that renders onto the swapchain image. Hint: <i>VkbQueue.submit</i> will return
-	 * an <i>AwaitableSubmission</i> when you provide a non-null fence.
 	 */
-	protected abstract AwaitableSubmission renderFrame(
+	protected abstract void renderFrame(
 			MemoryStack stack, int frameIndex, AcquiredImage acquiredImage, BoilerInstance instance
 	);
 

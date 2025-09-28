@@ -6,6 +6,7 @@ import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.window.VkbWindow;
+import com.github.knokko.boiler.window.WindowProperties;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
@@ -25,12 +26,13 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class WindowBuilder {
 
-	final int width, height;
-	final int swapchainImageUsage;
+	final int width, height, maxFramesInFlight;
+	int swapchainImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	long handle;
 	String title;
 	long sdlFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
-	boolean hideUntilFirstFrame;
+	int hideFirstFrames;
+	int maxOldSwapchains;
 	SurfaceFormatPicker surfaceFormatPicker = new SimpleSurfaceFormatPicker(
 			VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB
 	);
@@ -44,12 +46,30 @@ public class WindowBuilder {
 	/**
 	 * @param width The initial width of the window, in pixels
 	 * @param height The initial height of the window, in pixels
-	 * @param swapchainImageUsage The image usage flags for the swapchain images to-be-created
+	 * @param maxFramesInFlight The maximum number of frames in flight that the swapchain management system will
+	 *                          support. If you use more, expect nasty sync issues. Using fewer frames-in-flight is
+	 *                          fine. If you use {@link com.github.knokko.boiler.window.WindowRenderLoop} or
+	 *                          {@link com.github.knokko.boiler.window.WindowEventLoop}, this will be the exact number
+	 *                          of frames in flight (rather than just the maximum).
 	 */
-	public WindowBuilder(int width, int height, int swapchainImageUsage) {
+	public WindowBuilder(int width, int height, int maxFramesInFlight) {
 		this.width = width;
 		this.height = height;
-		this.swapchainImageUsage = swapchainImageUsage;
+		this.maxFramesInFlight = maxFramesInFlight;
+
+		if (maxFramesInFlight > 3) {
+			System.err.println("WindowBuilder constructor: WARNING: using more than 3 frames-in-flight is rarely " +
+					"desired. Please note that the third parameter is the #frames in flight since vk-boiler 5");
+		}
+	}
+
+	/**
+	 * Sets the <i>VkImageUsageFlagBits</i> for the swapchain images to-be-created.
+	 * The default value is {@code VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT}.
+	*/
+	public WindowBuilder swapchainImageUsage(int imageUsage) {
+		this.swapchainImageUsage = imageUsage;
+		return this;
 	}
 
 	/**
@@ -71,10 +91,26 @@ public class WindowBuilder {
 	}
 
 	/**
-	 * Makes the window invisible until the first {@link org.lwjgl.vulkan.KHRSwapchain#vkQueuePresentKHR}
+	 * Makes the window invisible until {@link org.lwjgl.vulkan.KHRSwapchain#vkQueuePresentKHR}
+	 * has been called {@code numFrames} times. The default value is 0, which means that the window
+	 * will be immediately visible. The drawback of this is that you may see 'garbage' content in
+	 * the window before the first frame has been presented. Using larger values makes it possible
+	 * to hide the window until there is real content to be shown. Play around to find the value
+	 * that works best.
 	 */
-	public WindowBuilder hideUntilFirstFrame() {
-		this.hideUntilFirstFrame = true;
+	public WindowBuilder hideFirstFrames(int numFrames) {
+		this.hideFirstFrames = numFrames;
+		return this;
+	}
+
+	/**
+	 * Sets the maximum number of outdated <i>unused</i> swapchains that the swapchain management system
+	 * may have at any point in time. The default value is 0, which means that it will always destroy
+	 * the old swapchain before creating a new swapchain. Using larger values may speed up resizing,
+	 * but may also increase memory consumption.
+	 */
+	public WindowBuilder maxOldSwapchains(int maxSwapchains) {
+		this.maxOldSwapchains = maxSwapchains;
 		return this;
 	}
 
@@ -127,10 +163,8 @@ public class WindowBuilder {
 			VkPhysicalDevice vkPhysicalDevice, long vkSurface,
 			boolean hasSwapchainMaintenance, VkbQueueFamily presentFamily
 	) {
-		// Note: do NOT allocate the capabilities on the stack because it needs to be read later!
-		var capabilities = VkSurfaceCapabilitiesKHR.calloc();
-
 		try (var stack = stackPush()) {
+			var capabilities = VkSurfaceCapabilitiesKHR.calloc(stack);
 			assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
 					vkPhysicalDevice, vkSurface, capabilities
 			), "GetPhysicalDeviceSurfaceCapabilitiesKHR", "BoilerSwapchainBuilder");
@@ -152,33 +186,30 @@ public class WindowBuilder {
 				formats.add(new SurfaceFormat(format.format(), format.colorSpace()));
 			}
 
-			var pNumPresentModes = stack.callocInt(1);
+			var pNumSupportedPresentModes = stack.callocInt(1);
 			assertVkSuccess(vkGetPhysicalDeviceSurfacePresentModesKHR(
-					vkPhysicalDevice, vkSurface, pNumPresentModes, null
+					vkPhysicalDevice, vkSurface, pNumSupportedPresentModes, null
 			), "GetPhysicalDeviceSurfacePresentModesKHR", "BoilerSwapchainBuilder-Count");
-			int numPresentModes = pNumPresentModes.get(0);
+			int numSupportedPresentModes = pNumSupportedPresentModes.get(0);
 
-			var pPresentModes = stack.callocInt(numPresentModes);
+			var pSupportedPresentModes = stack.callocInt(numSupportedPresentModes);
 			assertVkSuccess(vkGetPhysicalDeviceSurfacePresentModesKHR(
-					vkPhysicalDevice, vkSurface, pNumPresentModes, pPresentModes
+					vkPhysicalDevice, vkSurface, pNumSupportedPresentModes, pSupportedPresentModes
 			), "GetPhysicalDeviceSurfacePresentModesKHR", "BoilerSwapchainBuilder-Count");
 
-			var presentModes = new HashSet<Integer>(numPresentModes);
-			for (int index = 0; index < numPresentModes; index++) {
-				presentModes.add(pPresentModes.get(index));
+			var supportedPresentModes = new HashSet<Integer>(numSupportedPresentModes);
+			for (int index = 0; index < numSupportedPresentModes; index++) {
+				supportedPresentModes.add(pSupportedPresentModes.get(index));
 			}
-
-			var preparedPresentModes = new HashSet<>(this.presentModes);
-			preparedPresentModes.removeIf(presentMode -> !presentModes.contains(presentMode));
 
 			var surfaceFormat = surfaceFormatPicker.chooseSurfaceFormat(formats);
 			var compositeAlpha = compositeAlphaPicker.chooseCompositeAlpha(capabilities.supportedCompositeAlpha());
 
-			return new VkbWindow(
-					hasSwapchainMaintenance, handle, vkSurface, presentModes, preparedPresentModes, title,
-					hideUntilFirstFrame, surfaceFormat.format(), surfaceFormat.colorSpace(), capabilities,
-					swapchainImageUsage, compositeAlpha, presentFamily
+			var properties = new WindowProperties(
+					handle, title, vkSurface, hideFirstFrames, surfaceFormat.format(), surfaceFormat.colorSpace(),
+					swapchainImageUsage, compositeAlpha, hasSwapchainMaintenance, maxOldSwapchains, maxFramesInFlight
 			);
+			return new VkbWindow(properties, presentFamily, supportedPresentModes, presentModes);
 		}
 	}
 
@@ -193,9 +224,9 @@ public class WindowBuilder {
 		// xdg_wm_base@33: error 4: wl_surface@26 already has a buffer committed
 		// hideUntilFirstFrame doesn't make much sense on Wayland anyway,
 		// since Wayland always hides windows until the first frame is presented
-		if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) hideUntilFirstFrame = false;
+		if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) hideFirstFrames = 0;
 
-		glfwWindowHint(GLFW_VISIBLE, hideUntilFirstFrame ? GLFW_FALSE : GLFW_TRUE);
+		glfwWindowHint(GLFW_VISIBLE, hideFirstFrames == 0 ? GLFW_TRUE : GLFW_FALSE);
 		handle = glfwCreateWindow(width, height, title, 0L, 0L);
 		if (handle == 0) {
 			try (var stack = stackPush()) {
@@ -217,9 +248,9 @@ public class WindowBuilder {
 		// If I try this on Wayland, the window will never become visible, not even after SDL_ShowWindow
 		// hideUntilFirstFrame doesn't make much sense on Wayland anyway,
 		// since Wayland always hides windows until the first frame is presented
-		if ("wayland".equals(SDL_GetCurrentVideoDriver())) hideUntilFirstFrame = false;
+		if ("wayland".equals(SDL_GetCurrentVideoDriver())) hideFirstFrames = 0;
 
-		if (hideUntilFirstFrame) sdlFlags |= SDL_WINDOW_HIDDEN;
+		if (hideFirstFrames != 0) sdlFlags |= SDL_WINDOW_HIDDEN;
 		handle = SDL_CreateWindow(title, width, height, sdlFlags);
 		assertSdlSuccess(handle != 0L, "CreateWindow");
 	}

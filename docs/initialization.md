@@ -105,6 +105,15 @@ use `.beforeInstanceCreation`.
 If you need to call a custom function instead of `vkCreateInstance`,
 you need to use `.vkInstanceCreator`.
 
+### Forbid swapchain maintenance
+By default, vk-boiler will enable the `VK_EXT_swapchain_maintenance1`
+when it is supported. When enabled, the swapchain management system will
+use it.
+
+If you don't want this for some reason, you can chain
+`.doNotEnableSwapchainMaintenance()` to the `BoilerBuilder`. This is mostly
+useful for debugging and testing.
+
 ## Physical device selection properties
 When the target machine supports multiple physical devices,
 the builder will choose 1, depending on your requirements,
@@ -238,19 +247,49 @@ create a `WindowBuilder` using its constructor, and optionally
 chain some methods behind it.
 
 The constructor requires only the initial `width` and `height`
-of the window (in pixels), and the image usage flags of the
-swapchain images that will be created for it.
+of the window (in pixels), and the (maximum) number of
+frames-in-flight that it needs to support. If you use
+`WindowRenderLoop`, this will be the *exact* number of
+frames-in-flight rather than just the maximum.
+
+#### Swapchain image usage
+By default, the swapchain images of the window will be created with
+`VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT`, but you can override this by
+chaining `.swapchainImageUsage(...)` to the builder.
 
 #### Title
 You can chain `.title(...)` to change the window title. By
 default, it will be your application name (that you passed to
 the constructor of the `BoilerBuilder`).
 
-#### Hide until first frame
-You can chain `.hideUntilFirstFrame()` to hide the window until
-the first image has been presented (at least, until the first
-call to `vkQueuePresentKHR`). This prevents people from seeing
-black/white/garbage content right after the window is opened.
+#### SDL window creation flags,
+When you chained `.useSdl()`, the builder will create the
+window with `SDL_CreateWindow(title, width, height, sdlFlags)`
+where `sdlFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE`.
+
+If you want to use different flags, you should chain
+`.sdlFlags(flags)`.
+
+#### Hide the first couple of frames
+You can chain `.hideFirstFrames(amount)` to hide the window until
+the `amount`th call to `vkQueuePresentKHR`. If you don't do this,
+people will typically see a black, white, or garbage window until
+the first frame has been presented. By picking the right `amount`,
+you can work around this since the window won't be shown until
+something is shown on the window.
+
+Finding the right value is a matter of trial and error:
+- If your amount is too low, people will see garbage content.
+- If your amount is too high, it takes needlessly long for the
+window to show up.
+
+#### Max old swapchains
+By default, the swapchain management system will always destroy old
+swapchains before creating new swapchains. This behavior requires
+the smallest amount of memory and synchronization objects, but
+sometimes leads to slow resizing. By chaining
+`.maxOldSwapchains(...)`, you can configure the maximum number of
+old swapchains that the system may have at any point in time.
 
 #### Composite alpha picker
 You can chain `.compositeAlphaPicker(callback)` to change the
@@ -280,14 +319,6 @@ Note: the swapchain manager will also try to make swapchains
 compatible with any present mode that you have used before, so
 chaining this method will only speed up the first couple of present
 mode switches.
-
-#### SDL window creation flags,
-When you chained `.useSdl()`, the builder will create the
-window with `SDL_CreateWindow(title, width, height, sdlFlags)`
-where `sdlFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE`.
-
-If you want to use different flags, you should chain
-`.sdlFlags(flags)`.
 
 #### Using an existing window
 When you have special window requirements that are not covered by

@@ -44,7 +44,6 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
-import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 
@@ -75,14 +74,14 @@ public class TerrainPlayground {
 		var attachments = VkAttachmentDescription.calloc(2, stack);
 		var colorAttachment = attachments.get(0);
 		colorAttachment.flags(0);
-		colorAttachment.format(boiler.window().surfaceFormat);
+		colorAttachment.format(boiler.window().properties.surfaceFormat());
 		colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
 		colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
 		colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
 		colorAttachment.stencilLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
 		colorAttachment.stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
-		colorAttachment.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
-		colorAttachment.finalLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		colorAttachment.initialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		colorAttachment.finalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		var depthAttachment = attachments.get(1);
 		depthAttachment.flags(0);
 		depthAttachment.format(depthFormat);
@@ -91,7 +90,7 @@ public class TerrainPlayground {
 		depthAttachment.storeOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
 		depthAttachment.stencilLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
 		depthAttachment.stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
-		depthAttachment.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+		depthAttachment.initialLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 		depthAttachment.finalLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 		var colorReference = VkAttachmentReference.calloc(1, stack);
@@ -112,27 +111,11 @@ public class TerrainPlayground {
 		subpass.pDepthStencilAttachment(depthReference);
 		subpass.pPreserveAttachments(null);
 
-		var dependencies = VkSubpassDependency.calloc(2, stack);
-		var colorDependency = dependencies.get(0);
-		colorDependency.srcSubpass(VK_SUBPASS_EXTERNAL);
-		colorDependency.dstSubpass(0);
-		colorDependency.srcStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-		colorDependency.srcAccessMask(0);
-		colorDependency.dstStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-		colorDependency.dstAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-		var depthDependency = dependencies.get(1);
-		depthDependency.srcSubpass(VK_SUBPASS_EXTERNAL);
-		depthDependency.dstSubpass(0);
-		depthDependency.srcStageMask(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
-		depthDependency.srcAccessMask(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-		depthDependency.dstStageMask(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
-		depthDependency.dstAccessMask(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-
 		var ciRenderPass = VkRenderPassCreateInfo.calloc(stack);
 		ciRenderPass.sType$Default();
 		ciRenderPass.pAttachments(attachments);
 		ciRenderPass.pSubpasses(subpass);
-		ciRenderPass.pDependencies(dependencies);
+		ciRenderPass.pDependencies(null);
 
 		var pRenderPass = stack.callocLong(1);
 		assertVkSuccess(vkCreateRenderPass(
@@ -280,13 +263,16 @@ public class TerrainPlayground {
 	}
 
 	public static void main(String[] args) throws InterruptedException {
+		int numFramesInFlight = 3;
+
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TerrainPlayground", VK_MAKE_VERSION(0, 1, 0)
 		)
 				.validation(new ValidationFeatures(true, false, true, true))
 				.forbidValidationErrors()
 				.allocationCallbacks(new SumAllocationCallbacks())
-				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).hideUntilFirstFrame())
+				.addWindow(new WindowBuilder(1000, 800, numFramesInFlight)
+						.hideFirstFrames(4).maxOldSwapchains(1))
 				.requiredFeatures12("timeline semaphore", VkPhysicalDeviceVulkan12Features::timelineSemaphore)
 				.featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
 				.build();
@@ -300,8 +286,6 @@ public class TerrainPlayground {
 					}, "Spectator"
 			);
 		}
-
-		int numFramesInFlight = 3;
 
 		var persistentCombiner = new MemoryCombiner(boiler, "PersistentMemory");
 		var uniformBuffers = new MappedVkbBuffer[numFramesInFlight];
@@ -379,10 +363,10 @@ public class TerrainPlayground {
 
 			@Override
 			protected ImageResources createImage(SwapchainResources swapchain, AcquiredImage swapchainImage) {
-				var depthImage = swapchain.depthImages[swapchainImage.index()];
+				var depthImage = swapchain.depthImages[swapchainImage.getIndex()];
 				long framebuffer = boiler.images.createFramebuffer(
-						renderPass, swapchainImage.width(), swapchainImage.height(),
-						"TerrainFramebuffer", swapchainImage.image().vkImageView, depthImage.vkImageView
+						renderPass, swapchainImage.getWidth(), swapchainImage.getHeight(),
+						"TerrainFramebuffer", swapchainImage.getImage().vkImageView, depthImage.vkImageView
 				);
 				return new ImageResources(framebuffer, depthImage);
 			}
@@ -441,7 +425,7 @@ public class TerrainPlayground {
 		var camera = new Camera();
 		var cameraController = new CameraController();
 
-		glfwSetKeyCallback(boiler.window().handle, ((window, key, scancode, action, mods) -> {
+		glfwSetKeyCallback(boiler.window().properties.handle(), ((window, key, scancode, action, mods) -> {
 			float dx = 0f, dy = 0f, dz = 0f;
 			if (key == GLFW_KEY_A) dx = -1f;
 			if (key == GLFW_KEY_D) dx = 1f;
@@ -460,7 +444,7 @@ public class TerrainPlayground {
 		}));
 
 		//noinspection resource
-		glfwSetCursorPosCallback(boiler.window().handle, (window, x, y) -> {
+		glfwSetCursorPosCallback(boiler.window().properties.handle(), (window, x, y) -> {
 			if (!Double.isNaN(cameraController.oldX) && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 				double dx = x - cameraController.oldX;
 				double dy = y - cameraController.oldY;
@@ -476,8 +460,9 @@ public class TerrainPlayground {
 			cameraController.oldY = y;
 		});
 
-		while (!glfwWindowShouldClose(boiler.window().handle)) {
+		while (!glfwWindowShouldClose(boiler.window().properties.handle())) {
 			glfwPollEvents();
+			boiler.window().updateSize();
 
 			long currentTime = System.currentTimeMillis();
 			if (currentTime > 1000 + referenceTime) {
@@ -489,7 +474,7 @@ public class TerrainPlayground {
 				referenceFrames = frameCounter;
 			}
 
-			int presentMode = boiler.window().supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
+			int presentMode = boiler.window().getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
 					VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR;
 			try (var stack = stackPush()) {
 				var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(presentMode);
@@ -499,9 +484,9 @@ public class TerrainPlayground {
 					continue;
 				}
 
-				var imageResources = swapchainResources.get(swapchainImage);
+				var imageResources = swapchainResources.getImageAssociation(swapchainImage);
 				WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
-						swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+						swapchainImage.getAcquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 				)};
 
 				int frameIndex = (int) (frameCounter % numFramesInFlight);
@@ -509,6 +494,17 @@ public class TerrainPlayground {
 				timeline.waitUntil(frameCounter);
 
 				var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "TerrainDraw");
+
+				recorder.transitionLayout(
+						swapchainImage.getImage(),
+						ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+						ResourceUsage.COLOR_ATTACHMENT_WRITE
+				);
+				recorder.transitionLayout(
+						imageResources.depthImage,
+						ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_UNDEFINED),
+						ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+				);
 
 				var clearValues = VkClearValue.calloc(2, stack);
 				var clearColor = clearValues.get(0);
@@ -521,17 +517,17 @@ public class TerrainPlayground {
 				biRenderPass.renderPass(renderPass);
 				biRenderPass.framebuffer(imageResources.framebuffer);
 				biRenderPass.renderArea().offset().set(0, 0);
-				biRenderPass.renderArea().extent().set(swapchainImage.width(), swapchainImage.height());
+				biRenderPass.renderArea().extent().set(swapchainImage.getWidth(), swapchainImage.getHeight());
 				biRenderPass.clearValueCount(2);
 				biRenderPass.pClearValues(clearValues);
 
 				vkCmdBeginRenderPass(commandBuffer, biRenderPass, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, groundPipeline);
-				recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
+				recorder.dynamicViewportAndScissor(swapchainImage.getWidth(), swapchainImage.getHeight());
 				recorder.bindGraphicsDescriptors(pipelineLayout, descriptorSets[frameIndex]);
 
 				float fieldOfView = 45f;
-				float aspectRatio = (float) swapchainImage.width() / (float) swapchainImage.height();
+				float aspectRatio = (float) swapchainImage.getWidth() / (float) swapchainImage.getHeight();
 
 				float nearPlane = 0.1f;
 				float farPlane = 50_000f;
@@ -600,20 +596,21 @@ public class TerrainPlayground {
 					System.out.println("Drew " + quadCount + " quads in " + fragmentCount + " fragment with camera yaw " + camera.yaw);
 				}
 
+				recorder.transitionLayout(swapchainImage.getImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
 				recorder.end();
 
 				var timelineFinished = new TimelineInstant(timeline, frameCounter + numFramesInFlight);
 				boiler.queueFamilies().graphics().first().submit(
 						commandBuffer, "TerrainDraw", waitSemaphores, null,
-						new long[]{ swapchainImage.presentSemaphore() }, null, timelineFinished
+						new long[]{ swapchainImage.getPresentSemaphore() }, null, timelineFinished
 				);
 
-				boiler.window().presentSwapchainImage(swapchainImage, timelineFinished);
+				boiler.window().presentSwapchainImage(swapchainImage);
 				frameCounter += 1;
 			}
 		}
 
-		assertVkSuccess(vkDeviceWaitIdle(boiler.vkDevice()), "DeviceWaitIdle", "FinishTerrainPlayground");
+		boiler.deviceWaitIdle("FinishTerrainPlayground");
 		timeline.destroy();
 
 		try (var stack = stackPush()) {

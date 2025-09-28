@@ -25,6 +25,8 @@ import static org.lwjgl.vulkan.VK10.*;
 public class HelloTriangle {
 
 	public static void main(String[] args) throws InterruptedException {
+		int numFramesInFlight = 3;
+
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
 		)
@@ -32,11 +34,10 @@ public class HelloTriangle {
 				.hideDeviceSelectionInfo()
 				.allocationCallbacks(new SumAllocationCallbacks())
 				.addWindow(new WindowBuilder(
-						1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+						1000, 800, numFramesInFlight
 				).presentModes(VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR))
 				.build();
 
-		int numFramesInFlight = 3;
 		var commandPool = boiler.commands.createPool(
 				VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
 				boiler.queueFamilies().graphics().index(), "Drawing"
@@ -52,7 +53,7 @@ public class HelloTriangle {
 
 			var attachments = VkAttachmentDescription.calloc(1, stack);
 			var colorAttachment = attachments.get(0);
-			colorAttachment.format(boiler.window().surfaceFormat);
+			colorAttachment.format(boiler.window().properties.surfaceFormat());
 			colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
 			colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
 			colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
@@ -179,8 +180,8 @@ public class HelloTriangle {
 			@Override
 			protected Long createImage(Object swapchain, AcquiredImage swapchainImage) {
 				return boiler.images.createFramebuffer(
-						renderPass, swapchainImage.width(), swapchainImage.height(),
-						"TriangleFramebuffer", swapchainImage.image().vkImageView
+						renderPass, swapchainImage.getWidth(), swapchainImage.getHeight(),
+						"TriangleFramebuffer", swapchainImage.getImage().vkImageView
 				);
 			}
 
@@ -201,9 +202,9 @@ public class HelloTriangle {
 		int[] pPresentMode = {VK_PRESENT_MODE_FIFO_KHR};
 
 		//noinspection resource
-		glfwSetKeyCallback(boiler.window().handle, ((window, key, scancode, action, mods) -> {
+		glfwSetKeyCallback(boiler.window().properties.handle(), ((window, key, scancode, action, mods) -> {
 			if (action == GLFW_PRESS) {
-				var spm = boiler.window().supportedPresentModes;
+				var spm = boiler.window().getSupportedPresentModes();
 				if (key == GLFW_KEY_F) pPresentMode[0] = VK_PRESENT_MODE_FIFO_KHR;
 				if (key == GLFW_KEY_M && spm.contains(VK_PRESENT_MODE_MAILBOX_KHR))
 					pPresentMode[0] = VK_PRESENT_MODE_MAILBOX_KHR;
@@ -215,8 +216,9 @@ public class HelloTriangle {
 			}
 		}));
 
-		while (!glfwWindowShouldClose(boiler.window().handle)) {
+		while (!glfwWindowShouldClose(boiler.window().properties.handle())) {
 			glfwPollEvents();
+			boiler.window().updateSize();
 
 			long currentTime = System.currentTimeMillis();
 			if (currentTime > 1000 + referenceTime) {
@@ -236,9 +238,9 @@ public class HelloTriangle {
 					continue;
 				}
 
-				var framebuffer = swapchainResources.get(swapchainImage);
+				var framebuffer = swapchainResources.getImageAssociation(swapchainImage);
 				WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
-						swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+						swapchainImage.getAcquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 				)};
 
 				int frameIndex = (int) (frameCounter % numFramesInFlight);
@@ -260,12 +262,12 @@ public class HelloTriangle {
 				biRenderPass.renderPass(renderPass);
 				biRenderPass.framebuffer(framebuffer);
 				biRenderPass.renderArea().offset().set(0, 0);
-				biRenderPass.renderArea().extent().set(swapchainImage.width(), swapchainImage.height());
+				biRenderPass.renderArea().extent().set(swapchainImage.getWidth(), swapchainImage.getHeight());
 				biRenderPass.clearValueCount(1);
 				biRenderPass.pClearValues(pColorClear);
 
 				vkCmdBeginRenderPass(commandBuffer, biRenderPass, VK_SUBPASS_CONTENTS_INLINE);
-				recorder.dynamicViewportAndScissor(swapchainImage.width(), swapchainImage.height());
+				recorder.dynamicViewportAndScissor(swapchainImage.getWidth(), swapchainImage.getHeight());
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
 				recorder.bindVertexBuffers(0, vertexBuffer);
@@ -274,11 +276,11 @@ public class HelloTriangle {
 				vkCmdEndRenderPass(commandBuffer);
 				assertVkSuccess(vkEndCommandBuffer(commandBuffer), "TriangleDrawing", null);
 
-				var renderSubmission = boiler.queueFamilies().graphics().first().submit(
-						commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
+				boiler.queueFamilies().graphics().first().submit(
+						commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.getPresentSemaphore()
 				);
 
-				boiler.window().presentSwapchainImage(swapchainImage, renderSubmission);
+				boiler.window().presentSwapchainImage(swapchainImage);
 				frameCounter += 1;
 			}
 		}

@@ -125,6 +125,15 @@ public class VkbFence implements Comparable<VkbFence> {
 	}
 
 	/**
+	 * Forcibly resets this fence, which should usually only be done in unit tests.
+	 */
+	public synchronized void forceReset() {
+		isPending = false;
+		lastCompletedSubmission = currentTime;
+		currentTime += 1;
+	}
+
+	/**
 	 * Signals the fence forcibly, which should be done after a submission has failed.
 	 */
 	public synchronized void forceSignal() {

@@ -19,6 +19,7 @@ import org.lwjgl.vulkan.*;
 import java.nio.ByteBuffer;
 
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static com.github.knokko.boiler.utilities.BoilerMath.leastCommonMultiple;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -356,7 +357,10 @@ public class TestCommandRecorder {
 					"Target" + index, 5, 5
 			).colorAttachment().addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT), 1f);
 			vertexBuffers[index] = combiner.addMappedBuffer(24, 4, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-			colorBuffers[index] = combiner.addMappedBuffer(48, 16, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+			long colorAlignment = leastCommonMultiple(
+					16, instance.deviceProperties.limits().minStorageBufferOffsetAlignment()
+			);
+			colorBuffers[index] = combiner.addMappedBuffer(48, colorAlignment, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 			destinationBuffers[index] = combiner.addMappedBuffer(100, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		}
 		var memory = combiner.build(false);

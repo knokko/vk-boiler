@@ -9,10 +9,7 @@ import com.github.knokko.boiler.memory.MemoryBlock;
 import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
-import com.github.knokko.boiler.window.AcquiredImage;
-import com.github.knokko.boiler.window.SimpleWindowRenderLoop;
-import com.github.knokko.boiler.window.VkbWindow;
-import com.github.knokko.boiler.window.WindowEventLoop;
+import com.github.knokko.boiler.window.*;
 import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.sdl.SDL_MouseMotionEvent;
 import org.lwjgl.sdl.SDL_Point;
@@ -51,7 +48,7 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 
 	public DecoratedTriangle(VkbWindow window) {
 		super(
-				window, 2, false, VK_PRESENT_MODE_FIFO_KHR,
+				window, false, VK_PRESENT_MODE_FIFO_KHR,
 				ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.COLOR_ATTACHMENT_WRITE
 		);
 
@@ -64,16 +61,17 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 			if (eventType == SDL_EVENT_MOUSE_BUTTON_DOWN) {
 				if (isMouseOver(-1)) window.requestClose();
 				if (isMouseOver(-2)) {
-					if ((SDL_GetWindowFlags(window.handle) & SDL_WINDOW_MAXIMIZED) == 0) SDL_MaximizeWindow(window.handle);
-					else SDL_RestoreWindow(window.handle);
+					if ((SDL_GetWindowFlags(window.properties.handle()) & SDL_WINDOW_MAXIMIZED) == 0) {
+						SDL_MaximizeWindow(window.properties.handle());
+					} else SDL_RestoreWindow(window.properties.handle());
 				}
 				if (isMouseOver(-3)) {
-					SDL_MinimizeWindow(window.handle);
+					SDL_MinimizeWindow(window.properties.handle());
 				}
 			}
 			return false;
 		}, 0L), "AddEventWatch");
-		assertSdlSuccess(SDL_SetWindowHitTest(window.handle, (sdlWindow, rawPoint, userData) -> {
+		assertSdlSuccess(SDL_SetWindowHitTest(window.properties.handle(), (sdlWindow, rawPoint, userData) -> {
 			int x = SDL_Point.nx(rawPoint);
 			int y = SDL_Point.ny(rawPoint);
 			for (int relative = -3; relative <= -1; relative++) {
@@ -164,7 +162,10 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 		pipelineBuilder.noDepthStencil();
 		pipelineBuilder.noColorBlending(1);
 		pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-		pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
+		pipelineBuilder.dynamicRendering(
+				0, VK_FORMAT_UNDEFINED,
+				VK_FORMAT_UNDEFINED, window.properties.surfaceFormat()
+		);
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
 		this.graphicsPipeline = pipelineBuilder.build("TrianglePipeline");
 	}
@@ -172,15 +173,15 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 	@Override
 	protected void recordFrame(MemoryStack stack, int frameIndex, CommandRecorder recorder, AcquiredImage acquiredImage, BoilerInstance instance) {
 		var colorAttachments = recorder.singleColorRenderingAttachment(
-				acquiredImage.image().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
+				acquiredImage.getImage().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 				VK_ATTACHMENT_STORE_OP_STORE, rgb(20, 120, 180)
 		);
 
 		recorder.beginSimpleDynamicRendering(
-				acquiredImage.width(), acquiredImage.height(),
+				acquiredImage.getWidth(), acquiredImage.getHeight(),
 				colorAttachments, null, null
 		);
-		recorder.dynamicViewportAndScissor(acquiredImage.width(), acquiredImage.height());
+		recorder.dynamicViewportAndScissor(acquiredImage.getWidth(), acquiredImage.getHeight());
 		vkCmdBindPipeline(recorder.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 		recorder.bindVertexBuffers(0, vertexBuffer);
 		vkCmdDraw(recorder.commandBuffer, 3 * NUM_TRIANGLES, 1, 0, 0);
@@ -264,12 +265,10 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 		)
 				.validation().forbidValidationErrors()
 				.addWindow(new WindowBuilder(
-						1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+						1000, 800, 2
 				).sdlFlags(SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN))
 				.enableDynamicRendering()
 				.useSDL().build();
-
-
 
 		var eventLoop = new WindowEventLoop();
 		eventLoop.addWindow(new DecoratedTriangle(boiler.window()));

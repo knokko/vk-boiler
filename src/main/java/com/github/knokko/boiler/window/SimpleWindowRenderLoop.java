@@ -3,7 +3,6 @@ package com.github.knokko.boiler.window;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
-import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
@@ -27,7 +26,6 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 
 	/**
 	 * @param window The window that should be rendered
-	 * @param numFramesInFlight The number of frames in-flight
 	 * @param acquireSwapchainImageWithFence <i>true</i> to wait on a fence after acquiring a swapchain image,
 	 *                                       <i>false</i> to let the render submission wait on an acquire semaphore
 	 * @param presentMode The initial present mode of the initial swapchain. You can change the <i>presentMode</i>
@@ -37,10 +35,10 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 	 *                  same as <i>firstUsage</i>
 	 */
 	public SimpleWindowRenderLoop(
-			VkbWindow window, int numFramesInFlight, boolean acquireSwapchainImageWithFence,
+			VkbWindow window, boolean acquireSwapchainImageWithFence,
 			int presentMode, ResourceUsage firstUsage, ResourceUsage lastUsage
 	) {
-		super(window, numFramesInFlight, acquireSwapchainImageWithFence, presentMode);
+		super(window, acquireSwapchainImageWithFence, presentMode);
 		this.firstUsage = firstUsage;
 		this.lastUsage = lastUsage;
 	}
@@ -59,7 +57,7 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 	}
 
 	@Override
-	protected AwaitableSubmission renderFrame(
+	protected void renderFrame(
 			MemoryStack stack, int frameIndex, AcquiredImage acquiredImage, BoilerInstance instance
 	) {
 		var fence = commandFences[frameIndex];
@@ -75,17 +73,17 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 				VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 				getClass().getSimpleName()
 		);
-		recorder.transitionLayout(acquiredImage.image(), ResourceUsage.fromPresent(lastUsage.stageMask()), firstUsage);
+		recorder.transitionLayout(acquiredImage.image, ResourceUsage.fromPresent(lastUsage.stageMask()), firstUsage);
 		recordFrame(stack, frameIndex, recorder, acquiredImage, instance);
-		recorder.transitionLayout(acquiredImage.image(), lastUsage, ResourceUsage.PRESENT);
+		recorder.transitionLayout(acquiredImage.image, lastUsage, ResourceUsage.PRESENT);
 		recorder.end();
 
 		var waitSemaphores = acquireSwapchainImageWithFence ? null : new WaitSemaphore[]{new WaitSemaphore(
-				acquiredImage.acquireSemaphore(), lastUsage.stageMask()
+				acquiredImage.getAcquireSemaphore(), lastUsage.stageMask()
 		)};
 
-		return instance.queueFamilies().graphics().first().submit(
-				commandBuffer, "Fill", waitSemaphores, fence, acquiredImage.presentSemaphore()
+		instance.queueFamilies().graphics().first().submit(
+				commandBuffer, "Fill", waitSemaphores, fence, acquiredImage.presentSemaphore
 		);
 	}
 

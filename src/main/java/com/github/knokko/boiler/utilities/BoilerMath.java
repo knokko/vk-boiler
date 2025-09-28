@@ -1,5 +1,6 @@
 package com.github.knokko.boiler.utilities;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class BoilerMath {
@@ -51,5 +52,15 @@ public class BoilerMath {
 			lcm = (lcm * number) / gcd;
 		}
 		return lcm;
+	}
+
+	/**
+	 * @return The least common multiple of all the non-negative long integers in {@code numbers}, or 1 when
+	 * {@code numbers} is empty.
+	 */
+	public static long leastCommonMultiple(long... numbers) {
+		Set<Long> set = new HashSet<>(numbers.length);
+		for (long number : numbers) set.add(number);
+		return leastCommonMultiple(set);
 	}
 }

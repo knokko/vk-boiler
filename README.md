@@ -89,7 +89,7 @@ var boiler = new BoilerBuilder(
 )
 		.validation()
 		.enableDynamicRendering()
-		.addWindow(new WindowBuilder(1000, 8000, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+		.addWindow(new WindowBuilder(1000, 8000, 2))
 		.build();
 ```
 See the [complete initialization documentation](docs/initialization.md) for

@@ -18,7 +18,9 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 
 import java.util.Collection;
+import java.util.concurrent.locks.ReadWriteLock;
 
+import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.vmaDestroyAllocator;
 import static org.lwjgl.vulkan.EXTDebugUtils.vkDestroyDebugUtilsMessengerEXT;
@@ -70,6 +72,21 @@ public class BoilerInstance {
 	public final BoilerSync sync;
 	public final BoilerDebug debug;
 
+	/**
+	 * This lock is used to ensure that no queue submissions can happen at the same time as a {@code vkDeviceWaitIdle()}
+	 * (which is forbidden by the specification).
+	 * <ul>
+	 *     <li>
+	 *         Any {@link com.github.knokko.boiler.queues.VkbQueue} will hold the read lock while they are calling
+	 *         {@code vkQueueSubmit} or {@code vkQueuePresentKHR}
+	 *     </li>
+	 *     <li>
+	 *         The write lock will be held during {@link #deviceWaitIdle(String)}
+	 *     </li>
+	 * </ul>
+	 */
+	public final ReadWriteLock waitIdleLock;
+
 	private volatile boolean encounteredFatalValidationError;
 	private volatile boolean destroyed = false;
 
@@ -81,8 +98,8 @@ public class BoilerInstance {
 	public BoilerInstance(
 			XrBoiler xr, long defaultTimeout, boolean useSDL, Collection<VkbWindow> windows,
 			int apiVersion, VkInstance vkInstance, VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
-			BoilerExtra extra, QueueFamilies queueFamilies, long vmaAllocator, long validationErrorThrower,
-			VkbAllocationCallbacks allocationCallbacks
+			BoilerExtra extra, QueueFamilies queueFamilies, ReadWriteLock waitIdleLock,
+			long vmaAllocator, long validationErrorThrower, VkbAllocationCallbacks allocationCallbacks
 	) {
 		this.allocationCallbacks = allocationCallbacks;
 		this.useSDL = useSDL;
@@ -95,6 +112,7 @@ public class BoilerInstance {
 		this.vkDevice = vkDevice;
 		this.extra = extra;
 		this.queueFamilies = queueFamilies;
+		this.waitIdleLock = waitIdleLock;
 		this.vmaAllocator = vmaAllocator;
 		this.validationErrorThrower = validationErrorThrower;
 
@@ -180,6 +198,20 @@ public class BoilerInstance {
 	public long vmaAllocator() {
 		checkDestroyed();
 		return vmaAllocator;
+	}
+
+	/**
+	 * Calls {@code vkDeviceWaitIdle} while holding the write-lock of {@link #waitIdleLock}
+	 * @param context When {@code vkDeviceWaitIdle} fails (doesn't return {@code VK_SUCCESS}, this context will be
+	 *                included in the exception message.
+	 */
+	public void deviceWaitIdle(String context) {
+		waitIdleLock.writeLock().lock();
+		try {
+			assertVkSuccess(vkDeviceWaitIdle(vkDevice), "DeviceWaitIdle", context);
+		} finally {
+			waitIdleLock.writeLock().unlock();
+		}
 	}
 
 	/**

@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         jdk: [17, 21]
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-2022, ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: NcStudios/VulkanCI@v1.2
