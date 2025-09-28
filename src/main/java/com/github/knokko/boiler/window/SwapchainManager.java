@@ -9,36 +9,32 @@ import static org.lwjgl.vulkan.VK10.*;
 
 class SwapchainManager {
 
-	private final int maxOldSwapchains;
-	private final List<SwapchainWrapper> oldSwapchains = new ArrayList<>();
+	private final SwapchainFunctions functions;
+	private final WindowProperties properties;
+	private final PresentModes presentModes;
 
 	private final long[] acquireSemaphores;
-	private final Set<Integer> supportedPresentModes = new HashSet<>();
-	private final Set<Integer> usedPresentModes = new HashSet<>();
-	private final Set<SwapchainResourceManager<?, ?>> associations = ConcurrentHashMap.newKeySet();
+	private final VkSurfaceCapabilitiesKHR surfaceCapabilities = VkSurfaceCapabilitiesKHR.calloc();
 
-	private final SwapchainFunctions functions;
-	private final String debugName;
+	private final Set<SwapchainResourceManager<?, ?>> associations = ConcurrentHashMap.newKeySet();
+	private final List<SwapchainWrapper> oldSwapchains = new ArrayList<>();
+
 
 	private SwapchainWrapper currentSwapchain;
 	private int currentSwapchainID;
 	int currentWidth, currentHeight;
 
-	private final VkSurfaceCapabilitiesKHR surfaceCapabilities = VkSurfaceCapabilitiesKHR.calloc();
-
-	SwapchainManager(
-			int framesInFlight, int maxOldSwapchains, Collection<Integer> supportedPresentModes,
-			Collection<Integer> preparedPresentModes, SwapchainFunctions functions, String debugName
-	) {
-		this.acquireSemaphores = new long[framesInFlight];
-		for (int frame = 0; frame < framesInFlight; frame++) {
-			acquireSemaphores[frame] = functions.borrowSemaphore(debugName + "Acquire" + frame);
-		}
-		this.maxOldSwapchains = maxOldSwapchains;
-		this.usedPresentModes.addAll(preparedPresentModes);
-		this.supportedPresentModes.addAll(supportedPresentModes);
+	SwapchainManager(SwapchainFunctions functions, WindowProperties properties, PresentModes presentModes) {
 		this.functions = functions;
-		this.debugName = debugName;
+		this.properties = properties;
+		this.presentModes = presentModes;
+
+		this.acquireSemaphores = new long[properties.maxFramesInFlight()];
+		for (int frame = 0; frame < properties.maxFramesInFlight(); frame++) {
+			acquireSemaphores[frame] = functions.borrowSemaphore(properties.title() + "Acquire" + frame);
+		}
+
+		updateSize();
 	}
 
 	private void maybeRecreateSwapchain(int presentMode) {
@@ -59,12 +55,7 @@ class SwapchainManager {
 //			windowLoop.queueMainThreadAction(() -> maybeRecreateSwapchain(presentMode), this);
 //		}
 
-		if (!supportedPresentModes.contains(presentMode)) {
-			throw new IllegalArgumentException(
-					"Unsupported present mode " + presentMode + ": supported present modes are " + supportedPresentModes
-			);
-		}
-		this.usedPresentModes.add(presentMode);
+		presentModes.acquire(presentMode);
 
 		if (currentSwapchain == null) recreateSwapchain(presentMode);
 		if (currentSwapchain == null) return null;
@@ -83,7 +74,7 @@ class SwapchainManager {
 
 	private void recreateSwapchain(int presentMode) {
 		if (currentSwapchain != null) oldSwapchains.add(currentSwapchain);
-		if (maxOldSwapchains > oldSwapchains.size()) {
+		if (properties.maxOldSwapchains() > oldSwapchains.size()) {
 			functions.deviceWaitIdle();
 			for (var swapchain : oldSwapchains) swapchain.destroy();
 			oldSwapchains.clear();
@@ -103,9 +94,10 @@ class SwapchainManager {
 		if (!oldSwapchains.isEmpty()) oldSwapchain = oldSwapchains.get(oldSwapchains.size() - 1).vkSwapchain;
 		currentSwapchainID += 1;
 
+		presentModes.createSwapchain(presentMode);
 		currentSwapchain = functions.createSwapchain(
-				presentMode, usedPresentModes, associations, currentWidth, currentHeight, acquireSemaphores,
-				oldSwapchain, surfaceCapabilities, "Swapchain-" + debugName + currentSwapchainID
+				presentModes, associations, currentWidth, currentHeight, acquireSemaphores,
+				oldSwapchain, surfaceCapabilities, "Swapchain-" + properties.title() + currentSwapchainID
 		);
 	}
 

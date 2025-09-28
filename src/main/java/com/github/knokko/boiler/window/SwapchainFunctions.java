@@ -15,7 +15,7 @@ interface SwapchainFunctions {
 	void getSurfaceCapabilities(VkSurfaceCapabilitiesKHR capabilities);
 
 	SwapchainWrapper createSwapchain(
-			int presentMode, Set<Integer> usedPresentModes, Set<SwapchainResourceManager<?, ?>> associations,
+			PresentModes presentModes, Set<SwapchainResourceManager<?, ?>> associations,
 			int width, int height, long[] acquireSemaphores, long oldSwapchain,
 			VkSurfaceCapabilitiesKHR surfaceCapabilities, String debugName
 	);

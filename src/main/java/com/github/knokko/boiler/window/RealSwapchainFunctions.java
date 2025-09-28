@@ -33,21 +33,13 @@ import static org.lwjgl.vulkan.VK10.*;
 class RealSwapchainFunctions implements SwapchainFunctions {
 
 	private final BoilerInstance instance;
-	private final long vkSurface;
 	private final VkbQueueFamily presentFamily;
-	private final int surfaceFormat, surfaceColorSpace, swapchainImageUsage, swapchainCompositeAlpha;
+	private final WindowProperties properties;
 
-	RealSwapchainFunctions(
-			BoilerInstance instance, long vkSurface, VkbQueueFamily presentFamily,
-			int surfaceFormat, int surfaceColorSpace, int swapchainImageUsage, int swapchainCompositeAlpha
-	) {
+	RealSwapchainFunctions(BoilerInstance instance, VkbQueueFamily presentFamily, WindowProperties properties) {
 		this.instance = instance;
-		this.vkSurface = vkSurface;
 		this.presentFamily = presentFamily;
-		this.surfaceFormat = surfaceFormat;
-		this.surfaceColorSpace = surfaceColorSpace;
-		this.swapchainImageUsage = swapchainImageUsage;
-		this.swapchainCompositeAlpha = swapchainCompositeAlpha;
+		this.properties = properties;
 	}
 
 	@Override
@@ -59,36 +51,37 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 	@Override
 	public void getSurfaceCapabilities(VkSurfaceCapabilitiesKHR capabilities) {
 		assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-				instance.vkPhysicalDevice(), vkSurface, capabilities
+				instance.vkPhysicalDevice(), properties.vkSurface(), capabilities
 		), "GetPhysicalDeviceSurfaceCapabilitiesKHR", "RealSwapchainFunctions");
 	}
 
 	@Override
 	public SwapchainWrapper createSwapchain(
-			int presentMode, Set<Integer> usedPresentModes, Set<SwapchainResourceManager<?, ?>> associations,
-			int width, int height, long oldSwapchain, VkSurfaceCapabilitiesKHR surfaceCapabilities, String debugName
+			PresentModes presentModes, Set<SwapchainResourceManager<?, ?>> associations,
+			int width, int height, long[] acquireSemaphores, long oldSwapchain,
+			VkSurfaceCapabilitiesKHR surfaceCapabilities, String debugName
 	) {
 		try (var stack = stackPush()) {
-			int desiredImageCount = presentMode == VK_PRESENT_MODE_MAILBOX_KHR ? 3 : 2;
+			int desiredImageCount = presentModes.current == VK_PRESENT_MODE_MAILBOX_KHR ? 3 : 2;
 			int minImageCount = max(desiredImageCount, surfaceCapabilities.minImageCount());
 
 			Set<Integer> compatibleUsedPresentModes = new HashSet<>();
-			compatibleUsedPresentModes.add(presentMode);
+			compatibleUsedPresentModes.add(presentModes.current);
 
 			var ciSwapchain = VkSwapchainCreateInfoKHR.calloc(stack);
 			if (instance.extra.swapchainMaintenance()) {
-				if (usedPresentModes.size() > 1) {
+				if (presentModes.used.size() > 1) {
 					var presentModeCompatibility = VkSurfacePresentModeCompatibilityEXT.calloc(stack);
 					presentModeCompatibility.sType$Default();
 
 					var queriedPresentMode = VkSurfacePresentModeEXT.calloc(stack);
 					queriedPresentMode.sType$Default();
-					queriedPresentMode.presentMode(presentMode);
+					queriedPresentMode.presentMode(presentModes.current);
 
 					var surfaceInfo = VkPhysicalDeviceSurfaceInfo2KHR.calloc(stack);
 					surfaceInfo.sType$Default();
 					surfaceInfo.pNext(queriedPresentMode);
-					surfaceInfo.surface(vkSurface);
+					surfaceInfo.surface(properties.vkSurface());
 
 					var surfaceCapabilities2 = VkSurfaceCapabilities2KHR.calloc(stack);
 					surfaceCapabilities2.sType$Default();
@@ -109,7 +102,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 
 					for (int index = 0; index < numCompatiblePresentModes; index++) {
 						int compatiblePresentMode = compatiblePresentModeBuffer.get(index);
-						if (usedPresentModes.contains(compatiblePresentMode)) {
+						if (presentModes.used.contains(compatiblePresentMode)) {
 							compatibleUsedPresentModes.add(compatiblePresentMode);
 						}
 					}
@@ -135,13 +128,13 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 
 			ciSwapchain.sType$Default();
 			ciSwapchain.flags(0);
-			ciSwapchain.surface(vkSurface);
+			ciSwapchain.surface(properties.vkSurface());
 			ciSwapchain.minImageCount(minImageCount);
-			ciSwapchain.imageFormat(surfaceFormat);
-			ciSwapchain.imageColorSpace(surfaceColorSpace);
+			ciSwapchain.imageFormat(properties.surfaceFormat());
+			ciSwapchain.imageColorSpace(properties.surfaceColorSpace());
 			ciSwapchain.imageExtent().set(width, height);
 			ciSwapchain.imageArrayLayers(1);
-			ciSwapchain.imageUsage(swapchainImageUsage);
+			ciSwapchain.imageUsage(properties.swapchainImageUsage());
 
 			if (instance.queueFamilies().graphics() == presentFamily) {
 				ciSwapchain.imageSharingMode(VK_SHARING_MODE_EXCLUSIVE);
@@ -154,8 +147,8 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 			}
 
 			ciSwapchain.preTransform(surfaceCapabilities.currentTransform());
-			ciSwapchain.compositeAlpha(swapchainCompositeAlpha);
-			ciSwapchain.presentMode(presentMode);
+			ciSwapchain.compositeAlpha(properties.swapchainCompositeAlpha());
+			ciSwapchain.presentMode(presentModes.current);
 			ciSwapchain.clipped(true);
 			ciSwapchain.oldSwapchain(oldSwapchain);
 
@@ -168,8 +161,8 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 			instance.debug.name(stack, vkSwapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, debugName);
 
 			return new SwapchainWrapper(
-					this, compatibleUsedPresentModes, associations, vkSwapchain,
-					width, height, swapchainImageUsage, presentMode, debugName
+					this, presentModes, associations, vkSwapchain,
+					width, height, acquireSemaphores, properties.swapchainImageUsage(), debugName
 			);
 		}
 	}
@@ -196,7 +189,8 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 				result[index] = new VkbImage(vkImage, width, height, VK_IMAGE_ASPECT_COLOR_BIT);
 				if (shouldCreateImageView(imageUsage)) {
 					result[index].vkImageView = instance.images.createSimpleView(
-							vkImage, surfaceFormat, VK_IMAGE_ASPECT_COLOR_BIT, debugName + "ImageView" + index
+							vkImage, properties.surfaceFormat(), VK_IMAGE_ASPECT_COLOR_BIT,
+							debugName + "ImageView" + index
 					);
 				}
 			}

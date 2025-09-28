@@ -6,6 +6,7 @@ import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import com.github.knokko.boiler.window.VkbWindow;
+import com.github.knokko.boiler.window.WindowProperties;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
@@ -127,11 +128,8 @@ public class WindowBuilder {
 			VkPhysicalDevice vkPhysicalDevice, long vkSurface,
 			boolean hasSwapchainMaintenance, VkbQueueFamily presentFamily
 	) {
-		// Note: do NOT allocate the capabilities on the stack because it needs to be read later!
-		// TODO But... if SwapchainManager makes its own copy...
-		var capabilities = VkSurfaceCapabilitiesKHR.calloc();
-
 		try (var stack = stackPush()) {
+			var capabilities = VkSurfaceCapabilitiesKHR.calloc(stack);
 			assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
 					vkPhysicalDevice, vkSurface, capabilities
 			), "GetPhysicalDeviceSurfaceCapabilitiesKHR", "BoilerSwapchainBuilder");
@@ -175,11 +173,12 @@ public class WindowBuilder {
 			var surfaceFormat = surfaceFormatPicker.chooseSurfaceFormat(formats);
 			var compositeAlpha = compositeAlphaPicker.chooseCompositeAlpha(capabilities.supportedCompositeAlpha());
 
-			return new VkbWindow(
-					hasSwapchainMaintenance, handle, vkSurface, presentModes, preparedPresentModes, title,
-					hideUntilFirstFrame, surfaceFormat.format(), surfaceFormat.colorSpace(), capabilities,
-					swapchainImageUsage, compositeAlpha, presentFamily
+			int numHiddenFrames = hideUntilFirstFrame ? 1 : 0; // TODO Allow more values
+			var properties = new WindowProperties(
+					handle, title, vkSurface, numHiddenFrames, surfaceFormat.format(), surfaceFormat.colorSpace(),
+					swapchainImageUsage, compositeAlpha, hasSwapchainMaintenance
 			);
+			return new VkbWindow(properties, presentFamily, presentModes, preparedPresentModes);
 		}
 	}
 

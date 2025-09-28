@@ -24,40 +24,16 @@ public class VkbWindow {
 
 	BoilerInstance instance;
 
-	/**
-	 * The GLFW window handle or the SDL window handle
-	 */
-	public final long handle;
-	public final long vkSurface;
-	/**
-	 * An immutable set of all supported <i>VkPresentModeKHR</i>s of the <i>VkSurfaceKHR</i> of this window.
-	 */
-	public final Set<Integer> supportedPresentModes;
-	/**
-	 * The <i>VkFormat</i> of the swapchain images of the <i>VkSurfaceKHR</i> of this window
-	 */
-	public final int surfaceFormat;
-	/**
-	 * The <i>VkColorSpaceKHR</i> of the swapchain images of the <i>VkSurfaceKHR</i> of this window
-	 */
-	public final int surfaceColorSpace;
-	/**
-	 * The image usage flags for the swapchain images that will be created for this window
-	 */
-	public final int swapchainImageUsage;
-	/**
-	 * The composite alpha for the swapchain images that will be created for this window
-	 */
-	public final int swapchainCompositeAlpha;
+	public final WindowProperties properties;
+
 	/**
 	 * The queue family that will be used to present images of the swapchains for this window, typically the
 	 * 'main' graphics queue family
 	 */
 	public final VkbQueueFamily presentFamily;
-	private final Set<Integer> preparedPresentModes;
+	private final PresentModes presentModes;
 
 	// TODO private long currentSwapchainID;
-	private final String title;
 //	private final boolean hideUntilFirstFrame;
 //	private boolean calledShowWindow;
 
@@ -72,37 +48,30 @@ public class VkbWindow {
 	 * <i>BoilerInstance.addWindow</i> instead
 	 */
 	public VkbWindow(
-			boolean hasSwapchainMaintenance, long handle, long vkSurface,
-			Collection<Integer> supportedPresentModes, Set<Integer> preparedPresentModes,
-			String title, boolean hideUntilFirstFrame, int surfaceFormat, int surfaceColorSpace,
-			VkSurfaceCapabilitiesKHR surfaceCapabilities, int swapchainImageUsage, int swapchainCompositeAlpha,
-			VkbQueueFamily presentFamily
+			WindowProperties properties, VkbQueueFamily presentFamily,
+			Collection<Integer> supportedPresentModes, Set<Integer> preparedPresentModes
 	) {
-		this.handle = handle;
-		this.vkSurface = vkSurface;
-		this.supportedPresentModes = Set.copyOf(supportedPresentModes);
-		this.preparedPresentModes = preparedPresentModes;
-		this.surfaceFormat = surfaceFormat;
-		this.surfaceColorSpace = surfaceColorSpace;
-		this.swapchainImageUsage = swapchainImageUsage;
-		this.swapchainCompositeAlpha = swapchainCompositeAlpha;
+		this.properties = properties;
+		this.presentModes = new PresentModes(supportedPresentModes, preparedPresentModes);
 		this.presentFamily = presentFamily;
-		this.title = title;
-//		this.hideUntilFirstFrame = hideUntilFirstFrame;
 	}
 
+	/**
+	 * This method is meant for internal use only. Expect an {@code IllegalStateException} if you call it yourself.
+	 */
 	public void setInstance(BoilerInstance instance) {
 		if (swapchains != null) throw new IllegalStateException();
 
-		SwapchainFunctions functions = new RealSwapchainFunctions(
-				instance, vkSurface, presentFamily, surfaceFormat, surfaceColorSpace,
-				swapchainImageUsage, swapchainCompositeAlpha
-		);
-		this.swapchains = new SwapchainManager(
-				0, supportedPresentModes, preparedPresentModes, functions, title
-		);
+		SwapchainFunctions functions = new RealSwapchainFunctions(instance, presentFamily, properties);
+		this.swapchains = new SwapchainManager(functions, properties, presentModes);
 		this.instance = instance;
-		swapchains.updateSize();
+	}
+
+	/**
+	 * An immutable set of all supported <i>VkPresentModeKHR</i>s of the <i>VkSurfaceKHR</i> of this window.
+	 */
+	public Set<Integer> getSupportedPresentModes() {
+		return presentModes.supported;
 	}
 
 	/**
@@ -156,8 +125,8 @@ public class VkbWindow {
 	private void showWindowNow() {
 		assertMainThread();
 		if (instance.useSDL) {
-			assertSdlSuccess(SDL_ShowWindow(handle), "ShowWindow");
-		} else glfwShowWindow(handle);
+			assertSdlSuccess(SDL_ShowWindow(properties.handle()), "ShowWindow");
+		} else glfwShowWindow(properties.handle());
 	}
 
 	/**
@@ -181,11 +150,11 @@ public class VkbWindow {
 			try (var stack = stackPush()) {
 				var event = SDL_Event.calloc(stack);
 				event.type(SDL_EVENT_WINDOW_CLOSE_REQUESTED);
-				event.window().windowID(SDL_GetWindowID(handle));
+				event.window().windowID(SDL_GetWindowID(properties.handle()));
 				SDL_PushEvent(event);
 			}
 		} else {
-			glfwSetWindowShouldClose(handle, true);
+			glfwSetWindowShouldClose(properties.handle(), true);
 		}
 	}
 
@@ -205,11 +174,11 @@ public class VkbWindow {
 
 		try (var stack = stackPush()) {
 			swapchains.destroy();
-			vkDestroySurfaceKHR(instance.vkInstance(), vkSurface, CallbackUserData.SURFACE.put(stack, instance));
+			vkDestroySurfaceKHR(instance.vkInstance(), properties.vkSurface(), CallbackUserData.SURFACE.put(stack, instance));
 		} finally {
 			if (windowLoop == null) {
-				if (instance.useSDL) SDL_DestroyWindow(handle);
-				else glfwDestroyWindow(handle);
+				if (instance.useSDL) SDL_DestroyWindow(properties.handle());
+				else glfwDestroyWindow(properties.handle());
 			}
 			hasBeenDestroyed = true;
 		}

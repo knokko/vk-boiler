@@ -18,7 +18,7 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 class SwapchainWrapper {
 
 	private final SwapchainFunctions functions;
-	private final Set<Integer> supportedPresentModes = new HashSet<>();
+	private final PresentModes presentModes;
 	final long vkSwapchain;
 	private final VkbImage[] swapchainImages;
 	private final long[] presentSemaphores;
@@ -29,17 +29,16 @@ class SwapchainWrapper {
 	final Set<SwapchainResourceManager<?, ?>> associations;
 	private final int width, height;
 
-	private int lastPresentMode;
 	private AwaitableSubmission canDestroyOldSwapchains;
 	private boolean outdated;
 
 	SwapchainWrapper(
-			SwapchainFunctions functions, Set<Integer> supportedPresentModes,
+			SwapchainFunctions functions, PresentModes presentModes,
 			Set<SwapchainResourceManager<?, ?>> associations, long vkSwapchain, int width, int height,
-			long[] acquireSemaphores, int imageUsage, int presentMode, String debugName
+			long[] acquireSemaphores, int imageUsage, String debugName
 	) {
 		this.functions = functions;
-		this.supportedPresentModes.addAll(supportedPresentModes);
+		this.presentModes = presentModes;
 		this.associations = associations;
 		this.vkSwapchain = vkSwapchain;
 		this.width = width;
@@ -47,7 +46,6 @@ class SwapchainWrapper {
 		this.swapchainImages = functions.getSwapchainImages(vkSwapchain, width, height, imageUsage, debugName);
 		this.presentSemaphores = new long[swapchainImages.length];
 		this.acquireSemaphores = acquireSemaphores;
-		this.lastPresentMode = presentMode;
 		this.debugName = debugName;
 	}
 
@@ -72,7 +70,7 @@ class SwapchainWrapper {
 
 	AcquiredImage2 acquireImage(int presentMode, int width, int height, boolean useFence) {
 		if (width != this.width || height != this.height) outdated = true;
-		if (!supportedPresentModes.contains(presentMode)) outdated = true;
+		if (!presentModes.compatible.contains(presentMode)) outdated = true;
 		if (outdated) return null;
 
 		long acquireSemaphore = VK_NULL_HANDLE;
@@ -122,15 +120,8 @@ class SwapchainWrapper {
 	}
 
 	void presentImage(AcquiredImage2 image) {
-		boolean changePresentMode = false;
-		if (image.presentMode != lastPresentMode) {
-			lastPresentMode = image.presentMode;
-			changePresentMode = true;
-		}
-
-		int presentResult = functions.presentImage(image, changePresentMode);
+		int presentResult = functions.presentImage(image, presentModes.present(image.presentMode));
 		if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) outdated = true;
-
 		if (image.presentFence != null) functions.returnFence(image.presentFence);
 	}
 
