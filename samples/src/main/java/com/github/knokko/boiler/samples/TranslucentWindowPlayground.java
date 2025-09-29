@@ -64,8 +64,8 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 		System.out.printf(
 				"GLFW platform is %s and GLFW transparent framebuffer is %b and composite alpha mode is %s\n",
 				getIntConstantName(GLFW.class, glfwGetPlatform(), "GLFW_PLATFORM", "", "unknown"),
-				glfwGetWindowAttrib(boiler.window().handle, GLFW_TRANSPARENT_FRAMEBUFFER),
-				getIntConstantName(KHRSurface.class, boiler.window().swapchainCompositeAlpha,
+				glfwGetWindowAttrib(boiler.window().properties.handle(), GLFW_TRANSPARENT_FRAMEBUFFER),
+				getIntConstantName(KHRSurface.class, boiler.window().properties.swapchainCompositeAlpha(),
 						"VK_COMPOSITE_ALPHA", "BIT_KHR", "unknown")
 		);
 
@@ -79,7 +79,8 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 	public TranslucentWindowPlayground(VkbWindow window) {
 		super(
 				window, 5, false,
-				window.supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
+				window.getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
+						VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
 				ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_DEST
 		);
 	}
@@ -89,7 +90,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 			MemoryStack stack, int frameIndex, CommandRecorder recorder, AcquiredImage2 acquired, BoilerInstance boiler
 	) {
 		float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
-		float colorScale = boiler.window().swapchainCompositeAlpha == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
+		float colorScale = boiler.window().properties.swapchainCompositeAlpha() == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
 		recorder.clearColorImage(acquired.image.vkImage, 0f, 0.6f * colorScale, colorScale, alpha);
 	}
 }

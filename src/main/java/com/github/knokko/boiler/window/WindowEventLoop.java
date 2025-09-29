@@ -1,6 +1,5 @@
 package com.github.knokko.boiler.window;
 
-import com.github.knokko.boiler.exceptions.SDLFailureException;
 import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.system.Platform;
 
@@ -8,16 +7,16 @@ import java.util.concurrent.*;
 
 import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.sdl.SDLError.SDL_GetError;
 import static org.lwjgl.sdl.SDLEvents.*;
 import static org.lwjgl.sdl.SDLVideo.SDL_DestroyWindow;
 import static org.lwjgl.system.MemoryStack.stackPush;
 
 /**
- * A class to handle swapchain recreations and GLFW or SDL events on the main thread while rendering is happening on
+ * A class to handle GLFW or SDL events on the main thread while rendering is happening on
  * other threads. See docs/swapchain.md for more information.
  */
 public class WindowEventLoop {
+	// TODO Update docs/swapchain.md
 
 	private final BlockingQueue<Task> queue = new LinkedBlockingQueue<>();
 	private final ConcurrentHashMap<VkbWindow, State> stateMap = new ConcurrentHashMap<>();
@@ -47,43 +46,19 @@ public class WindowEventLoop {
 		this(0.5, null);
 	}
 
-	private void update(VkbWindow resizedWindow) {
+	private void update() {
 		Task task;
-		if (resizedWindow != null) {
-			// For some reason, my computer may freeze completely if I recreate a swapchain of a window while another
-			// window of this process is hidden behind any other window. To avoid this problem, recreating swapchains
-			// during the glfwFramebufferSizeCallback is only allowed when this process has only 1 window.
-			if (stateMap.size() != 1) return;
-
-			// Notify the window that it should probably resize. This is required for proper resizing on Wayland
-			// because Wayland swapchains are never out-of-date or suboptimal.
-			getState(resizedWindow).shouldCheckResize = true;
-
-			// Due to the stupid win32 event loop, Windows is the only OS that can only resize smoothly when
-			// the swapchain is recreated during the resize callback. On all other platforms, we can simply do the
-			// resizing after glfwWaitEvents() or SDL_WaitEvent returns.
-			if (Platform.get() != Platform.WINDOWS) return;
-
-			try {
-				task = queue.poll(250, TimeUnit.MILLISECONDS);
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
-			}
-		} else task = queue.poll();
+		task = queue.poll();
 
 		while (task != null) {
 			if (task.runnable == null) {
 				if (useSDL) {
-					SDL_DestroyWindow(task.window.handle);
+					SDL_DestroyWindow(task.window.properties.handle());
 				} else {
-					glfwDestroyWindow(task.window.handle);
+					glfwDestroyWindow(task.window.properties.handle());
 				}
 				stateMap.remove(task.window);
-			} else task.runnable.run();
-
-			task.state.shouldCheckResize = false;
-			task.state.lastResizeTime = System.nanoTime();
-			task.state.actionCompleted.release();
+			} else throw new RuntimeException("TODO IMPOSSIBLE?");
 
 			task = queue.poll();
 		}
@@ -91,20 +66,13 @@ public class WindowEventLoop {
 
 	private void initializeAndDestroyWindows() {
 		stateMap.forEach((window, state) -> {
+			window.updateSize();
 			if (!state.initialized.isDone()) {
-				if (useSDL) {
-					assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
-						if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED &&
-								nSDL_GetWindowFromEvent(rawEvent) == window.handle) update(window);
-						return false;
-					}, 0L), "AddEventWatch");
-				} else {
-					//noinspection resource
-					glfwSetFramebufferSizeCallback(window.handle, (glfwWindow, width, height) -> update(window));
-				}
+				window.registerCallbacks();
 				state.initialized.complete(null);
 			}
 			if (state.renderLoop.thread != null && !state.renderLoop.thread.isAlive()) {
+				// TODO Close window?
 				queue.add(new Task(null, state, window));
 			}
 		});
@@ -128,8 +96,8 @@ public class WindowEventLoop {
 	 */
 	public void runMain() {
 		while (!stateMap.isEmpty()) {
-			if (useSDL) {
-				try (var stack = stackPush()) {
+			try (var stack = stackPush()) {
+				if (useSDL) {
 					var event = SDL_Event.calloc(stack);
 					if (waitTimeout > 0.0) SDL_WaitEventTimeout(event, (int) (1000 * waitTimeout));
 					else SDL_WaitEvent(event);
@@ -137,14 +105,14 @@ public class WindowEventLoop {
 					while (SDL_PollEvent(event)) {
 						// Users can respond to events by using SDL_AddEventWatcher
 					}
+				} else {
+					if (waitTimeout > 0.0) glfwWaitEventsTimeout(waitTimeout);
+					else glfwWaitEvents();
 				}
-			} else {
-				if (waitTimeout > 0.0) glfwWaitEventsTimeout(waitTimeout);
-				else glfwWaitEvents();
+				if (updateCallback != null) updateCallback.run();
+				update();
+				initializeAndDestroyWindows();
 			}
-			if (updateCallback != null) updateCallback.run();
-			update(null);
-			initializeAndDestroyWindows();
 		}
 	}
 
@@ -164,23 +132,6 @@ public class WindowEventLoop {
 		return state;
 	}
 
-	boolean shouldCheckResize(VkbWindow window) {
-		return getState(window).shouldCheckResize;
-	}
-
-	void queueMainThreadAction(Runnable resize, VkbWindow window) {
-		var state = getState(window);
-		queue.add(new Task(resize, state, window));
-		if (useSDL) {
-			try (var stack = stackPush()) {
-				var event = SDL_Event.calloc(stack);
-				event.type(emptyEventType);
-				assertSdlSuccess(SDL_PushEvent(event), "PushEvent");
-			}
-		} else glfwPostEmptyEvent();
-		state.actionCompleted.acquireUninterruptibly();
-	}
-
 	private record Task(Runnable runnable, State state, VkbWindow window) {
 	}
 
@@ -188,9 +139,6 @@ public class WindowEventLoop {
 
 		final WindowRenderLoop renderLoop;
 		final CompletableFuture<Object> initialized = new CompletableFuture<>();
-		final Semaphore actionCompleted = new Semaphore(0);
-		volatile boolean shouldCheckResize;
-		volatile long lastResizeTime;
 
 		State(WindowRenderLoop renderLoop) {
 			this.renderLoop = renderLoop;

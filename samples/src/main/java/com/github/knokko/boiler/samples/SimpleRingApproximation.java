@@ -6,9 +6,7 @@ import com.github.knokko.boiler.builders.instance.ValidationFeatures;
 import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
-import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import com.github.knokko.boiler.synchronization.VkbFence;
-import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
 import com.github.knokko.boiler.window.AcquiredImage2;
@@ -43,7 +41,8 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 
 	public SimpleRingApproximation(VkbWindow window) {
 		super(window, 3, false,
-				window.supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR
+				window.getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
+						VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR
 		);
 	}
 
@@ -77,7 +76,10 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		pipelineBuilder.noDepthStencil();
 		pipelineBuilder.noColorBlending(1);
 		pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-		pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, boiler.window().surfaceFormat);
+		pipelineBuilder.dynamicRendering(
+				0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED,
+				boiler.window().properties.surfaceFormat()
+		);
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
 		graphicsPipeline = pipelineBuilder.build("RingApproximation");
 	}

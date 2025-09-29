@@ -16,7 +16,7 @@ interface SwapchainFunctions {
 
 	SwapchainWrapper createSwapchain(
 			PresentModes presentModes, Set<SwapchainResourceManager<?, ?>> associations,
-			int width, int height, long[] acquireSemaphores, long oldSwapchain,
+			int width, int height, AcquireSemaphores acquireSemaphores, long oldSwapchain,
 			VkSurfaceCapabilitiesKHR surfaceCapabilities, String debugName
 	);
 

@@ -52,7 +52,7 @@ public class HelloTriangle {
 
 			var attachments = VkAttachmentDescription.calloc(1, stack);
 			var colorAttachment = attachments.get(0);
-			colorAttachment.format(boiler.window().surfaceFormat);
+			colorAttachment.format(boiler.window().properties.surfaceFormat());
 			colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
 			colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
 			colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
@@ -201,9 +201,9 @@ public class HelloTriangle {
 		int[] pPresentMode = {VK_PRESENT_MODE_FIFO_KHR};
 
 		//noinspection resource
-		glfwSetKeyCallback(boiler.window().handle, ((window, key, scancode, action, mods) -> {
+		glfwSetKeyCallback(boiler.window().properties.handle(), ((window, key, scancode, action, mods) -> {
 			if (action == GLFW_PRESS) {
-				var spm = boiler.window().supportedPresentModes;
+				var spm = boiler.window().getSupportedPresentModes();
 				if (key == GLFW_KEY_F) pPresentMode[0] = VK_PRESENT_MODE_FIFO_KHR;
 				if (key == GLFW_KEY_M && spm.contains(VK_PRESENT_MODE_MAILBOX_KHR))
 					pPresentMode[0] = VK_PRESENT_MODE_MAILBOX_KHR;
@@ -215,7 +215,7 @@ public class HelloTriangle {
 			}
 		}));
 
-		while (!glfwWindowShouldClose(boiler.window().handle)) {
+		while (!glfwWindowShouldClose(boiler.window().properties.handle())) {
 			glfwPollEvents();
 
 			long currentTime = System.currentTimeMillis();

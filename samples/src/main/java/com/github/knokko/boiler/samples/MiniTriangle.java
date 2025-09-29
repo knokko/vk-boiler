@@ -88,7 +88,10 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 		pipelineBuilder.noDepthStencil();
 		pipelineBuilder.noColorBlending(1);
 		pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-		pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
+		pipelineBuilder.dynamicRendering(
+				0, VK_FORMAT_UNDEFINED,
+				VK_FORMAT_UNDEFINED, window.properties.surfaceFormat()
+		);
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
 		this.graphicsPipeline = pipelineBuilder.build("TrianglePipeline");
 	}

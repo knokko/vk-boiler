@@ -61,16 +61,17 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 			if (eventType == SDL_EVENT_MOUSE_BUTTON_DOWN) {
 				if (isMouseOver(-1)) window.requestClose();
 				if (isMouseOver(-2)) {
-					if ((SDL_GetWindowFlags(window.handle) & SDL_WINDOW_MAXIMIZED) == 0) SDL_MaximizeWindow(window.handle);
-					else SDL_RestoreWindow(window.handle);
+					if ((SDL_GetWindowFlags(window.properties.handle()) & SDL_WINDOW_MAXIMIZED) == 0) {
+						SDL_MaximizeWindow(window.properties.handle());
+					} else SDL_RestoreWindow(window.properties.handle());
 				}
 				if (isMouseOver(-3)) {
-					SDL_MinimizeWindow(window.handle);
+					SDL_MinimizeWindow(window.properties.handle());
 				}
 			}
 			return false;
 		}, 0L), "AddEventWatch");
-		assertSdlSuccess(SDL_SetWindowHitTest(window.handle, (sdlWindow, rawPoint, userData) -> {
+		assertSdlSuccess(SDL_SetWindowHitTest(window.properties.handle(), (sdlWindow, rawPoint, userData) -> {
 			int x = SDL_Point.nx(rawPoint);
 			int y = SDL_Point.ny(rawPoint);
 			for (int relative = -3; relative <= -1; relative++) {
@@ -161,7 +162,10 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 		pipelineBuilder.noDepthStencil();
 		pipelineBuilder.noColorBlending(1);
 		pipelineBuilder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
-		pipelineBuilder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
+		pipelineBuilder.dynamicRendering(
+				0, VK_FORMAT_UNDEFINED,
+				VK_FORMAT_UNDEFINED, window.properties.surfaceFormat()
+		);
 		pipelineBuilder.ciPipeline.layout(pipelineLayout);
 		this.graphicsPipeline = pipelineBuilder.build("TrianglePipeline");
 	}

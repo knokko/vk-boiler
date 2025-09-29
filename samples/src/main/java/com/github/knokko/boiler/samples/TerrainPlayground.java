@@ -75,7 +75,7 @@ public class TerrainPlayground {
 		var attachments = VkAttachmentDescription.calloc(2, stack);
 		var colorAttachment = attachments.get(0);
 		colorAttachment.flags(0);
-		colorAttachment.format(boiler.window().surfaceFormat);
+		colorAttachment.format(boiler.window().properties.surfaceFormat());
 		colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
 		colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
 		colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
@@ -441,7 +441,7 @@ public class TerrainPlayground {
 		var camera = new Camera();
 		var cameraController = new CameraController();
 
-		glfwSetKeyCallback(boiler.window().handle, ((window, key, scancode, action, mods) -> {
+		glfwSetKeyCallback(boiler.window().properties.handle(), ((window, key, scancode, action, mods) -> {
 			float dx = 0f, dy = 0f, dz = 0f;
 			if (key == GLFW_KEY_A) dx = -1f;
 			if (key == GLFW_KEY_D) dx = 1f;
@@ -460,7 +460,7 @@ public class TerrainPlayground {
 		}));
 
 		//noinspection resource
-		glfwSetCursorPosCallback(boiler.window().handle, (window, x, y) -> {
+		glfwSetCursorPosCallback(boiler.window().properties.handle(), (window, x, y) -> {
 			if (!Double.isNaN(cameraController.oldX) && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 				double dx = x - cameraController.oldX;
 				double dy = y - cameraController.oldY;
@@ -476,7 +476,7 @@ public class TerrainPlayground {
 			cameraController.oldY = y;
 		});
 
-		while (!glfwWindowShouldClose(boiler.window().handle)) {
+		while (!glfwWindowShouldClose(boiler.window().properties.handle())) {
 			glfwPollEvents();
 
 			long currentTime = System.currentTimeMillis();
@@ -489,7 +489,7 @@ public class TerrainPlayground {
 				referenceFrames = frameCounter;
 			}
 
-			int presentMode = boiler.window().supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
+			int presentMode = boiler.window().getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
 					VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR;
 			try (var stack = stackPush()) {
 				var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(presentMode);

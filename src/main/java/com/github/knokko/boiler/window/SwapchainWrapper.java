@@ -17,12 +17,12 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 
 class SwapchainWrapper {
 
+	final long vkSwapchain;
 	private final SwapchainFunctions functions;
 	private final PresentModes presentModes;
-	final long vkSwapchain;
 	private final VkbImage[] swapchainImages;
 	private final long[] presentSemaphores;
-	private final long[] acquireSemaphores;
+	private final AcquireSemaphores acquireSemaphores;
 	final String debugName;
 
 	final Collection<Runnable> destructionCallbacks = new ArrayList<>();
@@ -33,17 +33,19 @@ class SwapchainWrapper {
 	private boolean outdated;
 
 	SwapchainWrapper(
-			SwapchainFunctions functions, PresentModes presentModes,
-			Set<SwapchainResourceManager<?, ?>> associations, long vkSwapchain, int width, int height,
-			long[] acquireSemaphores, int imageUsage, String debugName
+			long vkSwapchain, SwapchainFunctions functions, WindowProperties properties, PresentModes presentModes,
+			Set<SwapchainResourceManager<?, ?>> associations, int width, int height,
+			AcquireSemaphores acquireSemaphores, String debugName
 	) {
+		this.vkSwapchain = vkSwapchain;
 		this.functions = functions;
 		this.presentModes = presentModes;
 		this.associations = associations;
-		this.vkSwapchain = vkSwapchain;
 		this.width = width;
 		this.height = height;
-		this.swapchainImages = functions.getSwapchainImages(vkSwapchain, width, height, imageUsage, debugName);
+		this.swapchainImages = functions.getSwapchainImages(
+				vkSwapchain, width, height, properties.swapchainImageUsage(), debugName
+		);
 		this.presentSemaphores = new long[swapchainImages.length];
 		this.acquireSemaphores = acquireSemaphores;
 		this.debugName = debugName;
@@ -70,6 +72,7 @@ class SwapchainWrapper {
 
 	AcquiredImage2 acquireImage(int presentMode, int width, int height, boolean useFence) {
 		if (width != this.width || height != this.height) outdated = true;
+		// TODO Why is presentModes.compatible empty?
 		if (!presentModes.compatible.contains(presentMode)) outdated = true;
 		if (outdated) return null;
 
@@ -85,7 +88,7 @@ class SwapchainWrapper {
 			}
 		}
 
-		if (!useFence) acquireSemaphore = acquireSemaphores[ehm];
+		if (!useFence) acquireSemaphore = acquireSemaphores.next();
 
 		int imageIndex;
 		int acquireResult;

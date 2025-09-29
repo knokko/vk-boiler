@@ -58,15 +58,15 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 	@Override
 	public SwapchainWrapper createSwapchain(
 			PresentModes presentModes, Set<SwapchainResourceManager<?, ?>> associations,
-			int width, int height, long[] acquireSemaphores, long oldSwapchain,
+			int width, int height, AcquireSemaphores acquireSemaphores, long oldSwapchain,
 			VkSurfaceCapabilitiesKHR surfaceCapabilities, String debugName
 	) {
 		try (var stack = stackPush()) {
 			int desiredImageCount = presentModes.current == VK_PRESENT_MODE_MAILBOX_KHR ? 3 : 2;
 			int minImageCount = max(desiredImageCount, surfaceCapabilities.minImageCount());
 
-			Set<Integer> compatibleUsedPresentModes = new HashSet<>();
-			compatibleUsedPresentModes.add(presentModes.current);
+			presentModes.compatible.clear();
+			presentModes.compatible.add(presentModes.current);
 
 			var ciSwapchain = VkSwapchainCreateInfoKHR.calloc(stack);
 			if (instance.extra.swapchainMaintenance()) {
@@ -102,9 +102,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 
 					for (int index = 0; index < numCompatiblePresentModes; index++) {
 						int compatiblePresentMode = compatiblePresentModeBuffer.get(index);
-						if (presentModes.used.contains(compatiblePresentMode)) {
-							compatibleUsedPresentModes.add(compatiblePresentMode);
-						}
+						presentModes.compatible.add(compatiblePresentMode);
 					}
 
 					int newWidth = surfaceCapabilities2.surfaceCapabilities().currentExtent().width();
@@ -112,6 +110,9 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 					if (newWidth != -1) width = newWidth;
 					if (newHeight != -1) height = newHeight;
 				}
+
+				Set<Integer> compatibleUsedPresentModes = new HashSet<>(presentModes.compatible);
+				compatibleUsedPresentModes.retainAll(presentModes.used);
 
 				var pPresentModes = stack.callocInt(compatibleUsedPresentModes.size());
 				for (int compatiblePresentMode : compatibleUsedPresentModes) {
@@ -161,8 +162,8 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 			instance.debug.name(stack, vkSwapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, debugName);
 
 			return new SwapchainWrapper(
-					this, presentModes, associations, vkSwapchain,
-					width, height, acquireSemaphores, properties.swapchainImageUsage(), debugName
+					vkSwapchain, this, properties, presentModes, associations,
+					width, height, acquireSemaphores, debugName
 			);
 		}
 	}

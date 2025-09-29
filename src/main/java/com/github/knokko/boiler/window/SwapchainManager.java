@@ -13,48 +13,27 @@ class SwapchainManager {
 	private final WindowProperties properties;
 	private final PresentModes presentModes;
 
-	private final long[] acquireSemaphores;
+	private final AcquireSemaphores acquireSemaphores;
 	private final VkSurfaceCapabilitiesKHR surfaceCapabilities = VkSurfaceCapabilitiesKHR.calloc();
 
 	private final Set<SwapchainResourceManager<?, ?>> associations = ConcurrentHashMap.newKeySet();
 	private final List<SwapchainWrapper> oldSwapchains = new ArrayList<>();
 
-
 	private SwapchainWrapper currentSwapchain;
 	private int currentSwapchainID;
 	int currentWidth, currentHeight;
+	volatile WindowSize windowSize;
+	volatile boolean needsToKnowWindowSize;
 
 	SwapchainManager(SwapchainFunctions functions, WindowProperties properties, PresentModes presentModes) {
 		this.functions = functions;
 		this.properties = properties;
 		this.presentModes = presentModes;
-
-		this.acquireSemaphores = new long[properties.maxFramesInFlight()];
-		for (int frame = 0; frame < properties.maxFramesInFlight(); frame++) {
-			acquireSemaphores[frame] = functions.borrowSemaphore(properties.title() + "Acquire" + frame);
-		}
-
-		updateSize();
-	}
-
-	private void maybeRecreateSwapchain(int presentMode) {
-		int oldWidth = currentWidth;
-		int oldHeight = currentHeight;
-
-		updateSize();
-
-		boolean shouldRecreate = oldWidth != currentWidth || oldHeight != currentHeight;
-		if (currentWidth == 0 || currentHeight == 0) shouldRecreate = false;
-
-		if (shouldRecreate) recreateSwapchain(presentMode);
+		this.acquireSemaphores = new AcquireSemaphores(functions, properties.title(), properties.maxFramesInFlight());
 	}
 
 	AcquiredImage2 acquire(int presentMode, boolean useFence) {
-//		instance.checkForFatalValidationErrors();
-//		if (windowLoop != null && windowLoop.shouldCheckResize(this)) {
-//			windowLoop.queueMainThreadAction(() -> maybeRecreateSwapchain(presentMode), this);
-//		}
-
+		updateSize();
 		presentModes.acquire(presentMode);
 
 		if (currentSwapchain == null) recreateSwapchain(presentMode);
@@ -74,17 +53,17 @@ class SwapchainManager {
 
 	private void recreateSwapchain(int presentMode) {
 		if (currentSwapchain != null) oldSwapchains.add(currentSwapchain);
-		if (properties.maxOldSwapchains() > oldSwapchains.size()) {
+		if (oldSwapchains.size() > properties.maxOldSwapchains()) {
 			functions.deviceWaitIdle();
 			for (var swapchain : oldSwapchains) swapchain.destroy();
 			oldSwapchains.clear();
 		}
 
-		createSwapchain(presentMode, true);
+		createSwapchain(presentMode);
 	}
 
-	private void createSwapchain(int presentMode, boolean updateSize) {
-		if (updateSize) updateSize();
+	private void createSwapchain(int presentMode) {
+		updateSize();
 		if (currentWidth == 0 || currentHeight == 0) {
 			currentSwapchain = null;
 			return;
@@ -102,41 +81,20 @@ class SwapchainManager {
 	}
 
 	void updateSize() {
-		//assertMainThread();
 		functions.getSurfaceCapabilities(surfaceCapabilities);
 		int width = surfaceCapabilities.currentExtent().width();
 		int height = surfaceCapabilities.currentExtent().height();
+		var currentWindowSize = windowSize;
 
 		if (width != -1) currentWidth = width;
+		else if (currentWindowSize != null) currentWidth = currentWindowSize.width();
 		if (height != -1) currentHeight = height;
+		else if (currentWindowSize != null) currentHeight = currentWindowSize.height();
 
-//			if (width == -1 || height == -1) {
-//				var pWidth = stack.callocInt(1);
-//				var pHeight = stack.callocInt(1);
-//				if (instance.useSDL) {
-//					assertSdlSuccess(SDL_GetWindowSizeInPixels(handle, pWidth, pHeight), "GetWindowSizeInPixels");
-//				} else {
-//					glfwGetFramebufferSize(handle, pWidth, pHeight);
-//				}
-//				width = pWidth.get(0);
-//				height = pHeight.get(0);
-//			}
-//
-//			this.width = width;
-//			this.height = height;
-	}
-
-	/**
-	 * Presents a previously acquired swapchain image
-	 * @param image The swapchain image
-	 */
-	public void presentSwapchainImage(AcquiredImage2 image) {
-		image.swapchain.presentImage(image);
-//		if (hideUntilFirstFrame && !calledShowWindow) {
-//			if (windowLoop == null) showWindowNow();
-//			else windowLoop.queueMainThreadAction(this::showWindowNow, this);
-//			calledShowWindow = true;
-//		}
+		boolean needsToKnowWindowSize = width == -1 || height == -1;
+		if (needsToKnowWindowSize != this.needsToKnowWindowSize) {
+			this.needsToKnowWindowSize = needsToKnowWindowSize;
+		}
 	}
 
 	void destroy() {
@@ -146,6 +104,6 @@ class SwapchainManager {
 		for (SwapchainWrapper swapchain : oldSwapchains) swapchain.destroy();
 		oldSwapchains.clear();
 		if (currentSwapchain != null) currentSwapchain.destroy();
-		for (long semaphore : acquireSemaphores) functions.returnSemaphore(semaphore);
+		acquireSemaphores.destroy();
 	}
 }

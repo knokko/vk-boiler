@@ -4,14 +4,13 @@ import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import org.lwjgl.sdl.SDL_Event;
-import org.lwjgl.vulkan.*;
 
+import java.nio.IntBuffer;
 import java.util.*;
 
 import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_CLOSE_REQUESTED;
-import static org.lwjgl.sdl.SDLEvents.SDL_PushEvent;
+import static org.lwjgl.sdl.SDLEvents.*;
 import static org.lwjgl.sdl.SDLVideo.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSurface.*;
@@ -33,7 +32,6 @@ public class VkbWindow {
 	public final VkbQueueFamily presentFamily;
 	private final PresentModes presentModes;
 
-	// TODO private long currentSwapchainID;
 //	private final boolean hideUntilFirstFrame;
 //	private boolean calledShowWindow;
 
@@ -129,11 +127,46 @@ public class VkbWindow {
 		} else glfwShowWindow(properties.handle());
 	}
 
+	public void registerCallbacks() {
+		if (instance.useSDL) {
+			assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
+				if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED &&
+						nSDL_GetWindowFromEvent(rawEvent) == properties.handle()) updateSize();
+				return false;
+			}, 0L), "AddEventWatch");
+		} else {
+			//noinspection resource
+			glfwSetFramebufferSizeCallback(
+					properties.handle(), (glfwWindow, width, height) -> updateSize()
+			);
+		}
+	}
+
+	public void updateSize() {
+		if (!swapchains.needsToKnowWindowSize) return;
+
+		if (instance.useSDL) {
+			throw new RuntimeException("TODO");
+		} else {
+			try (var stack = stackPush()) {
+				IntBuffer pWidth = stack.callocInt(1);
+				IntBuffer pHeight = stack.callocInt(1);
+				glfwGetFramebufferSize(properties.handle(), pWidth, pHeight);
+				updateSize(pWidth.get(0), pHeight.get(0));
+			}
+		}
+	}
+
+	private void updateSize(int width, int height) {
+		swapchains.windowSize = new WindowSize(width, height);
+	}
+
 	/**
 	 * Presents a previously acquired swapchain image
 	 * @param image The swapchain image
 	 */
 	public void presentSwapchainImage(AcquiredImage2 image) {
+		instance.checkForFatalValidationErrors();
 		image.swapchain.presentImage(image);
 //		if (hideUntilFirstFrame && !calledShowWindow) {
 //			if (windowLoop == null) showWindowNow();

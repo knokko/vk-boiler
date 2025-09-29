@@ -43,7 +43,7 @@ public class MultipleWindows {
 		eventLoop.addWindow(new FillWindowLoop(windows[0], 1f, 0f, 1f));
 
 		//noinspection resource
-		glfwSetMouseButtonCallback(windows[1].handle, (clickedWindow, button, action, modifiers) -> {
+		glfwSetMouseButtonCallback(windows[1].properties.handle(), (clickedWindow, button, action, modifiers) -> {
 			if (action == GLFW_PRESS) startNewWindowThread(boiler, eventLoop);
 		});
 
@@ -95,7 +95,7 @@ public class MultipleWindows {
 		public SpinWindowLoop(VkbWindow window) {
 			super(
 					window, 1, true,
-					window.supportedPresentModes.contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
+					window.getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
 							VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
 					ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.COLOR_ATTACHMENT_WRITE
 			);
@@ -126,7 +126,10 @@ public class MultipleWindows {
 			builder.noColorBlending(1);
 			builder.dynamicStates(VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR);
 			builder.ciPipeline.layout(pipelineLayout);
-			builder.dynamicRendering(0, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED, window.surfaceFormat);
+			builder.dynamicRendering(
+					0, VK_FORMAT_UNDEFINED,
+					VK_FORMAT_UNDEFINED, window.properties.surfaceFormat()
+			);
 			pipeline = builder.build("SpinPipeline");
 		}
 

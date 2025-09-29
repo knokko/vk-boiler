@@ -174,9 +174,11 @@ public class WindowBuilder {
 			var compositeAlpha = compositeAlphaPicker.chooseCompositeAlpha(capabilities.supportedCompositeAlpha());
 
 			int numHiddenFrames = hideUntilFirstFrame ? 1 : 0; // TODO Allow more values
+			int maxOldSwapchains = 0; // TODO Configure
+			int maxFramesInFlight = 3; // TODO Configure
 			var properties = new WindowProperties(
 					handle, title, vkSurface, numHiddenFrames, surfaceFormat.format(), surfaceFormat.colorSpace(),
-					swapchainImageUsage, compositeAlpha, hasSwapchainMaintenance
+					swapchainImageUsage, compositeAlpha, hasSwapchainMaintenance, maxOldSwapchains, maxFramesInFlight
 			);
 			return new VkbWindow(properties, presentFamily, presentModes, preparedPresentModes);
 		}
