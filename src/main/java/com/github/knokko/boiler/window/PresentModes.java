@@ -12,9 +12,9 @@ class PresentModes {
 
 	int current = -1;
 
-	PresentModes(Collection<Integer> supported, Collection<Integer> preparedPresentModes) {
+	PresentModes(Collection<Integer> supported, Collection<Integer> requested) {
 		this.supported = Set.copyOf(supported);
-		this.used.addAll(preparedPresentModes);
+		this.used.addAll(requested);
 	}
 
 	private void checkSupported(int mode) {
