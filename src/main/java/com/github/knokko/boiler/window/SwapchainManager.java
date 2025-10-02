@@ -34,7 +34,7 @@ class SwapchainManager {
 
 	AcquiredImage2 acquire(int presentMode, boolean useFence) {
 		updateSize();
-		presentModes.acquire(presentMode);
+		if (!presentModes.acquire(presentMode)) recreateSwapchain(presentMode);
 
 		if (currentSwapchain == null) recreateSwapchain(presentMode);
 		if (currentSwapchain == null) return null;
@@ -52,7 +52,10 @@ class SwapchainManager {
 	}
 
 	private void recreateSwapchain(int presentMode) {
-		if (currentSwapchain != null) oldSwapchains.add(currentSwapchain);
+		if (currentSwapchain != null) {
+			oldSwapchains.add(currentSwapchain);
+			currentSwapchain = null;
+		}
 		if (oldSwapchains.size() > properties.maxOldSwapchains()) {
 			functions.deviceWaitIdle();
 			for (var swapchain : oldSwapchains) swapchain.destroy();
@@ -73,9 +76,8 @@ class SwapchainManager {
 		if (!oldSwapchains.isEmpty()) oldSwapchain = oldSwapchains.get(oldSwapchains.size() - 1).vkSwapchain;
 		currentSwapchainID += 1;
 
-		presentModes.createSwapchain(presentMode);
 		currentSwapchain = functions.createSwapchain(
-				presentModes, associations, currentWidth, currentHeight, acquireSemaphores,
+				presentModes, presentMode, associations, currentWidth, currentHeight, acquireSemaphores,
 				oldSwapchain, surfaceCapabilities, "Swapchain-" + properties.title() + currentSwapchainID
 		);
 	}

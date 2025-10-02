@@ -151,8 +151,21 @@ public class WindowBuilder {
 				formats.add(new SurfaceFormat(format.format(), format.colorSpace()));
 			}
 
-			var preparedPresentModes = new HashSet<>(this.presentModes);
-			preparedPresentModes.removeIf(presentMode -> !compatiblePresentModes.contains(presentMode));
+			var pNumSupportedPresentModes = stack.callocInt(1);
+			assertVkSuccess(vkGetPhysicalDeviceSurfacePresentModesKHR(
+					vkPhysicalDevice, vkSurface, pNumSupportedPresentModes, null
+			), "GetPhysicalDeviceSurfacePresentModesKHR", "BoilerSwapchainBuilder-Count");
+			int numSupportedPresentModes = pNumSupportedPresentModes.get(0);
+
+			var pSupportedPresentModes = stack.callocInt(numSupportedPresentModes);
+			assertVkSuccess(vkGetPhysicalDeviceSurfacePresentModesKHR(
+					vkPhysicalDevice, vkSurface, pNumSupportedPresentModes, pSupportedPresentModes
+			), "GetPhysicalDeviceSurfacePresentModesKHR", "BoilerSwapchainBuilder-Count");
+
+			var supportedPresentModes = new HashSet<Integer>(numSupportedPresentModes);
+			for (int index = 0; index < numSupportedPresentModes; index++) {
+				supportedPresentModes.add(pSupportedPresentModes.get(index));
+			}
 
 			var surfaceFormat = surfaceFormatPicker.chooseSurfaceFormat(formats);
 			var compositeAlpha = compositeAlphaPicker.chooseCompositeAlpha(capabilities.supportedCompositeAlpha());
@@ -164,7 +177,7 @@ public class WindowBuilder {
 					handle, title, vkSurface, numHiddenFrames, surfaceFormat.format(), surfaceFormat.colorSpace(),
 					swapchainImageUsage, compositeAlpha, hasSwapchainMaintenance, maxOldSwapchains, maxFramesInFlight
 			);
-			return new VkbWindow(properties, presentFamily, compatiblePresentModes, preparedPresentModes);
+			return new VkbWindow(properties, presentFamily, supportedPresentModes, presentModes);
 		}
 	}
 

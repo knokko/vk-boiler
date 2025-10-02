@@ -9,7 +9,6 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import java.nio.IntBuffer;
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -57,7 +56,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 
 	@Override
 	public SwapchainWrapper createSwapchain(
-			PresentModes presentModes, Set<SwapchainResourceManager<?, ?>> associations,
+			PresentModes presentModes, int presentMode, Set<SwapchainResourceManager<?, ?>> associations,
 			int width, int height, AcquireSemaphores acquireSemaphores, long oldSwapchain,
 			VkSurfaceCapabilitiesKHR surfaceCapabilities, String debugName
 	) {
@@ -69,6 +68,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 			presentModes.compatible.add(presentModes.current);
 
 			var ciSwapchain = VkSwapchainCreateInfoKHR.calloc(stack);
+			IntBuffer compatiblePresentModeBuffer = null;
 			if (instance.extra.swapchainMaintenance()) {
 				if (presentModes.used.size() > 1) {
 					var presentModeCompatibility = VkSurfacePresentModeCompatibilityEXT.calloc(stack);
@@ -93,7 +93,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 
 					int numCompatiblePresentModes = presentModeCompatibility.presentModeCount();
 
-					var compatiblePresentModeBuffer = stack.callocInt(numCompatiblePresentModes);
+					compatiblePresentModeBuffer = stack.callocInt(numCompatiblePresentModes);
 					presentModeCompatibility.pPresentModes(compatiblePresentModeBuffer);
 					assertVkSuccess(vkGetPhysicalDeviceSurfaceCapabilities2KHR(
 							instance.vkPhysicalDevice(), surfaceInfo, surfaceCapabilities2
@@ -111,20 +111,15 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 					if (newHeight != -1) height = newHeight;
 				}
 
-				Set<Integer> compatibleUsedPresentModes = new HashSet<>(presentModes.compatible);
-				compatibleUsedPresentModes.retainAll(presentModes.used);
-
-				var pPresentModes = stack.callocInt(compatibleUsedPresentModes.size());
-				for (int compatiblePresentMode : compatibleUsedPresentModes) {
-					pPresentModes.put(compatiblePresentMode);
-				}
-				pPresentModes.flip();
+				IntBuffer pPresentModes = presentModes.createSwapchain(stack, presentMode, compatiblePresentModeBuffer);
 
 				var ciPresentModes = VkSwapchainPresentModesCreateInfoEXT.calloc(stack);
 				ciPresentModes.sType$Default();
 				ciPresentModes.pPresentModes(pPresentModes);
 
 				ciSwapchain.pNext(ciPresentModes);
+			} else {
+				presentModes.createSwapchain(null, presentMode, null);
 			}
 
 			ciSwapchain.sType$Default();

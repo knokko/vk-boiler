@@ -72,8 +72,6 @@ class SwapchainWrapper {
 
 	AcquiredImage2 acquireImage(int presentMode, int width, int height, boolean useFence) {
 		if (width != this.width || height != this.height) outdated = true;
-		// TODO Why is presentModes.compatible empty?
-		if (!presentModes.compatible.contains(presentMode)) outdated = true;
 		if (outdated) return null;
 
 		long acquireSemaphore = VK_NULL_HANDLE;

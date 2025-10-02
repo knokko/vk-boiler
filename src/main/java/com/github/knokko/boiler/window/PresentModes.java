@@ -1,5 +1,8 @@
 package com.github.knokko.boiler.window;
 
+import org.lwjgl.system.MemoryStack;
+
+import java.nio.IntBuffer;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -15,6 +18,7 @@ class PresentModes {
 	PresentModes(Collection<Integer> supported, Collection<Integer> requested) {
 		this.supported = Set.copyOf(supported);
 		this.used.addAll(requested);
+		this.used.retainAll(this.supported);
 	}
 
 	private void checkSupported(int mode) {
@@ -25,23 +29,44 @@ class PresentModes {
 		}
 	}
 
-	void createSwapchain(int initialMode) {
-		checkSupported(initialMode);
-		current = initialMode;
-		used.add(initialMode);
+	IntBuffer createSwapchain(MemoryStack stack, int presentMode, IntBuffer compatiblePresentModes) {
+		checkSupported(presentMode);
+		used.add(presentMode);
+		current = presentMode;
+
+		compatible.clear();
+		compatible.add(presentMode);
+		if (compatiblePresentModes != null) {
+			for (int index = compatiblePresentModes.position(); index < compatiblePresentModes.limit(); index++) {
+				int compatiblePresentMode = compatiblePresentModes.get(index);
+				compatible.add(compatiblePresentMode);
+			}
+		}
+		compatible.retainAll(used);
+
+		IntBuffer pPresentModes = null;
+		if (stack != null) {
+			pPresentModes = stack.callocInt(compatible.size());
+			for (int compatiblePresentMode : compatible) {
+				pPresentModes.put(compatiblePresentMode);
+			}
+			pPresentModes.flip();
+		}
+
+		return pPresentModes;
 	}
 
-	void acquire(int mode) {
+	boolean acquire(int mode) {
 		checkSupported(mode);
 		used.add(mode);
+		return compatible.contains(mode);
 	}
 
 	boolean present(int mode) {
 		if (mode != current) {
 			checkSupported(mode);
 			used.add(mode);
-			current = mode;
-			return true;
+			return compatible.contains(mode);
 		} else return false;
 	}
 }
