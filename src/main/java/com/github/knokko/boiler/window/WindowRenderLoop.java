@@ -1,12 +1,8 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.BoilerInstance;
-import com.github.knokko.boiler.synchronization.AwaitableSubmission;
 import org.lwjgl.sdl.SDL_Event;
-import org.lwjgl.sdl.SDL_WindowEvent;
 import org.lwjgl.system.MemoryStack;
-
-import java.nio.IntBuffer;
 
 import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static java.lang.Thread.sleep;
@@ -73,7 +69,6 @@ public abstract class WindowRenderLoop {
 							while (SDL_PollEvent(event)) {
 								// Users should use SDL_AddEventWatch to listen for events
 							}
-							// TODO update size
 						} else {
 							glfwPollEvents();
 						}
@@ -85,10 +80,6 @@ public abstract class WindowRenderLoop {
 
 				try (var stack = stackPush()) {
 					AcquiredImage2 acquiredImage;
-//					if (didResize) {
-//						window.maybeRecreateSwapchain(presentMode);
-//						didResize = false;
-//					}
 					if (acquireSwapchainImageWithFence) {
 						acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
 					} else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);

@@ -1,14 +1,11 @@
 package com.github.knokko.boiler.window;
 
 import org.lwjgl.sdl.SDL_Event;
-import org.lwjgl.system.Platform;
 
 import java.util.concurrent.*;
 
-import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.sdl.SDLEvents.*;
-import static org.lwjgl.sdl.SDLVideo.SDL_DestroyWindow;
 import static org.lwjgl.system.MemoryStack.stackPush;
 
 /**
@@ -18,13 +15,11 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 public class WindowEventLoop {
 	// TODO Update docs/swapchain.md
 
-	private final BlockingQueue<Task> queue = new LinkedBlockingQueue<>();
 	private final ConcurrentHashMap<VkbWindow, State> stateMap = new ConcurrentHashMap<>();
 	private final Runnable updateCallback;
 	private final double waitTimeout;
 
 	private boolean useSDL;
-	private int emptyEventType;
 
 	/**
 	 * @param waitTimeout The timeout (in seconds) that will be passed to each call to <i>glfwWaitEventsTimeout</i> or
@@ -46,36 +41,24 @@ public class WindowEventLoop {
 		this(0.5, null);
 	}
 
-	private void update() {
-		Task task;
-		task = queue.poll();
+	private void updateWindows() {
+		var iterator = stateMap.entrySet().iterator();
+		while (iterator.hasNext()) {
+			var entry = iterator.next();
+			VkbWindow window = entry.getKey();
+			State state = entry.getValue();
 
-		while (task != null) {
-			if (task.runnable == null) {
-				if (useSDL) {
-					SDL_DestroyWindow(task.window.properties.handle());
-				} else {
-					glfwDestroyWindow(task.window.properties.handle());
-				}
-				stateMap.remove(task.window);
-			} else throw new RuntimeException("TODO IMPOSSIBLE?");
-
-			task = queue.poll();
-		}
-	}
-
-	private void initializeAndDestroyWindows() {
-		stateMap.forEach((window, state) -> {
 			window.updateSize();
-			if (!state.initialized.isDone()) {
+			if (!state.initialized) {
 				window.registerCallbacks();
-				state.initialized.complete(null);
+				state.initialized = true;
 			}
+
 			if (state.renderLoop.thread != null && !state.renderLoop.thread.isAlive()) {
-				// TODO Close window?
-				queue.add(new Task(null, state, window));
+				window.destroy();
+				iterator.remove();
 			}
-		});
+		}
 	}
 
 	/**
@@ -84,7 +67,6 @@ public class WindowEventLoop {
 	 */
 	public void addWindow(WindowRenderLoop renderLoop) {
 		useSDL = renderLoop.window.instance.useSDL;
-		if (useSDL) emptyEventType = SDL_RegisterEvents(1);
 		stateMap.put(renderLoop.window, new State(renderLoop));
 		renderLoop.window.windowLoop = this;
 		renderLoop.start();
@@ -110,35 +92,15 @@ public class WindowEventLoop {
 					else glfwWaitEvents();
 				}
 				if (updateCallback != null) updateCallback.run();
-				update();
-				initializeAndDestroyWindows();
+				updateWindows();
 			}
 		}
-	}
-
-	private State getState(VkbWindow window) {
-		State state = stateMap.get(window);
-
-		if (state == null)
-			throw new IllegalArgumentException("window " + window + " wasn't added using this.addWindow");
-		if (!state.initialized.isDone()) {
-			try {
-				state.initialized.get();
-			} catch (InterruptedException | ExecutionException e) {
-				throw new RuntimeException(e);
-			}
-		}
-
-		return state;
-	}
-
-	private record Task(Runnable runnable, State state, VkbWindow window) {
 	}
 
 	private static class State {
 
 		final WindowRenderLoop renderLoop;
-		final CompletableFuture<Object> initialized = new CompletableFuture<>();
+		boolean initialized;
 
 		State(WindowRenderLoop renderLoop) {
 			this.renderLoop = renderLoop;

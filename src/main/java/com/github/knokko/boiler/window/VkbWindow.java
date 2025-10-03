@@ -101,14 +101,14 @@ public class VkbWindow {
 	 * @return The current (or very recent) width of the window, in pixels
 	 */
 	public int getWidth() {
-		return swapchains.currentWidth;
+		return swapchains.getWidth();
 	}
 
 	/**
 	 * @return The current (or very recent) height of the window, in pixels
 	 */
 	public int getHeight() {
-		return swapchains.currentHeight;
+		return swapchains.getHeight();
 	}
 
 	private AcquiredImage2 acquireSwapchainImage(int presentMode, boolean useAcquireFence) {
@@ -143,7 +143,7 @@ public class VkbWindow {
 	}
 
 	public void updateSize() {
-		if (!swapchains.needsToKnowWindowSize) return;
+		if (!swapchains.needsWindowSizeFromMainThread()) return;
 
 		if (instance.useSDL) {
 			throw new RuntimeException("TODO");
@@ -152,13 +152,9 @@ public class VkbWindow {
 				IntBuffer pWidth = stack.callocInt(1);
 				IntBuffer pHeight = stack.callocInt(1);
 				glfwGetFramebufferSize(properties.handle(), pWidth, pHeight);
-				updateSize(pWidth.get(0), pHeight.get(0));
+				swapchains.setWindowSizeFromMainThread(pWidth.get(0), pHeight.get(0));
 			}
 		}
-	}
-
-	private void updateSize(int width, int height) {
-		swapchains.windowSize = new WindowSize(width, height);
 	}
 
 	/**

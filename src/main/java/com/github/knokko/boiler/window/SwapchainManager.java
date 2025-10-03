@@ -12,8 +12,8 @@ class SwapchainManager {
 	private final SwapchainFunctions functions;
 	private final WindowProperties properties;
 	private final PresentModes presentModes;
-
 	private final AcquireSemaphores acquireSemaphores;
+	private final SizeTracker sizeTracker;
 	private final VkSurfaceCapabilitiesKHR surfaceCapabilities = VkSurfaceCapabilitiesKHR.calloc();
 
 	private final Set<SwapchainResourceManager<?, ?>> associations = ConcurrentHashMap.newKeySet();
@@ -21,31 +21,38 @@ class SwapchainManager {
 
 	private SwapchainWrapper currentSwapchain;
 	private int currentSwapchainID;
-	int currentWidth, currentHeight;
-	volatile WindowSize windowSize;
-	volatile boolean needsToKnowWindowSize;
 
 	SwapchainManager(SwapchainFunctions functions, WindowProperties properties, PresentModes presentModes) {
 		this.functions = functions;
 		this.properties = properties;
 		this.presentModes = presentModes;
 		this.acquireSemaphores = new AcquireSemaphores(functions, properties.title(), properties.maxFramesInFlight());
+		this.sizeTracker = new SizeTracker(functions, surfaceCapabilities);
 	}
 
 	AcquiredImage2 acquire(int presentMode, boolean useFence) {
-		updateSize();
+		sizeTracker.update();
 		if (!presentModes.acquire(presentMode)) recreateSwapchain(presentMode);
 
 		if (currentSwapchain == null) recreateSwapchain(presentMode);
 		if (currentSwapchain == null) return null;
+		currentSwapchain.updateWindowSize(sizeTracker.getWindowWidth(), sizeTracker.getWindowHeight());
 		if (currentSwapchain.isOutdated()) recreateSwapchain(presentMode);
 		if (currentSwapchain == null) return null;
 
-		var acquiredImage = currentSwapchain.acquireImage(presentMode, currentWidth, currentHeight, useFence);
+		var acquiredImage = currentSwapchain.acquireImage(
+				presentMode, useFence, !oldSwapchains.isEmpty()
+		);
 		if (acquiredImage == null) {
 			recreateSwapchain(presentMode);
 			if (currentSwapchain == null) return null;
-			acquiredImage = currentSwapchain.acquireImage(presentMode, currentWidth, currentHeight, useFence);
+			acquiredImage = currentSwapchain.acquireImage(
+					presentMode, useFence, !oldSwapchains.isEmpty()
+			);
+		}
+
+		if (currentSwapchain != null && !oldSwapchains.isEmpty() && currentSwapchain.canDestroyOldSwapchains()) {
+			for (SwapchainWrapper old : oldSwapchains) old.destroy();
 		}
 
 		return acquiredImage;
@@ -66,37 +73,35 @@ class SwapchainManager {
 	}
 
 	private void createSwapchain(int presentMode) {
-		updateSize();
-		if (currentWidth == 0 || currentHeight == 0) {
-			currentSwapchain = null;
-			return;
-		}
+		sizeTracker.update();
+		if (sizeTracker.getWindowWidth() == 0 || sizeTracker.getWindowHeight() == 0) return;
 
 		long oldSwapchain = VK_NULL_HANDLE;
 		if (!oldSwapchains.isEmpty()) oldSwapchain = oldSwapchains.get(oldSwapchains.size() - 1).vkSwapchain;
 		currentSwapchainID += 1;
 
 		currentSwapchain = functions.createSwapchain(
-				presentModes, presentMode, associations, currentWidth, currentHeight, acquireSemaphores,
-				oldSwapchain, surfaceCapabilities, "Swapchain-" + properties.title() + currentSwapchainID
+				presentModes, presentMode, associations,
+				sizeTracker.getWindowWidth(), sizeTracker.getWindowHeight(),
+				acquireSemaphores, oldSwapchain, surfaceCapabilities,
+				"Swapchain-" + properties.title() + currentSwapchainID
 		);
 	}
 
-	void updateSize() {
-		functions.getSurfaceCapabilities(surfaceCapabilities);
-		int width = surfaceCapabilities.currentExtent().width();
-		int height = surfaceCapabilities.currentExtent().height();
-		var currentWindowSize = windowSize;
+	boolean needsWindowSizeFromMainThread() {
+		return sizeTracker.needsWindowSizeFromMainThread();
+	}
 
-		if (width != -1) currentWidth = width;
-		else if (currentWindowSize != null) currentWidth = currentWindowSize.width();
-		if (height != -1) currentHeight = height;
-		else if (currentWindowSize != null) currentHeight = currentWindowSize.height();
+	void setWindowSizeFromMainThread(int width, int height) {
+		sizeTracker.setWindowSizeFromMainThread(width, height);
+	}
 
-		boolean needsToKnowWindowSize = width == -1 || height == -1;
-		if (needsToKnowWindowSize != this.needsToKnowWindowSize) {
-			this.needsToKnowWindowSize = needsToKnowWindowSize;
-		}
+	int getWidth() {
+		return sizeTracker.getWindowWidth();
+	}
+
+	int getHeight() {
+		return sizeTracker.getWindowHeight();
 	}
 
 	void destroy() {

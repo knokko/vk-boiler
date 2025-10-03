@@ -2,8 +2,6 @@ package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.exceptions.VulkanFailureException;
 import com.github.knokko.boiler.images.VkbImage;
-import com.github.knokko.boiler.synchronization.AwaitableSubmission;
-import com.github.knokko.boiler.synchronization.FenceSubmission;
 import com.github.knokko.boiler.synchronization.VkbFence;
 
 import java.nio.IntBuffer;
@@ -21,15 +19,15 @@ class SwapchainWrapper {
 	private final SwapchainFunctions functions;
 	private final PresentModes presentModes;
 	private final VkbImage[] swapchainImages;
-	private final long[] presentSemaphores;
+	private final PresentSemaphores presentSemaphores;
 	private final AcquireSemaphores acquireSemaphores;
+	private final PresentationFinishedTracker finishedPresentation;
 	final String debugName;
 
 	final Collection<Runnable> destructionCallbacks = new ArrayList<>();
 	final Set<SwapchainResourceManager<?, ?>> associations;
 	private final int width, height;
 
-	private AwaitableSubmission canDestroyOldSwapchains;
 	private boolean outdated;
 
 	SwapchainWrapper(
@@ -46,8 +44,11 @@ class SwapchainWrapper {
 		this.swapchainImages = functions.getSwapchainImages(
 				vkSwapchain, width, height, properties.swapchainImageUsage(), debugName
 		);
-		this.presentSemaphores = new long[swapchainImages.length];
+		this.presentSemaphores = new PresentSemaphores(functions, debugName, swapchainImages.length);
 		this.acquireSemaphores = acquireSemaphores;
+		this.finishedPresentation = new PresentationFinishedTracker(
+				swapchainImages.length, properties.usesSwapchainMaintenance()
+		);
 		this.debugName = debugName;
 	}
 
@@ -55,35 +56,28 @@ class SwapchainWrapper {
 		return swapchainImages.length;
 	}
 
-	long getPresentSemaphore(int imageIndex) {
-		if (presentSemaphores[imageIndex] == VK_NULL_HANDLE) {
-			presentSemaphores[imageIndex] = functions.borrowSemaphore(debugName + "Present" + imageIndex);
-		}
-		return presentSemaphores[imageIndex];
-	}
-
 	boolean isOutdated() {
 		return outdated;
 	}
 
 	boolean canDestroyOldSwapchains() {
-		return canDestroyOldSwapchains != null && canDestroyOldSwapchains.hasCompleted();
+		return finishedPresentation.hasFinishedAtLeastOnePresentation();
 	}
 
-	AcquiredImage2 acquireImage(int presentMode, int width, int height, boolean useFence) {
-		if (width != this.width || height != this.height) outdated = true;
+	void updateWindowSize(int windowWidth, int windowHeight) {
+		if (windowWidth != this.width || windowHeight != this.height) outdated = true;
+	}
+
+	AcquiredImage2 acquireImage(int presentMode, boolean useFence, boolean hasOldSwapchains) {
 		if (outdated) return null;
 
 		long acquireSemaphore = VK_NULL_HANDLE;
 		VkbFence acquireFence = null;
 		VkbFence presentFence = null;
 
-		if (useFence || (canDestroyOldSwapchains == null && !functions.hasSwapchainMaintenance())) {
+		boolean needsAcquireFenceForDestruction = finishedPresentation.needsAcquireFence(hasOldSwapchains);
+		if (useFence || needsAcquireFenceForDestruction) {
 			acquireFence = functions.borrowFence(false, debugName + "Acquire");
-
-			if (canDestroyOldSwapchains == null && !functions.hasSwapchainMaintenance()) {
-				canDestroyOldSwapchains = new FenceSubmission(acquireFence);
-			}
 		}
 
 		if (!useFence) acquireSemaphore = acquireSemaphores.next();
@@ -100,19 +94,24 @@ class SwapchainWrapper {
 			if (acquireResult == VK_SUBOPTIMAL_KHR) outdated = true;
 			if (!useFence && acquireFence != null) functions.returnFence(acquireFence);
 
-			if (canDestroyOldSwapchains == null && functions.hasSwapchainMaintenance()) {
+			if (needsAcquireFenceForDestruction) finishedPresentation.useAcquireFence(imageIndex, acquireFence);
+
+			if (finishedPresentation.needsPresentFence(imageIndex, hasOldSwapchains)) {
 				presentFence = functions.borrowFence(false, debugName + "Present");
-				canDestroyOldSwapchains = new FenceSubmission(presentFence);
+				finishedPresentation.usePresentFence(presentFence);
 			}
 
-			long presentSemaphore = getPresentSemaphore(imageIndex);
+			long presentSemaphore = presentSemaphores.get(imageIndex);
 			return new AcquiredImage2(
 					this, imageIndex, swapchainImages[imageIndex], presentMode,
 					acquireSemaphore, acquireFence,
 					presentSemaphore, presentFence
 			);
 		} else if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
-			if (acquireFence != null) functions.returnFence(acquireFence);
+			if (acquireFence != null) {
+				acquireFence.forceSignal();
+				functions.returnFence(acquireFence);
+			}
 			outdated = true;
 			return null;
 		} else {
@@ -129,8 +128,6 @@ class SwapchainWrapper {
 	void destroy() {
 		for (var callback : destructionCallbacks) callback.run();
 		functions.destroySwapchain(vkSwapchain, swapchainImages);
-		for (long semaphore : presentSemaphores) {
-			if (semaphore != VK_NULL_HANDLE) functions.returnSemaphore(semaphore);
-		}
+		presentSemaphores.destroy();
 	}
 }
