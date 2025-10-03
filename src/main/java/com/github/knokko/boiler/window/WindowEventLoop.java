@@ -55,7 +55,7 @@ public class WindowEventLoop {
 			}
 
 			if (state.renderLoop.thread != null && !state.renderLoop.thread.isAlive()) {
-				window.destroy();
+				window.destroyHandle();
 				iterator.remove();
 			}
 		}

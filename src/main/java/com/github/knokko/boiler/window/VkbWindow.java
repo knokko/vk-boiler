@@ -114,10 +114,6 @@ public class VkbWindow {
 	private AcquiredImage2 acquireSwapchainImage(int presentMode, boolean useAcquireFence) {
 		instance.checkForFatalValidationErrors();
 		return swapchains.acquire(presentMode, useAcquireFence);
-
-//		if (windowLoop != null && windowLoop.shouldCheckResize(this)) {
-//			windowLoop.queueMainThreadAction(() -> maybeRecreateSwapchain(presentMode), this);
-//		}
 	}
 
 	private void showWindowNow() {
@@ -145,15 +141,23 @@ public class VkbWindow {
 	public void updateSize() {
 		if (!swapchains.needsWindowSizeFromMainThread()) return;
 
-		if (instance.useSDL) {
-			throw new RuntimeException("TODO");
-		} else {
-			try (var stack = stackPush()) {
-				IntBuffer pWidth = stack.callocInt(1);
-				IntBuffer pHeight = stack.callocInt(1);
-				glfwGetFramebufferSize(properties.handle(), pWidth, pHeight);
-				swapchains.setWindowSizeFromMainThread(pWidth.get(0), pHeight.get(0));
+		try (var stack = stackPush()) {
+			IntBuffer pWidth = stack.callocInt(1);
+			IntBuffer pHeight = stack.callocInt(1);
+			if (instance.useSDL) {
+				if ((SDL_GetWindowFlags(properties.handle()) & SDL_WINDOW_MINIMIZED) == 0) {
+					assertSdlSuccess(SDL_GetWindowSizeInPixels(
+							properties.handle(), pWidth, pHeight
+					), "GetWindowSizeInPixels");
+				}
+			} else {
+				System.out.println(glfwGetWindowAttrib(properties.handle(), GLFW_ICONIFIED));
+				if (glfwGetWindowAttrib(properties.handle(), GLFW_ICONIFIED) == GLFW_FALSE) {
+					glfwGetFramebufferSize(properties.handle(), pWidth, pHeight);
+					System.out.println("Shown");
+				} else System.out.println("Iconified");
 			}
+			swapchains.setWindowSizeFromMainThread(pWidth.get(0), pHeight.get(0));
 		}
 	}
 
@@ -205,11 +209,13 @@ public class VkbWindow {
 			swapchains.destroy();
 			vkDestroySurfaceKHR(instance.vkInstance(), properties.vkSurface(), CallbackUserData.SURFACE.put(stack, instance));
 		} finally {
-			if (windowLoop == null) {
-				if (instance.useSDL) SDL_DestroyWindow(properties.handle());
-				else glfwDestroyWindow(properties.handle());
-			}
+			if (windowLoop == null) destroyHandle();
 			hasBeenDestroyed = true;
 		}
+	}
+
+	void destroyHandle() {
+		if (instance.useSDL) SDL_DestroyWindow(properties.handle());
+		else glfwDestroyWindow(properties.handle());
 	}
 }

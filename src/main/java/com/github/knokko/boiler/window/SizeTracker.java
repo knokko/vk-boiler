@@ -24,13 +24,7 @@ class SizeTracker {
 		return windowHeight;
 	}
 
-	boolean canUseSwapchain(int swapchainWidth, int swapchainHeight) {
-		return swapchainWidth == windowWidth && swapchainHeight == windowHeight;
-	}
-
-	boolean canCreateSwapchain() {
-		return windowWidth > 0 && windowHeight > 0;
-	}
+	// TODO Use this class
 
 	void update() {
 		functions.getSurfaceCapabilities(capabilities);

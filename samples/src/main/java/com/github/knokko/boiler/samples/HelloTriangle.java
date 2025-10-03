@@ -217,6 +217,7 @@ public class HelloTriangle {
 
 		while (!glfwWindowShouldClose(boiler.window().properties.handle())) {
 			glfwPollEvents();
+			boiler.window().updateSize();
 
 			long currentTime = System.currentTimeMillis();
 			if (currentTime > 1000 + referenceTime) {

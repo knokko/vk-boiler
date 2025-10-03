@@ -65,7 +65,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 			int minImageCount = max(desiredImageCount, surfaceCapabilities.minImageCount());
 
 			presentModes.compatible.clear();
-			presentModes.compatible.add(presentModes.current);
+			presentModes.compatible.add(presentMode);
 
 			var ciSwapchain = VkSwapchainCreateInfoKHR.calloc(stack);
 			IntBuffer compatiblePresentModeBuffer = null;
@@ -76,7 +76,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 
 					var queriedPresentMode = VkSurfacePresentModeEXT.calloc(stack);
 					queriedPresentMode.sType$Default();
-					queriedPresentMode.presentMode(presentModes.current);
+					queriedPresentMode.presentMode(presentMode);
 
 					var surfaceInfo = VkPhysicalDeviceSurfaceInfo2KHR.calloc(stack);
 					surfaceInfo.sType$Default();

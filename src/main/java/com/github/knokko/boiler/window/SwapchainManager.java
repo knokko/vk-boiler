@@ -26,12 +26,17 @@ class SwapchainManager {
 		this.functions = functions;
 		this.properties = properties;
 		this.presentModes = presentModes;
-		this.acquireSemaphores = new AcquireSemaphores(functions, properties.title(), properties.maxFramesInFlight());
+		this.acquireSemaphores = new AcquireSemaphores(
+				// Take 1 semaphore margin to allow resetting the command buffer/pool AFTER acquiring
+				functions, properties.title(), properties.maxFramesInFlight() + 1
+		);
 		this.sizeTracker = new SizeTracker(functions, surfaceCapabilities);
 	}
 
 	AcquiredImage2 acquire(int presentMode, boolean useFence) {
 		sizeTracker.update();
+
+		System.out.println("width is " + sizeTracker.getWindowWidth());
 		if (!presentModes.acquire(presentMode)) recreateSwapchain(presentMode);
 
 		if (currentSwapchain == null) recreateSwapchain(presentMode);
@@ -69,11 +74,6 @@ class SwapchainManager {
 			oldSwapchains.clear();
 		}
 
-		createSwapchain(presentMode);
-	}
-
-	private void createSwapchain(int presentMode) {
-		sizeTracker.update();
 		if (sizeTracker.getWindowWidth() == 0 || sizeTracker.getWindowHeight() == 0) return;
 
 		long oldSwapchain = VK_NULL_HANDLE;
