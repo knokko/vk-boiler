@@ -31,7 +31,7 @@ public class WindowBuilder {
 	long handle;
 	String title;
 	long sdlFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
-	boolean hideUntilFirstFrame;
+	int hideFirstFrames;
 	SurfaceFormatPicker surfaceFormatPicker = new SimpleSurfaceFormatPicker(
 			VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB
 	);
@@ -74,8 +74,8 @@ public class WindowBuilder {
 	/**
 	 * Makes the window invisible until the first {@link org.lwjgl.vulkan.KHRSwapchain#vkQueuePresentKHR}
 	 */
-	public WindowBuilder hideUntilFirstFrame() {
-		this.hideUntilFirstFrame = true;
+	public WindowBuilder hideFirstFrames(int numFrames) {
+		this.hideFirstFrames = numFrames;
 		return this;
 	}
 
@@ -170,11 +170,10 @@ public class WindowBuilder {
 			var surfaceFormat = surfaceFormatPicker.chooseSurfaceFormat(formats);
 			var compositeAlpha = compositeAlphaPicker.chooseCompositeAlpha(capabilities.supportedCompositeAlpha());
 
-			int numHiddenFrames = hideUntilFirstFrame ? 1 : 0; // TODO Allow more values
 			int maxOldSwapchains = 0; // TODO Configure
 			int maxFramesInFlight = 3; // TODO Configure
 			var properties = new WindowProperties(
-					handle, title, vkSurface, numHiddenFrames, surfaceFormat.format(), surfaceFormat.colorSpace(),
+					handle, title, vkSurface, hideFirstFrames, surfaceFormat.format(), surfaceFormat.colorSpace(),
 					swapchainImageUsage, compositeAlpha, hasSwapchainMaintenance, maxOldSwapchains, maxFramesInFlight
 			);
 			return new VkbWindow(properties, presentFamily, supportedPresentModes, presentModes);
@@ -192,9 +191,9 @@ public class WindowBuilder {
 		// xdg_wm_base@33: error 4: wl_surface@26 already has a buffer committed
 		// hideUntilFirstFrame doesn't make much sense on Wayland anyway,
 		// since Wayland always hides windows until the first frame is presented
-		if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) hideUntilFirstFrame = false;
+		if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) hideFirstFrames = 0;
 
-		glfwWindowHint(GLFW_VISIBLE, hideUntilFirstFrame ? GLFW_FALSE : GLFW_TRUE);
+		glfwWindowHint(GLFW_VISIBLE, hideFirstFrames == 0 ? GLFW_TRUE : GLFW_FALSE);
 		handle = glfwCreateWindow(width, height, title, 0L, 0L);
 		if (handle == 0) {
 			try (var stack = stackPush()) {
@@ -216,9 +215,9 @@ public class WindowBuilder {
 		// If I try this on Wayland, the window will never become visible, not even after SDL_ShowWindow
 		// hideUntilFirstFrame doesn't make much sense on Wayland anyway,
 		// since Wayland always hides windows until the first frame is presented
-		if ("wayland".equals(SDL_GetCurrentVideoDriver())) hideUntilFirstFrame = false;
+		if ("wayland".equals(SDL_GetCurrentVideoDriver())) hideFirstFrames = 0;
 
-		if (hideUntilFirstFrame) sdlFlags |= SDL_WINDOW_HIDDEN;
+		if (hideFirstFrames != 0) sdlFlags |= SDL_WINDOW_HIDDEN;
 		handle = SDL_CreateWindow(title, width, height, sdlFlags);
 		assertSdlSuccess(handle != 0L, "CreateWindow");
 	}
