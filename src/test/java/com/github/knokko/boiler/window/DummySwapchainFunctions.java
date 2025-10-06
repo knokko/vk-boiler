@@ -16,6 +16,7 @@ class DummySwapchainFunctions implements SwapchainFunctions {
 
 	private long nextSemaphore = 1L;
 	Set<Long> borrowedSemaphores = new HashSet<>();
+	VkSurfaceCapabilitiesKHR capabilities;
 
 	@Override
 	public void deviceWaitIdle() {
@@ -24,7 +25,7 @@ class DummySwapchainFunctions implements SwapchainFunctions {
 
 	@Override
 	public void getSurfaceCapabilities(VkSurfaceCapabilitiesKHR capabilities) {
-
+		if (this.capabilities != null) capabilities.set(this.capabilities);
 	}
 
 	@Override
