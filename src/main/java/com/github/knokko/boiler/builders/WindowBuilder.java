@@ -26,12 +26,13 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class WindowBuilder {
 
-	final int width, height;
-	final int swapchainImageUsage;
+	final int width, height, maxFramesInFlight;
+	int swapchainImageUsage;
 	long handle;
 	String title;
 	long sdlFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 	int hideFirstFrames;
+	int maxOldSwapchain;
 	SurfaceFormatPicker surfaceFormatPicker = new SimpleSurfaceFormatPicker(
 			VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB
 	);
@@ -45,12 +46,23 @@ public class WindowBuilder {
 	/**
 	 * @param width The initial width of the window, in pixels
 	 * @param height The initial height of the window, in pixels
-	 * @param swapchainImageUsage The image usage flags for the swapchain images to-be-created
+	 * @param maxFramesInFlight The maximum number of frames in flight that the swapchain
+	 * management system will support. If you use more, expect nasty sync issues.
+	 * Using fewer frames-in-flight is fine.
 	 */
-	public WindowBuilder(int width, int height, int swapchainImageUsage) {
+	public WindowBuilder(int width, int height, int maxFramesInFligh) {
 		this.width = width;
 		this.height = height;
-		this.swapchainImageUsage = swapchainImageUsage;
+		this.maxFramesInFlight = maxFramesInFlight;
+	}
+
+	/**
+	 * Sets the <i>VkImageUsageFlagBits</i> for the swapchain images to-be-created.
+	 * The default value is {@code VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT}.
+	*/
+	public WindowBuilder swapchainImageUsage(int imageUsage) {
+		this.swapchainImageUsage = imageUsage;
+		return this;
 	}
 
 	/**
@@ -72,10 +84,26 @@ public class WindowBuilder {
 	}
 
 	/**
-	 * Makes the window invisible until the first {@link org.lwjgl.vulkan.KHRSwapchain#vkQueuePresentKHR}
+	 * Makes the window invisible until {@link org.lwjgl.vulkan.KHRSwapchain#vkQueuePresentKHR}
+	 * has been called {@code numFrames} times. The default value is 0, which means that the window
+	 * will be immediately visible. The drawback of this is that you may see 'garbage' content in
+	 * the window before the first frame has been presented. Using larger values makes it possible
+	 * to hide the window until there is real content to be shown. Play around to find the value
+	 * that works best.
 	 */
 	public WindowBuilder hideFirstFrames(int numFrames) {
 		this.hideFirstFrames = numFrames;
+		return this;
+	}
+
+	/**
+	 * Sets the maximum number of outdated <i>unused</i> swapchains that the swapchain management system
+	 * may have at any point in time. The default value is 0, which means that it will always destroy
+	 * the old swapchain before creating a new swapchain. Using larger values may speed up resizing,
+	 * but may also increase memory consumption.
+	 */
+	public WindowBuilder maxOldSwapchains(int maxSwapchains) {
+		this.maxOldSwapchains = maxSwapchains;
 		return this;
 	}
 
@@ -170,8 +198,6 @@ public class WindowBuilder {
 			var surfaceFormat = surfaceFormatPicker.chooseSurfaceFormat(formats);
 			var compositeAlpha = compositeAlphaPicker.chooseCompositeAlpha(capabilities.supportedCompositeAlpha());
 
-			int maxOldSwapchains = 0; // TODO Configure
-			int maxFramesInFlight = 3; // TODO Configure
 			var properties = new WindowProperties(
 					handle, title, vkSurface, hideFirstFrames, surfaceFormat.format(), surfaceFormat.colorSpace(),
 					swapchainImageUsage, compositeAlpha, hasSwapchainMaintenance, maxOldSwapchains, maxFramesInFlight

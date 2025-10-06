@@ -112,7 +112,7 @@ public class BoilerBuilder {
 	VkInstanceCreator vkInstanceCreator = DEFAULT_VK_INSTANCE_CREATOR;
 	Collection<PreVkInstanceCreator> preInstanceCreators = new ArrayList<>();
 	PhysicalDeviceSelector deviceSelector = new SimpleDeviceSelector(
-			VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
+			//VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
 			VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
 	);
 	VkDeviceCreator vkDeviceCreator = DEFAULT_VK_DEVICE_CREATOR;

@@ -31,9 +31,9 @@ public class VkbWindow {
 	 */
 	public final VkbQueueFamily presentFamily;
 	private final PresentModes presentModes;
+	private final ShowCounter showCounter;
 
-//	private final boolean hideUntilFirstFrame;
-//	private boolean calledShowWindow;
+	volatile boolean showFromMainThread;
 
 	private boolean hasBeenDestroyed;
 
@@ -52,6 +52,7 @@ public class VkbWindow {
 		this.properties = properties;
 		this.presentModes = new PresentModes(supportedPresentModes, preparedPresentModes);
 		this.presentFamily = presentFamily;
+		this.showCounter = new ShowCounter(properties.numHiddenFrames());
 	}
 
 	/**
@@ -168,11 +169,10 @@ public class VkbWindow {
 	public void presentSwapchainImage(AcquiredImage2 image) {
 		instance.checkForFatalValidationErrors();
 		image.swapchain.presentImage(image);
-//		if (hideUntilFirstFrame && !calledShowWindow) {
-//			if (windowLoop == null) showWindowNow();
-//			else windowLoop.queueMainThreadAction(this::showWindowNow, this);
-//			calledShowWindow = true;
-//		}
+		if (showCounter.shouldShowNow()) {
+			if (windowLoop == null) showWindowNow();
+			else showFromMainThread = true;
+		}
 	}
 
 	/**

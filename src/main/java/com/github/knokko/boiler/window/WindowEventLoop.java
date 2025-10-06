@@ -58,6 +58,11 @@ public class WindowEventLoop {
 				window.destroyHandle();
 				iterator.remove();
 			}
+
+			if (window.showFromMainThread) {
+				window.showNow();
+				window.showFromMainThread = false;
+			}
 		}
 	}
 
