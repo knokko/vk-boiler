@@ -88,10 +88,6 @@ class SwapchainManager {
 		);
 	}
 
-	boolean needsWindowSizeFromMainThread() {
-		return sizeTracker.needsWindowSizeFromMainThread();
-	}
-
 	void setWindowSizeFromMainThread(int width, int height) {
 		sizeTracker.setWindowSizeFromMainThread(width, height);
 	}
@@ -105,12 +101,12 @@ class SwapchainManager {
 	}
 
 	void destroy() {
-		for (var association : associations) association.destroy();
 		surfaceCapabilities.free();
 		if (currentSwapchain != null || !oldSwapchains.isEmpty()) functions.deviceWaitIdle();
 		for (SwapchainWrapper swapchain : oldSwapchains) swapchain.destroy();
 		oldSwapchains.clear();
 		if (currentSwapchain != null) currentSwapchain.destroy();
 		acquireSemaphores.destroy();
+		for (var association : associations) association.destroy();
 	}
 }

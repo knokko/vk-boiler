@@ -55,6 +55,8 @@ public class VkbWindow {
 		this.showCounter = new ShowCounter(properties.numHiddenFrames());
 	}
 
+	// TODO KHR swapchain maintenance instead of EXT
+
 	/**
 	 * This method is meant for internal use only. Expect an {@code IllegalStateException} if you call it yourself.
 	 */
@@ -140,8 +142,6 @@ public class VkbWindow {
 	}
 
 	public void updateSize() {
-		if (!swapchains.needsWindowSizeFromMainThread()) return;
-
 		try (var stack = stackPush()) {
 			IntBuffer pWidth = stack.callocInt(1);
 			IntBuffer pHeight = stack.callocInt(1);
@@ -152,11 +152,9 @@ public class VkbWindow {
 					), "GetWindowSizeInPixels");
 				}
 			} else {
-				System.out.println(glfwGetWindowAttrib(properties.handle(), GLFW_ICONIFIED));
 				if (glfwGetWindowAttrib(properties.handle(), GLFW_ICONIFIED) == GLFW_FALSE) {
 					glfwGetFramebufferSize(properties.handle(), pWidth, pHeight);
-					System.out.println("Shown");
-				} else System.out.println("Iconified");
+				}
 			}
 			swapchains.setWindowSizeFromMainThread(pWidth.get(0), pHeight.get(0));
 		}

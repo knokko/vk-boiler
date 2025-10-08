@@ -8,7 +8,6 @@ class SizeTracker {
 	private final VkSurfaceCapabilitiesKHR capabilities;
 	private int windowWidth, windowHeight;
 
-	private volatile boolean needsWindowSizeFromMainThread;
 	private volatile WindowSize windowSizeFromMainThread;
 
 	SizeTracker(SwapchainFunctions functions, VkSurfaceCapabilitiesKHR capabilities) {
@@ -24,36 +23,28 @@ class SizeTracker {
 		return windowHeight;
 	}
 
-	// TODO Use this class
-
 	void update() {
 		functions.getSurfaceCapabilities(capabilities);
 		int newWidth = capabilities.currentExtent().width();
 		int newHeight = capabilities.currentExtent().height();
-		boolean needsWindowSizeFromMainThread;
 		if (newWidth != -1 && newHeight != -1) {
 			windowWidth = newWidth;
 			windowHeight = newHeight;
-			needsWindowSizeFromMainThread = false;
-		} else {
-			needsWindowSizeFromMainThread = true;
-			var mainSize = windowSizeFromMainThread;
-			if (mainSize != null) {
+		}
+
+		var mainSize = windowSizeFromMainThread;
+		if (mainSize != null) {
+			if (mainSize.width() == 0 || mainSize.height() == 0) {
+				windowWidth = 0;
+				windowHeight = 0;
+			} else if (newWidth == -1 || newHeight == -1) {
 				windowWidth = mainSize.width();
 				windowHeight = mainSize.height();
 			}
-		}
-
-		if (needsWindowSizeFromMainThread != this.needsWindowSizeFromMainThread) {
-			this.needsWindowSizeFromMainThread = needsWindowSizeFromMainThread;
 		}
 	}
 
 	void setWindowSizeFromMainThread(int width, int height) {
 		windowSizeFromMainThread = new WindowSize(width, height);
-	}
-
-	boolean needsWindowSizeFromMainThread() {
-		return needsWindowSizeFromMainThread;
 	}
 }

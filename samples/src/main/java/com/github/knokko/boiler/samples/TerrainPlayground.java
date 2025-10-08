@@ -44,7 +44,6 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
-import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 
@@ -81,8 +80,8 @@ public class TerrainPlayground {
 		colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
 		colorAttachment.stencilLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
 		colorAttachment.stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
-		colorAttachment.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
-		colorAttachment.finalLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		colorAttachment.initialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		colorAttachment.finalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		var depthAttachment = attachments.get(1);
 		depthAttachment.flags(0);
 		depthAttachment.format(depthFormat);
@@ -91,7 +90,7 @@ public class TerrainPlayground {
 		depthAttachment.storeOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
 		depthAttachment.stencilLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
 		depthAttachment.stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
-		depthAttachment.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+		depthAttachment.initialLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 		depthAttachment.finalLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 		var colorReference = VkAttachmentReference.calloc(1, stack);
@@ -112,27 +111,11 @@ public class TerrainPlayground {
 		subpass.pDepthStencilAttachment(depthReference);
 		subpass.pPreserveAttachments(null);
 
-		var dependencies = VkSubpassDependency.calloc(2, stack);
-		var colorDependency = dependencies.get(0);
-		colorDependency.srcSubpass(VK_SUBPASS_EXTERNAL);
-		colorDependency.dstSubpass(0);
-		colorDependency.srcStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-		colorDependency.srcAccessMask(0);
-		colorDependency.dstStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-		colorDependency.dstAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-		var depthDependency = dependencies.get(1);
-		depthDependency.srcSubpass(VK_SUBPASS_EXTERNAL);
-		depthDependency.dstSubpass(0);
-		depthDependency.srcStageMask(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
-		depthDependency.srcAccessMask(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-		depthDependency.dstStageMask(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
-		depthDependency.dstAccessMask(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-
 		var ciRenderPass = VkRenderPassCreateInfo.calloc(stack);
 		ciRenderPass.sType$Default();
 		ciRenderPass.pAttachments(attachments);
 		ciRenderPass.pSubpasses(subpass);
-		ciRenderPass.pDependencies(dependencies);
+		ciRenderPass.pDependencies(null);
 
 		var pRenderPass = stack.callocLong(1);
 		assertVkSuccess(vkCreateRenderPass(
@@ -478,6 +461,7 @@ public class TerrainPlayground {
 
 		while (!glfwWindowShouldClose(boiler.window().properties.handle())) {
 			glfwPollEvents();
+			boiler.window().updateSize();
 
 			long currentTime = System.currentTimeMillis();
 			if (currentTime > 1000 + referenceTime) {
@@ -509,6 +493,17 @@ public class TerrainPlayground {
 				timeline.waitUntil(frameCounter);
 
 				var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "TerrainDraw");
+
+				recorder.transitionLayout(
+						swapchainImage.image,
+						ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+						ResourceUsage.COLOR_ATTACHMENT_WRITE
+				);
+				recorder.transitionLayout(
+						imageResources.depthImage,
+						ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_UNDEFINED),
+						ResourceUsage.depthStencilAttachmentWrite(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+				);
 
 				var clearValues = VkClearValue.calloc(2, stack);
 				var clearColor = clearValues.get(0);
@@ -600,6 +595,7 @@ public class TerrainPlayground {
 					System.out.println("Drew " + quadCount + " quads in " + fragmentCount + " fragment with camera yaw " + camera.yaw);
 				}
 
+				recorder.transitionLayout(swapchainImage.image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
 				recorder.end();
 
 				var timelineFinished = new TimelineInstant(timeline, frameCounter + numFramesInFlight);
