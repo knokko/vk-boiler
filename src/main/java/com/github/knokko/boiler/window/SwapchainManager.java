@@ -36,7 +36,6 @@ class SwapchainManager {
 	AcquiredImage2 acquire(int presentMode, boolean useFence) {
 		sizeTracker.update();
 
-		System.out.println("width is " + sizeTracker.getWindowWidth());
 		if (!presentModes.acquire(presentMode)) recreateSwapchain(presentMode);
 
 		if (currentSwapchain == null) recreateSwapchain(presentMode);
@@ -58,6 +57,7 @@ class SwapchainManager {
 
 		if (currentSwapchain != null && !oldSwapchains.isEmpty() && currentSwapchain.canDestroyOldSwapchains()) {
 			for (SwapchainWrapper old : oldSwapchains) old.destroy();
+			oldSwapchains.clear();
 		}
 
 		return acquiredImage;

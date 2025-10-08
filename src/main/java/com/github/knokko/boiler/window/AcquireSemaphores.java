@@ -25,6 +25,12 @@ class AcquireSemaphores {
 		return next;
 	}
 
+	// TODO Test this
+	void cancelPrevious() {
+		currentFrame -= 1;
+		if (currentFrame < 0) currentFrame += semaphores.length;
+	}
+
 	void destroy() {
 		for (long semaphore : semaphores) {
 			if (semaphore != VK_NULL_HANDLE) functions.returnSemaphore(semaphore);

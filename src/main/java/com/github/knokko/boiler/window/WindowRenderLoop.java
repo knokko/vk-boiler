@@ -84,6 +84,7 @@ public abstract class WindowRenderLoop {
 					if (acquiredImage == null) {
 						//noinspection BusyWait
 						sleep(100);
+						System.out.println("skip render");
 						continue;
 					}
 

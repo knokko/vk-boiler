@@ -270,7 +270,6 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 				.enableDynamicRendering()
 				.useSDL().build();
 
-		// TODO Test maxOldSwapchains
 		var eventLoop = new WindowEventLoop();
 		eventLoop.addWindow(new DecoratedTriangle(boiler.window()));
 		eventLoop.runMain();

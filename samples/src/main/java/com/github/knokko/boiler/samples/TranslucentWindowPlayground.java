@@ -47,7 +47,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 		)
 				.validation(new ValidationFeatures(
 						false, false, true, true
-				))
+				)).forbidValidationErrors()
 				.dontInitWindowingAPI()
 				.addWindow(new WindowBuilder(
 						800, 600, 5
@@ -56,7 +56,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 						VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
 						VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
 						VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
-				)).swapchainImageUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT))
+				)).swapchainImageUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT).maxOldSwapchains(10))
 				// Avoid annoying crashes on laptops with multiple GPUs by preferring the integrated GPU
 				.physicalDeviceSelector(new SimpleDeviceSelector(VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU))
 				.build();

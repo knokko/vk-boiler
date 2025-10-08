@@ -118,6 +118,9 @@ class SwapchainWrapper {
 				acquireFence.forceSignal();
 				functions.returnFence(acquireFence);
 			}
+			if (acquireSemaphore != VK_NULL_HANDLE) {
+				acquireSemaphores.cancelPrevious();
+			}
 			outdated = true;
 			return null;
 		} else {
