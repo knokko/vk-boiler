@@ -25,6 +25,8 @@ import static org.lwjgl.vulkan.VK10.*;
 public class HelloTriangle {
 
 	public static void main(String[] args) throws InterruptedException {
+		int numFramesInFlight = 3;
+
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_0, "HelloTriangle", VK_MAKE_VERSION(0, 1, 0)
 		)
@@ -32,11 +34,10 @@ public class HelloTriangle {
 				.hideDeviceSelectionInfo()
 				.allocationCallbacks(new SumAllocationCallbacks())
 				.addWindow(new WindowBuilder(
-						1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+						1000, 800, numFramesInFlight
 				).presentModes(VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR))
 				.build();
 
-		int numFramesInFlight = 3;
 		var commandPool = boiler.commands.createPool(
 				VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
 				boiler.queueFamilies().graphics().index(), "Drawing"

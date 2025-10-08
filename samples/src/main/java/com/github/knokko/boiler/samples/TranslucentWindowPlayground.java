@@ -50,13 +50,13 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 				))
 				.dontInitWindowingAPI()
 				.addWindow(new WindowBuilder(
-						800, 600, VK_IMAGE_USAGE_TRANSFER_DST_BIT
+						800, 600, 5
 				).compositeAlphaPicker(new SimpleCompositeAlphaPicker(
 						VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
 						VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
 						VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
 						VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
-				)))
+				)).swapchainImageUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT))
 				// Avoid annoying crashes on laptops with multiple GPUs by preferring the integrated GPU
 				.physicalDeviceSelector(new SimpleDeviceSelector(VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU))
 				.build();
@@ -78,7 +78,7 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 
 	public TranslucentWindowPlayground(VkbWindow window) {
 		super(
-				window, 5, false,
+				window, true,
 				window.getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
 						VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
 				ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_DEST

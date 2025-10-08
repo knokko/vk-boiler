@@ -280,13 +280,15 @@ public class TerrainPlayground {
 	}
 
 	public static void main(String[] args) throws InterruptedException {
+		int numFramesInFlight = 3;
+
 		var boiler = new BoilerBuilder(
 				VK_API_VERSION_1_2, "TerrainPlayground", VK_MAKE_VERSION(0, 1, 0)
 		)
 				.validation(new ValidationFeatures(true, false, true, true))
 				.forbidValidationErrors()
 				.allocationCallbacks(new SumAllocationCallbacks())
-				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).hideUntilFirstFrame())
+				.addWindow(new WindowBuilder(1000, 800, numFramesInFlight).hideFirstFrames(4))
 				.requiredFeatures12("timeline semaphore", VkPhysicalDeviceVulkan12Features::timelineSemaphore)
 				.featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
 				.build();
@@ -300,8 +302,6 @@ public class TerrainPlayground {
 					}, "Spectator"
 			);
 		}
-
-		int numFramesInFlight = 3;
 
 		var persistentCombiner = new MemoryCombiner(boiler, "PersistentMemory");
 		var uniformBuffers = new MappedVkbBuffer[numFramesInFlight];

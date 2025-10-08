@@ -117,7 +117,7 @@ public class VkbWindow {
 		return swapchains.acquire(presentMode, useAcquireFence);
 	}
 
-	private void showWindowNow() {
+	void showWindowNow() {
 		assertMainThread();
 		if (instance.useSDL) {
 			assertSdlSuccess(SDL_ShowWindow(properties.handle()), "ShowWindow");

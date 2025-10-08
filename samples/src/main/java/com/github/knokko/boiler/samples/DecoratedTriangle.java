@@ -48,7 +48,7 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 
 	public DecoratedTriangle(VkbWindow window) {
 		super(
-				window, 2, false, VK_PRESENT_MODE_FIFO_KHR,
+				window, false, VK_PRESENT_MODE_FIFO_KHR,
 				ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.COLOR_ATTACHMENT_WRITE
 		);
 
@@ -265,13 +265,12 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 		)
 				.validation().forbidValidationErrors()
 				.addWindow(new WindowBuilder(
-						1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+						1000, 800, 2
 				).sdlFlags(SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN))
 				.enableDynamicRendering()
 				.useSDL().build();
 
-
-
+		// TODO Test maxOldSwapchains
 		var eventLoop = new WindowEventLoop();
 		eventLoop.addWindow(new DecoratedTriangle(boiler.window()));
 		eventLoop.runMain();

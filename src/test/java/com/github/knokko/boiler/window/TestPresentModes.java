@@ -69,9 +69,10 @@ public class TestPresentModes {
 		assertEquals(6, modes.current);
 
 		try (MemoryStack stack = MemoryStack.stackPush()) {
-			var additionalCompatible = modes.createSwapchain(stack, 5, stack.ints(1, 2));
-			assertEquals(1, additionalCompatible.remaining());
-			assertEquals(2, additionalCompatible.get());
+			var compatible = modes.createSwapchain(stack, 5, stack.ints(1, 2));
+			assertEquals(2, compatible.remaining()); // TODO here
+			assertTrue(compatible.get(0) == 2 || compatible.get(1) == 2);
+			assertTrue(compatible.get(0) == 5 || compatible.get(1) == 5);
 		}
 
 		assertEquals(5, modes.current);
@@ -82,9 +83,10 @@ public class TestPresentModes {
 		assertTrue(modes.present(2));
 
 		try (MemoryStack stack = MemoryStack.stackPush()) {
-			var additionalCompatible = modes.createSwapchain(stack, 1, stack.ints(6));
-			assertEquals(1, additionalCompatible.remaining());
-			assertEquals(6, additionalCompatible.get());
+			var compatible = modes.createSwapchain(stack, 1, stack.ints(6));
+			assertEquals(2, compatible.remaining());
+			assertTrue(compatible.get(0) == 1 || compatible.get(1) == 1);
+			assertTrue(compatible.get(0) == 6 || compatible.get(1) == 6);
 		}
 
 		assertEquals(1, modes.current);

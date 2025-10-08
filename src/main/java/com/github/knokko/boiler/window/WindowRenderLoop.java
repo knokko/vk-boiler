@@ -27,18 +27,16 @@ public abstract class WindowRenderLoop {
 
 	/**
 	 * @param window The window
-	 * @param numFramesInFlight The number of frames in-flight that will be used for rendering, which determines the
-	 *                          <i>frameIndex</i> parameter that will be supplied to <i>renderFrame</i>
 	 * @param acquireSwapchainImageWithFence <i>true</i> when swapchain images should be acquired using a 'ready fence',
 	 *                                       <i>false</i> when swapchain images should be acquired using a
 	 *                                       'ready semaphore'
 	 * @param presentMode The initial present mode of the initial swapchain. You can change this whenever you want.
 	 */
 	public WindowRenderLoop(
-			VkbWindow window, int numFramesInFlight, boolean acquireSwapchainImageWithFence, int presentMode
+			VkbWindow window, boolean acquireSwapchainImageWithFence, int presentMode
 	) {
 		this.window = window;
-		this.numFramesInFlight = numFramesInFlight;
+		this.numFramesInFlight = window.properties.maxFramesInFlight();
 		this.acquireSwapchainImageWithFence = acquireSwapchainImageWithFence;
 		this.presentMode = presentMode;
 		if (window.instance.useSDL) {
@@ -89,7 +87,7 @@ public abstract class WindowRenderLoop {
 						continue;
 					}
 
-					if (acquireSwapchainImageWithFence) acquiredImage.acquireFence.awaitSignal();
+					if (acquireSwapchainImageWithFence) acquiredImage.acquireSubmission.awaitCompletion();
 
 					renderFrame(stack, frameIndex, acquiredImage, window.instance);
 					window.presentSwapchainImage(acquiredImage);
@@ -147,8 +145,6 @@ public abstract class WindowRenderLoop {
 	 *                   <i>counter</i> every frame, and <i>frameIndex = counter % numFramesInFlight</i>
 	 * @param acquiredImage The swapchain image that has been acquired. This will <b>not</b> be <i>null</i>
 	 * @param instance The VkBoiler instance
-	 * @return The last queue submission that renders onto the swapchain image. Hint: <i>VkbQueue.submit</i> will return
-	 * an <i>AwaitableSubmission</i> when you provide a non-null fence.
 	 */
 	protected abstract void renderFrame(
 			MemoryStack stack, int frameIndex, AcquiredImage2 acquiredImage, BoilerInstance instance

@@ -25,6 +25,7 @@ public class TestSizeTracker {
 		assertEquals(30, tracker.getWindowHeight());
 
 		functions.capabilities.currentExtent().set(100, 70);
+		tracker.update();
 		assertFalse(tracker.needsWindowSizeFromMainThread());
 		assertEquals(100, tracker.getWindowWidth());
 		assertEquals(70, tracker.getWindowHeight());

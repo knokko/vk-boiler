@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.synchronization.DummyFence;
+import com.github.knokko.boiler.synchronization.FenceSubmission;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +38,9 @@ public class TestPresentationFinishedTracker {
 	public void testWithOldSwapchainsWithoutSwapchainMaintenance() {
 		PresentationFinishedTracker tracker = new PresentationFinishedTracker(2, false);
 		VkbFence wrongFence = DummyFence.create(false);
+		FenceSubmission wrongSubmission = new FenceSubmission(wrongFence);
 		VkbFence rightFence = DummyFence.create(false);
+		FenceSubmission rightSubmission = new FenceSubmission(rightFence);
 
 		// During frame 1, there are no previous acquires
 		assertFalse(tracker.needsAcquireFence(true));
@@ -48,7 +51,7 @@ public class TestPresentationFinishedTracker {
 		assertTrue(tracker.needsAcquireFence(true));
 
 		// Since we acquire image 0, we are not re-acquiring image 1, so this fence should not be used
-		tracker.useAcquireFence(0, wrongFence);
+		tracker.useAcquireFence(0, wrongSubmission);
 		assertFalse(tracker.needsPresentFence(0, true));
 		assertFalse(tracker.hasFinishedAtLeastOnePresentation());
 		wrongFence.signal();
@@ -56,7 +59,7 @@ public class TestPresentationFinishedTracker {
 
 		// During frame 3, we will certainly re-acquire an image
 		assertTrue(tracker.needsAcquireFence(true));
-		tracker.useAcquireFence(1, rightFence);
+		tracker.useAcquireFence(1, rightSubmission);
 		assertFalse(tracker.needsPresentFence(1, true));
 		assertFalse(tracker.hasFinishedAtLeastOnePresentation());
 

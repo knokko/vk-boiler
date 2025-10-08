@@ -26,7 +26,6 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 
 	/**
 	 * @param window The window that should be rendered
-	 * @param numFramesInFlight The number of frames in-flight
 	 * @param acquireSwapchainImageWithFence <i>true</i> to wait on a fence after acquiring a swapchain image,
 	 *                                       <i>false</i> to let the render submission wait on an acquire semaphore
 	 * @param presentMode The initial present mode of the initial swapchain. You can change the <i>presentMode</i>
@@ -36,10 +35,10 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 	 *                  same as <i>firstUsage</i>
 	 */
 	public SimpleWindowRenderLoop(
-			VkbWindow window, int numFramesInFlight, boolean acquireSwapchainImageWithFence,
+			VkbWindow window, boolean acquireSwapchainImageWithFence,
 			int presentMode, ResourceUsage firstUsage, ResourceUsage lastUsage
 	) {
-		super(window, numFramesInFlight, acquireSwapchainImageWithFence, presentMode);
+		super(window, acquireSwapchainImageWithFence, presentMode);
 		this.firstUsage = firstUsage;
 		this.lastUsage = lastUsage;
 	}

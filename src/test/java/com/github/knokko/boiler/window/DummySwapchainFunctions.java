@@ -11,6 +11,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.lwjgl.system.MemoryUtil.memCopy;
 
 class DummySwapchainFunctions implements SwapchainFunctions {
 
@@ -25,7 +26,7 @@ class DummySwapchainFunctions implements SwapchainFunctions {
 
 	@Override
 	public void getSurfaceCapabilities(VkSurfaceCapabilitiesKHR capabilities) {
-		if (this.capabilities != null) capabilities.set(this.capabilities);
+		memCopy(this.capabilities, capabilities);
 	}
 
 	@Override

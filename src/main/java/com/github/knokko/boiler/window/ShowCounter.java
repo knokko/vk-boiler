@@ -5,6 +5,7 @@ class ShowCounter {
 	private int remainingFrames;
 
 	ShowCounter(int numHiddenFrames) {
+		this.remainingFrames = numHiddenFrames;
 	}
 
 	boolean shouldShowNow() {

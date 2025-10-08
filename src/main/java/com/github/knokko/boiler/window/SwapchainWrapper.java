@@ -2,6 +2,7 @@ package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.exceptions.VulkanFailureException;
 import com.github.knokko.boiler.images.VkbImage;
+import com.github.knokko.boiler.synchronization.FenceSubmission;
 import com.github.knokko.boiler.synchronization.VkbFence;
 
 import java.nio.IntBuffer;
@@ -92,9 +93,14 @@ class SwapchainWrapper {
 
 		if (acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR) {
 			if (acquireResult == VK_SUBOPTIMAL_KHR) outdated = true;
-			if (!useFence && acquireFence != null) functions.returnFence(acquireFence);
 
-			if (needsAcquireFenceForDestruction) finishedPresentation.useAcquireFence(imageIndex, acquireFence);
+			FenceSubmission acquireSubmission = null;
+			if (acquireFence != null) {
+				acquireSubmission = new FenceSubmission(acquireFence);
+				functions.returnFence(acquireFence);
+			}
+
+			if (needsAcquireFenceForDestruction) finishedPresentation.useAcquireFence(imageIndex, acquireSubmission);
 
 			if (finishedPresentation.needsPresentFence(imageIndex, hasOldSwapchains)) {
 				presentFence = functions.borrowFence(false, debugName + "Present");
@@ -104,7 +110,7 @@ class SwapchainWrapper {
 			long presentSemaphore = presentSemaphores.get(imageIndex);
 			return new AcquiredImage2(
 					this, imageIndex, swapchainImages[imageIndex], presentMode,
-					acquireSemaphore, acquireFence,
+					acquireSemaphore, acquireSubmission,
 					presentSemaphore, presentFence
 			);
 		} else if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {

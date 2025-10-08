@@ -31,10 +31,11 @@ public class MultipleWindows {
 				.validation()
 				.enableDynamicRendering()
 				.addWindow(new WindowBuilder(
-						800, 500, VK_IMAGE_USAGE_TRANSFER_DST_BIT
-				).callback(window -> windows[0] = window).title("FillWindow"))
+						800, 500, 2
+				).swapchainImageUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+						.callback(window -> windows[0] = window).title("FillWindow"))
 				.addWindow(new WindowBuilder(
-						800, 500, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+						800, 500, 1
 				).callback(window -> windows[1] = window).title("SpinWindow"))
 				.build();
 
@@ -61,7 +62,8 @@ public class MultipleWindows {
 
 		String contextSuffix = String.format("Extra(%.1f, %.1f, %.1f)", red, green, blue);
 		windowLoop.addWindow(new FillWindowLoop(boiler.addWindow(
-				new WindowBuilder(1000, 700, VK_IMAGE_USAGE_TRANSFER_DST_BIT).title(contextSuffix).hideUntilFirstFrame()
+				new WindowBuilder(1000, 700, 2)
+						.title(contextSuffix).hideFirstFrames(5)
 		), red, green, blue));
 	}
 
@@ -71,7 +73,7 @@ public class MultipleWindows {
 
 		public FillWindowLoop(VkbWindow window, float red, float green, float blue) {
 			super(
-					window, 2, false, VK_PRESENT_MODE_FIFO_KHR,
+					window, false, VK_PRESENT_MODE_FIFO_KHR,
 					ResourceUsage.TRANSFER_DEST, ResourceUsage.TRANSFER_DEST
 			);
 			this.red = red;
@@ -94,7 +96,7 @@ public class MultipleWindows {
 
 		public SpinWindowLoop(VkbWindow window) {
 			super(
-					window, 1, true,
+					window, true,
 					window.getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
 							VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR,
 					ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.COLOR_ATTACHMENT_WRITE

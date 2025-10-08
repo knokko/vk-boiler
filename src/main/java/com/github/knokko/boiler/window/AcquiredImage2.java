@@ -1,6 +1,7 @@
 package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.images.VkbImage;
+import com.github.knokko.boiler.synchronization.FenceSubmission;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 
@@ -22,13 +23,14 @@ public class AcquiredImage2 {
 	 * semaphores of that submission.
 	 */
 	public final long presentSemaphore;
-	final VkbFence acquireFence, presentFence;
+	final FenceSubmission acquireSubmission;
+	final VkbFence presentFence;
 
 	Consumer<VkPresentInfoKHR> beforePresentCallback;
 
 	AcquiredImage2(
 			SwapchainWrapper swapchain, int index, VkbImage image, int presentMode,
-			long acquireSemaphore, VkbFence acquireFence,
+			long acquireSemaphore, FenceSubmission acquireSubmission,
 			long presentSemaphore, VkbFence presentFence
 	) {
 		this.swapchain = swapchain;
@@ -36,7 +38,7 @@ public class AcquiredImage2 {
 		this.image = image;
 		this.presentMode = presentMode;
 		this.acquireSemaphore = acquireSemaphore;
-		this.acquireFence = acquireFence;
+		this.acquireSubmission = acquireSubmission;
 		this.presentSemaphore = presentSemaphore;
 		this.presentFence = presentFence;
 	}
@@ -50,12 +52,12 @@ public class AcquiredImage2 {
 	}
 
 	/**
-	 * If you acquired this swapchain image using <i>acquireSwapchainImageWithFence</i>, you must wait on this fence
-	 * before submitting any commands that use this swapchain image. If not, you must not use this method.
+	 * If you acquired this swapchain image using <i>acquireSwapchainImageWithFence</i>, you must wait on this
+	 * submission before submitting any commands that use this swapchain image. If not, you must not use this method.
 	 */
-	public VkbFence acquireFence() {
+	public FenceSubmission acquireSubmission() {
 		if (acquireSemaphore != VK_NULL_HANDLE) throw new UnsupportedOperationException("You asked for a semaphore");
-		return acquireFence;
+		return acquireSubmission;
 	}
 
 	/**

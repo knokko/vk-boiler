@@ -27,7 +27,7 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 
 	public MiniTriangle(VkbWindow window) {
 		super(
-				window, 2, false, VK_PRESENT_MODE_FIFO_KHR,
+				window, false, VK_PRESENT_MODE_FIFO_KHR,
 				ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.COLOR_ATTACHMENT_WRITE
 		);
 	}
@@ -127,7 +127,7 @@ public class MiniTriangle extends SimpleWindowRenderLoop {
 				VK_API_VERSION_1_0, "MiniTriangle", VK_MAKE_VERSION(0, 1, 0)
 		)
 				.validation().forbidValidationErrors()
-				.addWindow(new WindowBuilder(1000, 800, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+				.addWindow(new WindowBuilder(1000, 800, 2))
 				.doNotUseVma().enableDynamicRendering().build();
 
 		var eventLoop = new WindowEventLoop();

@@ -59,6 +59,8 @@ import static org.lwjgl.vulkan.VK14.VK_API_VERSION_1_4;
 
 public class BoilerBuilder {
 
+	// TODO Add method to forbid swapchain maintenance
+
 	public static final VkInstanceCreator DEFAULT_VK_INSTANCE_CREATOR = (ciInstance, allocationCallbacks, stack) -> {
 		var pInstance = stack.callocPointer(1);
 		assertVkSuccess(vkCreateInstance(

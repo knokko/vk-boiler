@@ -27,12 +27,12 @@ import static org.lwjgl.vulkan.VK10.*;
 public class WindowBuilder {
 
 	final int width, height, maxFramesInFlight;
-	int swapchainImageUsage;
+	int swapchainImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	long handle;
 	String title;
 	long sdlFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 	int hideFirstFrames;
-	int maxOldSwapchain;
+	int maxOldSwapchains;
 	SurfaceFormatPicker surfaceFormatPicker = new SimpleSurfaceFormatPicker(
 			VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB
 	);
@@ -46,14 +46,21 @@ public class WindowBuilder {
 	/**
 	 * @param width The initial width of the window, in pixels
 	 * @param height The initial height of the window, in pixels
-	 * @param maxFramesInFlight The maximum number of frames in flight that the swapchain
-	 * management system will support. If you use more, expect nasty sync issues.
-	 * Using fewer frames-in-flight is fine.
+	 * @param maxFramesInFlight The maximum number of frames in flight that the swapchain management system will
+	 *                          support. If you use more, expect nasty sync issues. Using fewer frames-in-flight is
+	 *                          fine. If you use {@link com.github.knokko.boiler.window.WindowRenderLoop} or
+	 *                          {@link com.github.knokko.boiler.window.WindowEventLoop}, this will be the exact number
+	 *                          of frames in flight (rather than just the maximum).
 	 */
-	public WindowBuilder(int width, int height, int maxFramesInFligh) {
+	public WindowBuilder(int width, int height, int maxFramesInFlight) {
 		this.width = width;
 		this.height = height;
 		this.maxFramesInFlight = maxFramesInFlight;
+
+		if (maxFramesInFlight > 3) {
+			System.err.println("WindowBuilder constructor: WARNING: using more than 3 frames-in-flight is rarely " +
+					"desired. Please note that the third parameter is the #frames in flight since vk-boiler 5");
+		}
 	}
 
 	/**

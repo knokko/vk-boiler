@@ -29,7 +29,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		)
 				.validation(new ValidationFeatures(false, false, true, true))
 				.enableDynamicRendering()
-				.addWindow(new WindowBuilder(1000, 8000, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).hideUntilFirstFrame())
+				.addWindow(new WindowBuilder(1000, 8000, 3).hideFirstFrames(5))
 				.build();
 		new SimpleRingApproximation(boiler.window()).start();
 		boiler.destroyInitialObjects();
@@ -40,7 +40,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 	private VkbFence[] commandFences;
 
 	public SimpleRingApproximation(VkbWindow window) {
-		super(window, 3, false,
+		super(window, false,
 				window.getSupportedPresentModes().contains(VK_PRESENT_MODE_MAILBOX_KHR) ?
 						VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR
 		);

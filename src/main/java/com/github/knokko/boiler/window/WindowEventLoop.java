@@ -60,7 +60,7 @@ public class WindowEventLoop {
 			}
 
 			if (window.showFromMainThread) {
-				window.showNow();
+				window.showWindowNow();
 				window.showFromMainThread = false;
 			}
 		}

@@ -21,8 +21,8 @@ class PresentationFinishedTracker {
 		return !hasSwapchainMaintenance && finished == null && hasAcquiredAnything && hasOldSwapchains;
 	}
 
-	void useAcquireFence(int imageIndex, VkbFence acquireFence) {
-		if (hasAcquired[imageIndex]) finished = new FenceSubmission(acquireFence);
+	void useAcquireFence(int imageIndex, FenceSubmission acquireSubmission) {
+		if (hasAcquired[imageIndex]) finished = acquireSubmission;
 	}
 
 	boolean needsPresentFence(int imageIndex, boolean hasOldSwapchains) {
