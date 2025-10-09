@@ -61,10 +61,11 @@ public class MultipleWindows {
 		float blue = rng.nextFloat();
 
 		String contextSuffix = String.format("Extra(%.1f, %.1f, %.1f)", red, green, blue);
-		windowLoop.addWindow(new FillWindowLoop(boiler.addWindow(
-				new WindowBuilder(1000, 700, 2)
-						.title(contextSuffix).hideFirstFrames(5)
-		), red, green, blue));
+		WindowBuilder builder = new WindowBuilder(
+				1000, 700, 2
+		).title(contextSuffix).hideFirstFrames(5)
+				.swapchainImageUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+		windowLoop.addWindow(new FillWindowLoop(boiler.addWindow(builder), red, green, blue));
 	}
 
 	private static class FillWindowLoop extends SimpleWindowRenderLoop {

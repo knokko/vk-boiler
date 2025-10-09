@@ -52,4 +52,37 @@ public class TestAcquireSemaphores {
 		assertEquals(4, distinctSemaphores.size());
 		assertEquals(0, functions.borrowedSemaphores.size());
 	}
+
+	@Test
+	public void testCancelPrevious() {
+		DummySwapchainFunctions functions = new DummySwapchainFunctions();
+		AcquireSemaphores semaphores = new AcquireSemaphores(functions, "CancelPrevious", 3);
+
+		long[] vkSemaphores = new long[3];
+		vkSemaphores[0] = semaphores.next();
+
+		for (int counter = 0; counter < 10; counter++) {
+			semaphores.cancelPrevious();
+			assertEquals(vkSemaphores[0], semaphores.next());
+		}
+
+		vkSemaphores[1] = semaphores.next();
+		assertNotEquals(vkSemaphores[0], vkSemaphores[1]);
+
+		semaphores.cancelPrevious();
+		assertEquals(vkSemaphores[1], semaphores.next());
+
+		vkSemaphores[2] = semaphores.next();
+		assertNotEquals(vkSemaphores[0], vkSemaphores[2]);
+		assertNotEquals(vkSemaphores[1], vkSemaphores[2]);
+
+		semaphores.cancelPrevious();
+		assertEquals(vkSemaphores[2], semaphores.next());
+
+		assertEquals(vkSemaphores[0], semaphores.next());
+		assertEquals(vkSemaphores[1], semaphores.next());
+
+		semaphores.cancelPrevious();
+		assertEquals(vkSemaphores[1], semaphores.next());
+	}
 }

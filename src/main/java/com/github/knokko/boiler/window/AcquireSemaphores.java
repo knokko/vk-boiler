@@ -25,7 +25,6 @@ class AcquireSemaphores {
 		return next;
 	}
 
-	// TODO Test this
 	void cancelPrevious() {
 		currentFrame -= 1;
 		if (currentFrame < 0) currentFrame += semaphores.length;

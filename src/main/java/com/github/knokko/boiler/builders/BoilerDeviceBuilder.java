@@ -13,6 +13,8 @@ import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
 import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
@@ -98,6 +100,7 @@ class BoilerDeviceBuilder {
 		}
 
 		VkbQueueFamily[] presentFamilies;
+		ReadWriteLock waitIdleLock = new ReentrantReadWriteLock();
 		try (var stack = stackPush()) {
 			if (VK_API_VERSION_MAJOR(builder.apiVersion) != 1) {
 				throw new UnsupportedOperationException("Unknown api major version: " + VK_API_VERSION_MAJOR(builder.apiVersion));
@@ -229,7 +232,9 @@ class BoilerDeviceBuilder {
 
 			var queueFamilyMap = new HashMap<Integer, VkbQueueFamily>();
 			for (var entry : uniqueQueueFamilies.entrySet()) {
-				queueFamilyMap.put(entry.getKey(), getQueueFamily(stack, vkDevice, entry.getKey(), entry.getValue().length));
+				queueFamilyMap.put(entry.getKey(), getQueueFamily(
+						stack, vkDevice, waitIdleLock, entry.getKey(), entry.getValue().length
+				));
 			}
 
 			presentFamilies = new VkbQueueFamily[windowSurfaces.length];
@@ -276,7 +281,7 @@ class BoilerDeviceBuilder {
 
 		return new Result(
 				vkPhysicalDevice, vkDevice,
-				windowSurfaces, presentFamilies, queueFamilies, vmaAllocator
+				windowSurfaces, presentFamilies, queueFamilies, waitIdleLock, vmaAllocator
 		);
 	}
 
@@ -296,19 +301,23 @@ class BoilerDeviceBuilder {
 		return vmaFlags;
 	}
 
-	private static VkbQueueFamily getQueueFamily(MemoryStack stack, VkDevice vkDevice, int familyIndex, int queueCount) {
+	private static VkbQueueFamily getQueueFamily(
+			MemoryStack stack, VkDevice vkDevice, ReadWriteLock waitIdleLock,
+			int familyIndex, int queueCount
+	) {
 		List<VkbQueue> queues = new ArrayList<>(queueCount);
 		for (int queueIndex = 0; queueIndex < queueCount; queueIndex++) {
 			var pQueue = stack.callocPointer(1);
 			vkGetDeviceQueue(vkDevice, familyIndex, queueIndex, pQueue);
-			queues.add(new VkbQueue(new VkQueue(pQueue.get(0), vkDevice)));
+			queues.add(new VkbQueue(new VkQueue(pQueue.get(0), vkDevice), waitIdleLock));
 		}
 		return new VkbQueueFamily(familyIndex, Collections.unmodifiableList(queues));
 	}
 
 	record Result(
 			VkPhysicalDevice vkPhysicalDevice, VkDevice vkDevice,
-			long[] windowSurfaces, VkbQueueFamily[] presentFamilies, QueueFamilies queueFamilies, long vmaAllocator
+			long[] windowSurfaces, VkbQueueFamily[] presentFamilies,
+			QueueFamilies queueFamilies, ReadWriteLock waitIdleLock, long vmaAllocator
 	) {
 	}
 }

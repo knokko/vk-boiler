@@ -869,8 +869,8 @@ public class BoilerBuilder {
 		var instance = new BoilerInstance(
 				xr, defaultTimeout, sdlFlags != 0, windows, apiVersion,
 				vkInstance, deviceResult.vkPhysicalDevice(), deviceResult.vkDevice(),
-				extra.build(),
-				deviceResult.queueFamilies(), deviceResult.vmaAllocator(), validationErrorThrower, allocationCallbacks
+				extra.build(), deviceResult.queueFamilies(), deviceResult.waitIdleLock(),
+				deviceResult.vmaAllocator(), validationErrorThrower, allocationCallbacks
 		);
 		propagateInstance[0] = instance;
 		if (xr != null) xr.boilerInstance = instance;

@@ -43,8 +43,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 
 	@Override
 	public void deviceWaitIdle() {
-		// TODO Appropriate synchronization: ReadWriteLock?
-		assertVkSuccess(vkDeviceWaitIdle(instance.vkDevice()), "DeviceWaitIdle", "RealSwapchainFunctions");
+		instance.deviceWaitIdle("RealSwapchainFunctions");
 	}
 
 	@Override

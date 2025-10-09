@@ -609,7 +609,7 @@ public class TerrainPlayground {
 			}
 		}
 
-		assertVkSuccess(vkDeviceWaitIdle(boiler.vkDevice()), "DeviceWaitIdle", "FinishTerrainPlayground");
+		boiler.deviceWaitIdle("FinishTerrainPlayground");
 		timeline.destroy();
 
 		try (var stack = stackPush()) {
