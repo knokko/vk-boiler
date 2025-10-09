@@ -55,8 +55,6 @@ public class VkbWindow {
 		this.showCounter = new ShowCounter(properties.numHiddenFrames());
 	}
 
-	// TODO KHR swapchain maintenance instead of EXT
-
 	/**
 	 * This method is meant for internal use only. Expect an {@code IllegalStateException} if you call it yourself.
 	 */

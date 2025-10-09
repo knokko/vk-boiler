@@ -59,8 +59,6 @@ import static org.lwjgl.vulkan.VK14.VK_API_VERSION_1_4;
 
 public class BoilerBuilder {
 
-	// TODO Add method to forbid swapchain maintenance
-
 	public static final VkInstanceCreator DEFAULT_VK_INSTANCE_CREATOR = (ciInstance, allocationCallbacks, stack) -> {
 		var pInstance = stack.callocPointer(1);
 		assertVkSuccess(vkCreateInstance(
@@ -135,6 +133,7 @@ public class BoilerBuilder {
 	Collection<NamedExtraDeviceRequirements> extraDeviceRequirements = new ArrayList<>();
 
 	boolean printDeviceSelectionInfo = true;
+	boolean forbidSwapchainMaintenance = true;
 
 	QueueFamilyMapper queueFamilyMapper = new MinimalQueueFamilyMapper();
 
@@ -291,6 +290,11 @@ public class BoilerBuilder {
 			throw new IllegalStateException("Attempted to set multiple instance creators");
 		}
 		this.vkInstanceCreator = creator;
+		return this;
+	}
+
+	public BoilerBuilder forbidSwapchainMaintenance() {
+		this.forbidSwapchainMaintenance = true;
 		return this;
 	}
 
@@ -676,9 +680,12 @@ public class BoilerBuilder {
 			}
 
 			this.requiredVulkanDeviceExtensions.add(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-			this.desiredVulkanDeviceExtensions.add(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
-			this.desiredVulkanInstanceExtensions.add(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
-			this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+
+			if (!this.forbidSwapchainMaintenance) {
+				this.desiredVulkanDeviceExtensions.add(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+				this.desiredVulkanInstanceExtensions.add(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+				this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+			}
 		}
 		this.desiredVulkanDeviceExtensions.add(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 		this.desiredVulkanDeviceExtensions.add(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME);

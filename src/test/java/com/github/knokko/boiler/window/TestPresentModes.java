@@ -70,7 +70,7 @@ public class TestPresentModes {
 
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			var compatible = modes.createSwapchain(stack, 5, stack.ints(1, 2));
-			assertEquals(2, compatible.remaining()); // TODO here
+			assertEquals(2, compatible.remaining());
 			assertTrue(compatible.get(0) == 2 || compatible.get(1) == 2);
 			assertTrue(compatible.get(0) == 5 || compatible.get(1) == 5);
 		}
