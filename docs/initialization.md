@@ -105,6 +105,15 @@ use `.beforeInstanceCreation`.
 If you need to call a custom function instead of `vkCreateInstance`,
 you need to use `.vkInstanceCreator`.
 
+### Forbid swapchain maintenance
+By default, vk-boiler will enable the `VK_EXT_swapchain_maintenance1`
+when it is supported. When enabled, the swapchain management system will
+use it.
+
+If you don't want this for some reason, you can chain
+`.forbidSwapchainMaintenance()` to the `BoilerBuilder`. This is mostly
+useful for debugging and testing.
+
 ## Physical device selection properties
 When the target machine supports multiple physical devices,
 the builder will choose 1, depending on your requirements,

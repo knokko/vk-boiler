@@ -33,7 +33,7 @@ class SwapchainManager {
 		this.sizeTracker = new SizeTracker(functions, surfaceCapabilities);
 	}
 
-	AcquiredImage2 acquire(int presentMode, boolean useFence) {
+	AcquiredImage acquire(int presentMode, boolean useFence) {
 		sizeTracker.update();
 
 		if (!presentModes.acquire(presentMode)) recreateSwapchain(presentMode);

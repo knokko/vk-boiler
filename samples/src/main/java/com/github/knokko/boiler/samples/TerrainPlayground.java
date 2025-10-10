@@ -17,7 +17,7 @@ import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
-import com.github.knokko.boiler.window.AcquiredImage2;
+import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.TimelineInstant;
@@ -361,7 +361,7 @@ public class TerrainPlayground {
 			}
 
 			@Override
-			protected ImageResources createImage(SwapchainResources swapchain, AcquiredImage2 swapchainImage) {
+			protected ImageResources createImage(SwapchainResources swapchain, AcquiredImage swapchainImage) {
 				var depthImage = swapchain.depthImages[swapchainImage.index];
 				long framebuffer = boiler.images.createFramebuffer(
 						renderPass, swapchainImage.getWidth(), swapchainImage.getHeight(),

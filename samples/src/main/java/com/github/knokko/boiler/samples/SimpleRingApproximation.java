@@ -9,7 +9,7 @@ import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
-import com.github.knokko.boiler.window.AcquiredImage2;
+import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.window.VkbWindow;
 import com.github.knokko.boiler.window.WindowRenderLoop;
 import org.lwjgl.system.MemoryStack;
@@ -86,7 +86,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 
 	@Override
 	protected void renderFrame(
-			MemoryStack stack, int frameIndex, AcquiredImage2 swapchainImage, BoilerInstance boiler
+			MemoryStack stack, int frameIndex, AcquiredImage swapchainImage, BoilerInstance boiler
 	) {
 		WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
 				swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT

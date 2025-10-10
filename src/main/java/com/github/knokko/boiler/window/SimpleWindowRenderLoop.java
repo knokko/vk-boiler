@@ -58,7 +58,7 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 
 	@Override
 	protected void renderFrame(
-			MemoryStack stack, int frameIndex, AcquiredImage2 acquiredImage, BoilerInstance instance
+			MemoryStack stack, int frameIndex, AcquiredImage acquiredImage, BoilerInstance instance
 	) {
 		var fence = commandFences[frameIndex];
 		fence.waitAndReset();
@@ -102,7 +102,7 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 			MemoryStack stack,
 			int frameIndex,
 			CommandRecorder recorder,
-			AcquiredImage2 acquiredImage,
+			AcquiredImage acquiredImage,
 			BoilerInstance instance
 	);
 

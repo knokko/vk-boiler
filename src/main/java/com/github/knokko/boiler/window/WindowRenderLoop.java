@@ -77,7 +77,7 @@ public abstract class WindowRenderLoop {
 				int frameIndex = (int) (currentFrame % numFramesInFlight);
 
 				try (var stack = stackPush()) {
-					AcquiredImage2 acquiredImage;
+					AcquiredImage acquiredImage;
 					if (acquireSwapchainImageWithFence) {
 						acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
 					} else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);
@@ -148,7 +148,7 @@ public abstract class WindowRenderLoop {
 	 * @param instance The VkBoiler instance
 	 */
 	protected abstract void renderFrame(
-			MemoryStack stack, int frameIndex, AcquiredImage2 acquiredImage, BoilerInstance instance
+			MemoryStack stack, int frameIndex, AcquiredImage acquiredImage, BoilerInstance instance
 	);
 
 	/**

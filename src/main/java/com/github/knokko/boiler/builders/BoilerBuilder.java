@@ -293,6 +293,11 @@ public class BoilerBuilder {
 		return this;
 	}
 
+	/**
+	 * By default, the {@code VK_EXT_swapchain_maintenance1} extension will be enabled when it is supported. If you
+	 * chain this method, it won't be enabled. (This is mostly useful for internal testing and debugging.)
+	 * @return this
+	 */
 	public BoilerBuilder forbidSwapchainMaintenance() {
 		this.forbidSwapchainMaintenance = true;
 		return this;

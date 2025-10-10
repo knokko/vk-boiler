@@ -27,7 +27,7 @@ interface SwapchainFunctions {
 			VkbFence acquireFence, long acquireSemaphore
 	);
 
-	int presentImage(AcquiredImage2 image, boolean switchPresentMode);
+	int presentImage(AcquiredImage image, boolean switchPresentMode);
 
 	boolean hasSwapchainMaintenance();
 

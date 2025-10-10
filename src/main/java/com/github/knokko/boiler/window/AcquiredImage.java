@@ -9,14 +9,14 @@ import java.util.function.Consumer;
 
 import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 
-public class AcquiredImage2 {
+public class AcquiredImage {
 
 	final SwapchainWrapper swapchain;
 	public final int index;
 	public final VkbImage image;
 	final int presentMode;
 
-	private final long acquireSemaphore;
+	final long acquireSemaphore;
 
 	/**
 	 * When you do the last submission that uses the swapchain image, you must add this semaphore to the signal
@@ -28,7 +28,7 @@ public class AcquiredImage2 {
 
 	Consumer<VkPresentInfoKHR> beforePresentCallback;
 
-	AcquiredImage2(
+	AcquiredImage(
 			SwapchainWrapper swapchain, int index, VkbImage image, int presentMode,
 			long acquireSemaphore, FenceSubmission acquireSubmission,
 			long presentSemaphore, VkbFence presentFence

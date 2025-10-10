@@ -14,7 +14,7 @@ decrease the amount of code that you need to write even more.
 ### Basic flow
 Every instance of `VkbWindow` has two methods to acquire a swapchain image:
 - `acquireSwapchainImageWithFence`: if you use this, you need to wait on
-the `acquireFence` of the image before submitting a command buffer that
+the `acquireSubmission` of the image before submitting a command buffer that
 uses the swapchain image.
 - `acquireSwapchainImageWithSemaphore`: if you use this, you need to
 add the `acquireSemaphore` to the wait semaphores of the queue submission
@@ -40,10 +40,10 @@ while (!shouldCloseWindow) {
 	WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
 		swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 	)};
-	var renderSubmission = boiler.queueFamilies().graphics().first().submit(
+	boiler.queueFamilies().graphics().first().submit(
 		commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
 	);
-	boiler.window().presentSwapchainImage(swapchainImage, renderSubmission);
+	boiler.window().presentSwapchainImage(swapchainImage);
 }
 ```
 As you can see, you don't need to think about recreating and destroying swapchains
@@ -133,8 +133,7 @@ acquiring the images, possibly sleeping, and presenting the image.
 3. This loop is unsuitable for dealing with multiple windows
 
 By using the window loop systems of `vk-boiler`, you can also eliminate these
-flaws. (Unfortunately, for some reason, I didn't manage to handle (2) when
-there are multiple windows...)
+flaws.
 
 ### The `WindowRenderLoop` class
 The `WindowRenderLoop` class intends to solve problem (1). Applications can

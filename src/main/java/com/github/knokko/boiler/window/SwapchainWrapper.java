@@ -69,7 +69,7 @@ class SwapchainWrapper {
 		if (windowWidth != this.width || windowHeight != this.height) outdated = true;
 	}
 
-	AcquiredImage2 acquireImage(int presentMode, boolean useFence, boolean hasOldSwapchains) {
+	AcquiredImage acquireImage(int presentMode, boolean useFence, boolean hasOldSwapchains) {
 		if (outdated) return null;
 
 		long acquireSemaphore = VK_NULL_HANDLE;
@@ -108,7 +108,7 @@ class SwapchainWrapper {
 			}
 
 			long presentSemaphore = presentSemaphores.get(imageIndex);
-			return new AcquiredImage2(
+			return new AcquiredImage(
 					this, imageIndex, swapchainImages[imageIndex], presentMode,
 					acquireSemaphore, acquireSubmission,
 					presentSemaphore, presentFence
@@ -128,7 +128,7 @@ class SwapchainWrapper {
 		}
 	}
 
-	void presentImage(AcquiredImage2 image) {
+	void presentImage(AcquiredImage image) {
 		int presentResult = functions.presentImage(image, presentModes.present(image.presentMode));
 		if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) outdated = true;
 		if (image.presentFence != null) functions.returnFence(image.presentFence);

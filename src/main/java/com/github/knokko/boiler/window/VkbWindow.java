@@ -74,12 +74,12 @@ public class VkbWindow {
 	}
 
 	/**
-	 * Acquires a swapchain image that will be available after waiting on its <i>acquireFence</i>
+	 * Acquires a swapchain image that will be available after waiting on its <i>acquireSubmission</i>
 	 * @param presentMode The present mode that will be used to present the swapchain image
 	 * @return The acquired swapchain image, or null if no image can be acquired now
 	 * (e.g. because the window is minimized)
 	 */
-	public AcquiredImage2 acquireSwapchainImageWithFence(int presentMode) {
+	public AcquiredImage acquireSwapchainImageWithFence(int presentMode) {
 		return acquireSwapchainImage(presentMode, true);
 	}
 
@@ -90,7 +90,7 @@ public class VkbWindow {
 	 * @return The acquired swapchain image, or null if no image can be acquired now
 	 * (e.g. because the window is minimized)
 	 */
-	public AcquiredImage2 acquireSwapchainImageWithSemaphore(int presentMode) {
+	public AcquiredImage acquireSwapchainImageWithSemaphore(int presentMode) {
 		return acquireSwapchainImage(presentMode, false);
 	}
 
@@ -112,7 +112,7 @@ public class VkbWindow {
 		return swapchains.getHeight();
 	}
 
-	private AcquiredImage2 acquireSwapchainImage(int presentMode, boolean useAcquireFence) {
+	private AcquiredImage acquireSwapchainImage(int presentMode, boolean useAcquireFence) {
 		instance.checkForFatalValidationErrors();
 		return swapchains.acquire(presentMode, useAcquireFence);
 	}
@@ -162,7 +162,7 @@ public class VkbWindow {
 	 * Presents a previously acquired swapchain image
 	 * @param image The swapchain image
 	 */
-	public void presentSwapchainImage(AcquiredImage2 image) {
+	public void presentSwapchainImage(AcquiredImage image) {
 		instance.checkForFatalValidationErrors();
 		image.swapchain.presentImage(image);
 		if (showCounter.shouldShowNow()) {

@@ -23,7 +23,7 @@ public abstract class SwapchainResourceManager<S, I> {
 		return null;
 	}
 
-	protected I createImage(S swapchain, AcquiredImage2 swapchainImage) {
+	protected I createImage(S swapchain, AcquiredImage swapchainImage) {
 		return null;
 	}
 
@@ -36,7 +36,7 @@ public abstract class SwapchainResourceManager<S, I> {
 		return createSwapchain(newWidth, newHeight, newNumImages);
 	}
 
-	public I get(AcquiredImage2 swapchainImage) {
+	public I get(AcquiredImage swapchainImage) {
 		if (currentImageResources == null || currentSwapchain != swapchainImage.swapchain) {
 			currentImageResources = new ArrayList<>(swapchainImage.swapchain.getNumImages());
 			for (int counter = 0; counter < swapchainImage.swapchain.getNumImages(); counter++) {

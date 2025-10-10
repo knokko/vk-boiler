@@ -8,7 +8,7 @@ import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
-import com.github.knokko.boiler.window.AcquiredImage2;
+import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.VkbFence;
 import com.github.knokko.boiler.synchronization.WaitSemaphore;
@@ -178,7 +178,7 @@ public class HelloTriangle {
 		var swapchainResources = new SwapchainResourceManager<Object, Long>() {
 
 			@Override
-			protected Long createImage(Object swapchain, AcquiredImage2 swapchainImage) {
+			protected Long createImage(Object swapchain, AcquiredImage swapchainImage) {
 				return boiler.images.createFramebuffer(
 						renderPass, swapchainImage.getWidth(), swapchainImage.getHeight(),
 						"TriangleFramebuffer", swapchainImage.image.vkImageView

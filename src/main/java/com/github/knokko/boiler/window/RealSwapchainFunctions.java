@@ -218,7 +218,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 	}
 
 	@Override
-	public int presentImage(AcquiredImage2 image, boolean switchPresentMode) {
+	public int presentImage(AcquiredImage image, boolean switchPresentMode) {
 		try (var stack = stackPush()) {
 			var presentInfo = VkPresentInfoKHR.calloc(stack);
 			presentInfo.sType$Default();
