@@ -64,7 +64,7 @@ class SwapchainManager {
 	}
 
 	private void recreateSwapchain(int presentMode) {
-		if (oldSwapchains.size() + 1 > properties.maxOldSwapchains()) {
+		if ((currentSwapchain != null || !oldSwapchains.isEmpty()) && oldSwapchains.size() + 1 > properties.maxOldSwapchains()) {
 			functions.deviceWaitIdle();
 			for (var swapchain : oldSwapchains) swapchain.destroy();
 			oldSwapchains.clear();
