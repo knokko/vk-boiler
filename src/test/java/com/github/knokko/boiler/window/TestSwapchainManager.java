@@ -51,8 +51,8 @@ public class TestSwapchainManager {
 		assertEquals(12L, image1.swapchain.vkSwapchain);
 		assertEquals(1, image1.index);
 		assertNull(image1.acquireSubmission);
-		assertThrows(UnsupportedOperationException.class, image1::acquireSubmission);
-		assertEquals(1L, image1.acquireSemaphore());
+		assertThrows(UnsupportedOperationException.class, image1::getAcquireSubmission);
+		assertEquals(1L, image1.getAcquireSemaphore());
 		assertEquals(600, image1.getWidth());
 		assertEquals(200, image1.getHeight());
 		assertEquals(createSet(1L, 2L), functions.borrowedSemaphores);
@@ -84,8 +84,8 @@ public class TestSwapchainManager {
 		assertEquals(13L, image2.swapchain.vkSwapchain);
 		assertEquals(2, image2.index);
 		assertNull(image2.acquireSubmission);
-		assertThrows(UnsupportedOperationException.class, image2::acquireSubmission);
-		assertEquals(3L, image2.acquireSemaphore());
+		assertThrows(UnsupportedOperationException.class, image2::getAcquireSubmission);
+		assertEquals(3L, image2.getAcquireSemaphore());
 		assertEquals(606, image2.getWidth());
 		assertEquals(202, image2.getHeight());
 
@@ -138,8 +138,8 @@ public class TestSwapchainManager {
 		assertEquals(13L, functions.nextSwapchain);
 		assertEquals(12L, image1.swapchain.vkSwapchain);
 		assertEquals(2, image1.index);
-		assertNotNull(image1.acquireSubmission());
-		assertThrows(UnsupportedOperationException.class, image1::acquireSemaphore);
+		assertNotNull(image1.getAcquireSubmission());
+		assertThrows(UnsupportedOperationException.class, image1::getAcquireSemaphore);
 		assertEquals(600, image1.getWidth());
 		assertEquals(200, image1.getHeight());
 		assertEquals(createSet(1L), functions.borrowedSemaphores);
@@ -150,4 +150,6 @@ public class TestSwapchainManager {
 
 		// TODO Finish the test
 	}
+
+	// TODO Test that oldSwapchain is used for recreation
 }

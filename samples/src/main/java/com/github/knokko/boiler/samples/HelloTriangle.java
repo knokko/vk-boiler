@@ -181,7 +181,7 @@ public class HelloTriangle {
 			protected Long createImage(Object swapchain, AcquiredImage swapchainImage) {
 				return boiler.images.createFramebuffer(
 						renderPass, swapchainImage.getWidth(), swapchainImage.getHeight(),
-						"TriangleFramebuffer", swapchainImage.image.vkImageView
+						"TriangleFramebuffer", swapchainImage.getImage().vkImageView
 				);
 			}
 
@@ -238,9 +238,9 @@ public class HelloTriangle {
 					continue;
 				}
 
-				var framebuffer = swapchainResources.get(swapchainImage);
+				var framebuffer = swapchainResources.getImageAssociation(swapchainImage);
 				WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
-						swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+						swapchainImage.getAcquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 				)};
 
 				int frameIndex = (int) (frameCounter % numFramesInFlight);
@@ -277,7 +277,7 @@ public class HelloTriangle {
 				assertVkSuccess(vkEndCommandBuffer(commandBuffer), "TriangleDrawing", null);
 
 				boiler.queueFamilies().graphics().first().submit(
-						commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore
+						commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.getPresentSemaphore()
 				);
 
 				boiler.window().presentSwapchainImage(swapchainImage);

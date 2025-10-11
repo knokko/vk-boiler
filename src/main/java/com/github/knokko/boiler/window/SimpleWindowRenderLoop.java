@@ -79,7 +79,7 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 		recorder.end();
 
 		var waitSemaphores = acquireSwapchainImageWithFence ? null : new WaitSemaphore[]{new WaitSemaphore(
-				acquiredImage.acquireSemaphore(), lastUsage.stageMask()
+				acquiredImage.getAcquireSemaphore(), lastUsage.stageMask()
 		)};
 
 		instance.queueFamilies().graphics().first().submit(

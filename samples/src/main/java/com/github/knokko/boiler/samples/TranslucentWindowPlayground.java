@@ -91,6 +91,6 @@ public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 	) {
 		float alpha = 0.1f + 0.9f * (float) (abs(sin(System.currentTimeMillis() / 250.0)));
 		float colorScale = boiler.window().properties.swapchainCompositeAlpha() == VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR ? 1f : alpha;
-		recorder.clearColorImage(acquired.image.vkImage, 0f, 0.6f * colorScale, colorScale, alpha);
+		recorder.clearColorImage(acquired.getImage().vkImage, 0f, 0.6f * colorScale, colorScale, alpha);
 	}
 }

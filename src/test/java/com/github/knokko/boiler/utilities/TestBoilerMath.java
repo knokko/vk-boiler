@@ -43,5 +43,11 @@ public class TestBoilerMath {
 		assertEquals(5L, leastCommonMultiple(createSet(5L)));
 		assertEquals(1L, leastCommonMultiple(createSet()));
 		assertEquals(10L, leastCommonMultiple(createSet(10L, 5L)));
+
+		assertEquals(6L, leastCommonMultiple(2L, 3L, 2L));
+		assertEquals(12L, leastCommonMultiple(4L, 6L, 3L, 6L));
+		assertEquals(5L, leastCommonMultiple(5L, 5L));
+		assertEquals(1L, leastCommonMultiple());
+		assertEquals(10L, leastCommonMultiple(10L, 5L));
 	}
 }

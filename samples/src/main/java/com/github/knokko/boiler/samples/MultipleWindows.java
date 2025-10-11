@@ -87,7 +87,7 @@ public class MultipleWindows {
 				MemoryStack stack, int frameIndex, CommandRecorder recorder,
 				AcquiredImage swapchainImage, BoilerInstance boiler
 		) {
-			recorder.clearColorImage(swapchainImage.image.vkImage, red, green, blue, 1f);
+			recorder.clearColorImage(swapchainImage.getImage().vkImage, red, green, blue, 1f);
 		}
 	}
 
@@ -142,7 +142,7 @@ public class MultipleWindows {
 				AcquiredImage swapchainImage, BoilerInstance boiler
 		) {
 			var colorAttachments = recorder.singleColorRenderingAttachment(
-					swapchainImage.image.vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
+					swapchainImage.getImage().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 					VK_ATTACHMENT_STORE_OP_STORE, rgb(0, 0, 200)
 			);
 

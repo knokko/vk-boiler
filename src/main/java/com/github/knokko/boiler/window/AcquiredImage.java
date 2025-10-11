@@ -12,17 +12,12 @@ import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
 public class AcquiredImage {
 
 	final SwapchainWrapper swapchain;
-	public final int index;
-	public final VkbImage image;
+	final int index;
+	final VkbImage image;
 	final int presentMode;
 
 	final long acquireSemaphore;
-
-	/**
-	 * When you do the last submission that uses the swapchain image, you must add this semaphore to the signal
-	 * semaphores of that submission.
-	 */
-	public final long presentSemaphore;
+	final long presentSemaphore;
 	final FenceSubmission acquireSubmission;
 	final VkbFence presentFence;
 
@@ -43,6 +38,14 @@ public class AcquiredImage {
 		this.presentFence = presentFence;
 	}
 
+	public int getIndex() {
+		return index;
+	}
+
+	public VkbImage getImage() {
+		return image;
+	}
+
 	public int getWidth() {
 		return image.width;
 	}
@@ -55,7 +58,7 @@ public class AcquiredImage {
 	 * If you acquired this swapchain image using <i>acquireSwapchainImageWithFence</i>, you must wait on this
 	 * submission before submitting any commands that use this swapchain image. If not, you must not use this method.
 	 */
-	public FenceSubmission acquireSubmission() {
+	public FenceSubmission getAcquireSubmission() {
 		if (acquireSemaphore != VK_NULL_HANDLE) throw new UnsupportedOperationException("You asked for a semaphore");
 		return acquireSubmission;
 	}
@@ -65,8 +68,16 @@ public class AcquiredImage {
 	 * semaphore to the wait semaphores of the first queue submission that uses this swapchain image. If not, you
 	 * must not use this method.
 	 */
-	public long acquireSemaphore() {
+	public long getAcquireSemaphore() {
 		if (acquireSemaphore == VK_NULL_HANDLE) throw new UnsupportedOperationException("You asked for a fence");
 		return acquireSemaphore;
+	}
+
+	/**
+	 * When you do the last submission that uses the swapchain image, you must add this semaphore to the signal
+	 * semaphores of that submission.
+	 */
+	public long getPresentSemaphore() {
+		return presentSemaphore;
 	}
 }

@@ -173,7 +173,7 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 	@Override
 	protected void recordFrame(MemoryStack stack, int frameIndex, CommandRecorder recorder, AcquiredImage acquiredImage, BoilerInstance instance) {
 		var colorAttachments = recorder.singleColorRenderingAttachment(
-				acquiredImage.image.vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
+				acquiredImage.getImage().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 				VK_ATTACHMENT_STORE_OP_STORE, rgb(20, 120, 180)
 		);
 

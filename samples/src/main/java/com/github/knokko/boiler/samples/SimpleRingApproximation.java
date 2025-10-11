@@ -89,7 +89,7 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 			MemoryStack stack, int frameIndex, AcquiredImage swapchainImage, BoilerInstance boiler
 	) {
 		WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
-				swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+				swapchainImage.getAcquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 		)};
 
 		var commandBuffer = commandBuffers[frameIndex];
@@ -99,13 +99,13 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "RingApproximation");
 
 		recorder.transitionLayout(
-				swapchainImage.image,
+				swapchainImage.getImage(),
 				ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
 				ResourceUsage.COLOR_ATTACHMENT_WRITE
 		);
 
 		var colorAttachments = recorder.singleColorRenderingAttachment(
-				swapchainImage.image.vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
+				swapchainImage.getImage().vkImageView, VK_ATTACHMENT_LOAD_OP_CLEAR,
 				VK_ATTACHMENT_STORE_OP_STORE, rgb(20, 120, 180)
 		);
 
@@ -130,12 +130,12 @@ public class SimpleRingApproximation extends WindowRenderLoop {
 		vkCmdDraw(commandBuffer, 6 * numTriangles, 1, 0, 0);
 		recorder.endDynamicRendering();
 
-		recorder.transitionLayout(swapchainImage.image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
+		recorder.transitionLayout(swapchainImage.getImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
 
 		recorder.end();
 
 		boiler.queueFamilies().graphics().first().submit(
-				commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.presentSemaphore
+				commandBuffer, "RingApproximation", waitSemaphores, fence, swapchainImage.getPresentSemaphore()
 		);
 	}
 

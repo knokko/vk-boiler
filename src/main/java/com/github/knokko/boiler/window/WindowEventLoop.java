@@ -13,7 +13,6 @@ import static org.lwjgl.system.MemoryStack.stackPush;
  * other threads. See docs/swapchain.md for more information.
  */
 public class WindowEventLoop {
-	// TODO Update docs/swapchain.md
 
 	private final ConcurrentHashMap<VkbWindow, State> stateMap = new ConcurrentHashMap<>();
 	private final Runnable updateCallback;

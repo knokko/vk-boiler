@@ -271,7 +271,8 @@ public class TerrainPlayground {
 				.validation(new ValidationFeatures(true, false, true, true))
 				.forbidValidationErrors()
 				.allocationCallbacks(new SumAllocationCallbacks())
-				.addWindow(new WindowBuilder(1000, 800, numFramesInFlight).hideFirstFrames(4))
+				.addWindow(new WindowBuilder(1000, 800, numFramesInFlight)
+						.hideFirstFrames(4).maxOldSwapchains(1))
 				.requiredFeatures12("timeline semaphore", VkPhysicalDeviceVulkan12Features::timelineSemaphore)
 				.featurePicker12((stack, supported, toEnable) -> toEnable.timelineSemaphore(true))
 				.build();
@@ -362,10 +363,10 @@ public class TerrainPlayground {
 
 			@Override
 			protected ImageResources createImage(SwapchainResources swapchain, AcquiredImage swapchainImage) {
-				var depthImage = swapchain.depthImages[swapchainImage.index];
+				var depthImage = swapchain.depthImages[swapchainImage.getIndex()];
 				long framebuffer = boiler.images.createFramebuffer(
 						renderPass, swapchainImage.getWidth(), swapchainImage.getHeight(),
-						"TerrainFramebuffer", swapchainImage.image.vkImageView, depthImage.vkImageView
+						"TerrainFramebuffer", swapchainImage.getImage().vkImageView, depthImage.vkImageView
 				);
 				return new ImageResources(framebuffer, depthImage);
 			}
@@ -483,9 +484,9 @@ public class TerrainPlayground {
 					continue;
 				}
 
-				var imageResources = swapchainResources.get(swapchainImage);
+				var imageResources = swapchainResources.getImageAssociation(swapchainImage);
 				WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
-						swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+						swapchainImage.getAcquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 				)};
 
 				int frameIndex = (int) (frameCounter % numFramesInFlight);
@@ -495,7 +496,7 @@ public class TerrainPlayground {
 				var recorder = CommandRecorder.begin(commandBuffer, boiler, stack, "TerrainDraw");
 
 				recorder.transitionLayout(
-						swapchainImage.image,
+						swapchainImage.getImage(),
 						ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
 						ResourceUsage.COLOR_ATTACHMENT_WRITE
 				);
@@ -595,13 +596,13 @@ public class TerrainPlayground {
 					System.out.println("Drew " + quadCount + " quads in " + fragmentCount + " fragment with camera yaw " + camera.yaw);
 				}
 
-				recorder.transitionLayout(swapchainImage.image, ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
+				recorder.transitionLayout(swapchainImage.getImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
 				recorder.end();
 
 				var timelineFinished = new TimelineInstant(timeline, frameCounter + numFramesInFlight);
 				boiler.queueFamilies().graphics().first().submit(
 						commandBuffer, "TerrainDraw", waitSemaphores, null,
-						new long[]{ swapchainImage.presentSemaphore }, null, timelineFinished
+						new long[]{ swapchainImage.getPresentSemaphore() }, null, timelineFinished
 				);
 
 				boiler.window().presentSwapchainImage(swapchainImage);

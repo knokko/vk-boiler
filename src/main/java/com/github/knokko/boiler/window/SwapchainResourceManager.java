@@ -36,7 +36,7 @@ public abstract class SwapchainResourceManager<S, I> {
 		return createSwapchain(newWidth, newHeight, newNumImages);
 	}
 
-	public I get(AcquiredImage swapchainImage) {
+	private void prepareAssociation(AcquiredImage swapchainImage) {
 		if (currentImageResources == null || currentSwapchain != swapchainImage.swapchain) {
 			currentImageResources = new ArrayList<>(swapchainImage.swapchain.getNumImages());
 			for (int counter = 0; counter < swapchainImage.swapchain.getNumImages(); counter++) {
@@ -60,6 +60,10 @@ public abstract class SwapchainResourceManager<S, I> {
 			}
 			swapchainImage.swapchain.associations.add(this);
 		}
+	}
+
+	public I getImageAssociation(AcquiredImage swapchainImage) {
+		prepareAssociation(swapchainImage);
 
 		var currentResource = currentImageResources.get(swapchainImage.index);
 		if (currentResource == null) {
@@ -72,6 +76,11 @@ public abstract class SwapchainResourceManager<S, I> {
 			}
 		}
 		return currentResource;
+	}
+
+	public S getSwapchainAssociation(AcquiredImage swapchainImage) {
+		prepareAssociation(swapchainImage);
+		return currentSwapchainResource;
 	}
 
 	void destroy() {

@@ -64,14 +64,17 @@ class SwapchainManager {
 	}
 
 	private void recreateSwapchain(int presentMode) {
-		if (currentSwapchain != null) {
-			oldSwapchains.add(currentSwapchain);
-			currentSwapchain = null;
-		}
-		if (oldSwapchains.size() > properties.maxOldSwapchains()) {
+		if (oldSwapchains.size() + 1 > properties.maxOldSwapchains()) {
 			functions.deviceWaitIdle();
 			for (var swapchain : oldSwapchains) swapchain.destroy();
 			oldSwapchains.clear();
+		}
+
+		if (currentSwapchain != null) {
+			// TODO Test this properly
+			if (properties.maxOldSwapchains() > 0) oldSwapchains.add(currentSwapchain);
+			else currentSwapchain.destroy();
+			currentSwapchain = null;
 		}
 
 		if (sizeTracker.getWindowWidth() == 0 || sizeTracker.getWindowHeight() == 0) return;

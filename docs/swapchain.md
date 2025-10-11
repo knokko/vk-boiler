@@ -14,11 +14,11 @@ decrease the amount of code that you need to write even more.
 ### Basic flow
 Every instance of `VkbWindow` has two methods to acquire a swapchain image:
 - `acquireSwapchainImageWithFence`: if you use this, you need to wait on
-the `acquireSubmission` of the image before submitting a command buffer that
-uses the swapchain image.
+  the `acquireSubmission` of the image before submitting a command buffer that
+  uses the swapchain image.
 - `acquireSwapchainImageWithSemaphore`: if you use this, you need to
-add the `acquireSemaphore` to the wait semaphores of the queue submission
-that uses the swapchain image.
+  add the `acquireSemaphore` to the wait semaphores of the queue submission
+  that uses the swapchain image.
 
 You need to call exactly 1 of these methods every frame. After submitting
 the drawing command buffer, you need to call the `presentSwapchainImage`
@@ -31,18 +31,22 @@ The usage of this system is shown in
 , and it comes down to this:
 ```java
 while (!shouldCloseWindow) {
-	AcquiredImage swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(presentMode);
+	var swapchainImage = boiler.window().acquireSwapchainImageWithSemaphore(pPresentMode[0]);
 	if (swapchainImage == null) {
-		Thread.sleep(100);
+		sleep(100);
 		continue;
 	}
+
 	// Use swapchainImage.image() to record commands...
+
 	WaitSemaphore[] waitSemaphores = {new WaitSemaphore(
-		swapchainImage.acquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+		swapchainImage.getAcquireSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 	)};
+
 	boiler.queueFamilies().graphics().first().submit(
-		commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.presentSemaphore()
+			commandBuffer, "SubmitDraw", waitSemaphores, fence, swapchainImage.getPresentSemaphore()
 	);
+
 	boiler.window().presentSwapchainImage(swapchainImage);
 }
 ```
@@ -89,34 +93,39 @@ eventually called after their corresponding swapchain is destroyed.
 `recreateSwapchain` method.)
 You don't need to destroy the resource manager explicitly.
 
-To get the resources associated with a swapchain image, use
-`yourSwapchainResourceManager.get(swapchainImage)`. The relevant code in
+To get the resources associated with a swapchain image (the `I`), use
+`yourSwapchainResourceManager.getImageAssociation(swapchainImage)`.
+Furthermore, you can use `.getSwapchainAssociation(swapchainImage)` to get
+the resources associated with the swapchain itself (the `S`).
+The relevant code in
 HelloTriangle is shown below:
 ```java
 var swapchainResources = new SwapchainResourceManager<Object, Long>() {
 
-    @Override
-    protected Long createImage(Object swapchain, AcquiredImage swapchainImage) {
-        return boiler.images.createFramebuffer(
-                renderPass, swapchainImage.width(), swapchainImage.height(),
-                "TriangleFramebuffer", swapchainImage.image().vkImageView
-        );
-    }
+	@Override
+	protected Long createImage(Object swapchain, AcquiredImage swapchainImage) {
+		return boiler.images.createFramebuffer(
+				renderPass, swapchainImage.width(), swapchainImage.height(),
+				"TriangleFramebuffer", swapchainImage.image().vkImageView
+		);
+	}
 
-    @Override
-    protected void destroyImage(Long framebuffer) {
-        try (var stack = stackPush()) {
-            vkDestroyFramebuffer(
-                    boiler.vkDevice(), framebuffer,
-                    CallbackUserData.FRAME_BUFFER.put(stack, boiler)
-            );
-        }
-    }
+	@Override
+	protected void destroyImage(Long framebuffer) {
+		try (var stack = stackPush()) {
+			vkDestroyFramebuffer(
+					boiler.vkDevice(), framebuffer,
+					CallbackUserData.FRAME_BUFFER.put(stack, boiler)
+			);
+		}
+	}
 };
+
 // Some unrelated stuff...
+
 while (windowShouldNotClose) {
 	// Acquire swapchainImage...
-	var framebuffer = swapchainResources.get(swapchainImage);
+	var framebuffer = swapchainResources.getImageAssociation(swapchainImage);
 	// Use framebuffer and do the rest of the frame...
 }
 ```
@@ -128,7 +137,7 @@ The `TerrainPlayground` sample shows a more advanced way to use
 The basic usage shown above is simple and requires much less code than doing
 swapchain management yourself, but it has some flaws:
 1. Every application still has boilerplate code for the render loop,
-acquiring the images, possibly sleeping, and presenting the image.
+   acquiring the images, possibly sleeping, and presenting the image.
 2. No smooth resizing on Windows
 3. This loop is unsuitable for dealing with multiple windows
 
@@ -139,7 +148,7 @@ flaws.
 The `WindowRenderLoop` class intends to solve problem (1). Applications can
 create a class that extends `WindowRenderLoop`, and:
 - Call its `start()` method on the *main thread* (typically during the
-`main` method)
+  `main` method)
 - Implement the `setup` method
 - Implement the `renderFrame` method
 - Implement the `cleanUp` method
@@ -158,19 +167,19 @@ When your application has a simple single-threaded rendering set-up,
 you can use the `SimpleWindowRenderLoop` to get rid of this boilerplate
 code as well. This is a simple subclass of `WindowRenderLoop` that:
 - creates command pools, command buffers, and fences during the
-`setup` method
+  `setup` method
 - destroys these command pools and fences during the `cleanUp` method
 - begins command buffer recording during `renderFrame`, transitions
-the swapchain image layout to the right layout, calls the
-abstract `recordCommands` method, transitions the swapchain image
-to `VK_IMAGE_LAYOUT_PRESENT_SRC_KHR`, and then submits the command buffer.
+  the swapchain image layout to the right layout, calls the
+  abstract `recordCommands` method, transitions the swapchain image
+  to `VK_IMAGE_LAYOUT_PRESENT_SRC_KHR`, and then submits the command buffer.
 
 When your application uses this, you need to:
 - Call its `start()` method on the *main thread* (typically during the
-`main` method)
+  `main` method)
 - Implement the `recordCommands` method
 - Pass the right parameters to the constructor of
-`SimpleWindowRenderLoop`
+  `SimpleWindowRenderLoop`
 
 ### The `WindowEventLoop` class
 To tackle problems (2) and (3), some multithreading is required:
