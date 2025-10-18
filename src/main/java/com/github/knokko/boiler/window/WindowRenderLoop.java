@@ -82,8 +82,10 @@ public abstract class WindowRenderLoop {
 						acquiredImage = window.acquireSwapchainImageWithFence(presentMode);
 					} else acquiredImage = window.acquireSwapchainImageWithSemaphore(presentMode);
 					if (acquiredImage == null) {
-						//noinspection BusyWait
-						sleep(100);
+						if (window.getWidth() == 0 || window.getHeight() == 0) {
+							//noinspection BusyWait
+							sleep(100);
+						}
 						continue;
 					}
 

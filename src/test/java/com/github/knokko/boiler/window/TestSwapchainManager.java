@@ -79,6 +79,7 @@ public class TestSwapchainManager {
 		functions.capabilities.currentExtent().set(606, 202);
 		functions.expectedSwapchain = 13L;
 		functions.expectedAcquireSemaphore = 3L;
+		functions.expectedOldSwapchain = 12L;
 		functions.expectedAcquireFence = null;
 		functions.nextImageIndex = 2;
 		functions.nextAcquireResult = VK_SUCCESS;
@@ -510,6 +511,7 @@ public class TestSwapchainManager {
 		// because we didn't request this present mode before
 
 		functions.expectedAcquireSemaphore = VK_NULL_HANDLE;
+		functions.expectedOldSwapchain = 12L;
 		functions.expectedAcquireFence = functions.availableFences[0];
 		functions.nextImageIndex = 3;
 		functions.presentModeCompatibility.presentModeCount(2);
@@ -565,6 +567,7 @@ public class TestSwapchainManager {
 		functions.expectedAcquireFence = null;
 		functions.nextImageIndex = 1;
 		functions.expectedSwapchain = 14L;
+		functions.expectedOldSwapchain = 13L;
 
 		var image4 = swapchains.acquire(VK_PRESENT_MODE_FIFO_KHR, false);
 		assertEquals(15L, functions.nextSwapchain);

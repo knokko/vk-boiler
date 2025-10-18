@@ -71,8 +71,7 @@ class SwapchainManager {
 		}
 
 		if (currentSwapchain != null) {
-			if (properties.maxOldSwapchains() > 0) oldSwapchains.add(currentSwapchain);
-			else currentSwapchain.destroy();
+			oldSwapchains.add(currentSwapchain);
 			currentSwapchain = null;
 		}
 
@@ -88,6 +87,11 @@ class SwapchainManager {
 				acquireSemaphores, oldSwapchain, surfaceCapabilities,
 				"Swapchain-" + properties.title() + currentSwapchainID
 		);
+
+		if (properties.maxOldSwapchains() == 0) {
+			for (var swapchain : oldSwapchains) swapchain.destroy();
+			oldSwapchains.clear();
+		}
 	}
 
 	void setWindowSizeFromMainThread(int width, int height) {

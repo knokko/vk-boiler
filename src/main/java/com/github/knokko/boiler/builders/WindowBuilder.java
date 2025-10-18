@@ -106,7 +106,7 @@ public class WindowBuilder {
 	/**
 	 * Sets the maximum number of outdated <i>unused</i> swapchains that the swapchain management system
 	 * may have at any point in time. The default value is 0, which means that it will always destroy
-	 * the old swapchain before creating a new swapchain. Using larger values may speed up resizing,
+	 * the old swapchain right after creating a new swapchain. Using larger values may speed up resizing,
 	 * but may also increase memory consumption.
 	 */
 	public WindowBuilder maxOldSwapchains(int maxSwapchains) {
