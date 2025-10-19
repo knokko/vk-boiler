@@ -85,7 +85,21 @@ public class FenceBank {
 	}
 
 	/**
-	 * Returns a fence to this bank that was previously borrowed using <i>borrowFence</i> or <i>borrowFences</i>
+	 * <p>
+	 *     Returns a fence to this bank that was previously borrowed using <i>borrowFence</i> or <i>borrowFences</i>.
+	 * </p>
+	 *
+	 * <p>
+	 *     After calling this method, you must <b>not</b> submit any new work to this fence, but you are free to await
+	 *     or check any {@link FenceSubmission} for this fence.
+	 * </p>
+	 *
+	 * <p>
+	 *     You are allowed to return fences that are still <i>signaled</i> or <i>pending</i>. When you return a pending
+	 *     fence, this bank will not lend it out until it has been signaled. When you return a signaled fence, it will
+	 *     automatically be <i>reset</i> when the fence is lent out (unless the {@code startSignaled} parameter is
+	 *     {@code true}).
+	 * </p>
 	 */
 	public void returnFence(VkbFence fence) {
 		if (!borrowedFences.remove(fence)) {

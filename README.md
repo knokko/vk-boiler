@@ -57,7 +57,6 @@ I did when I started using this in my own projects).
 #### When a task is not covered by this library
 `vk-boiler` doesn't have a convenience method for everything that is possible with
 Vulkan. For instance, when
-- I couldn't find a way to simplify them in a meaningful way (e.g. render passes)
 - The use case is niche (e.g. 1d and 3d images)
 - When I simply didn't encounter the need in my own projects (pull requests are
 welcome in this case)

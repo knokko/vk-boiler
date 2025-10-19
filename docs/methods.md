@@ -245,6 +245,26 @@ format. The
 method can be used to choose the first format in `formats`
 that is supported.
 
+## Simple render passes
+Creating render passes can be quite verbose, especially in the common case
+where you just need a single subpass.
+
+The `SimpleRenderPass.create(...)` method can be used to create a
+single-subpass render pass without any layout transitions or subpass
+dependencies. The TerrainPlayground sample shows how it can be used:
+```java
+long renderPass = SimpleRenderPass.create(
+        boiler, "TerrainRenderPass", SimpleRenderPass.DepthStencilAttachment.simpleDepthOnly(
+                depthFormat, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE
+        ), new SimpleRenderPass.ColorAttachment(
+                boiler.window().properties.surfaceFormat(),
+                VK_ATTACHMENT_LOAD_OP_CLEAR,
+                VK_ATTACHMENT_STORE_OP_STORE,
+                VK_SAMPLE_COUNT_1_BIT
+        )
+);
+```
+
 ## Pipelines
 Creating pipelines, especially graphics pipelines, takes a
 ridiculous number of lines of code in raw Vulkan. This really

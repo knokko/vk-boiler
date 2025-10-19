@@ -8,6 +8,8 @@ import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.pipelines.ShaderInfo;
+import com.github.knokko.boiler.pipelines.SimpleRenderPass;
+import com.github.knokko.boiler.synchronization.ResourceUsage;
 import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.VkbFence;
@@ -19,7 +21,6 @@ import static java.lang.Thread.sleep;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSurface.*;
-import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class HelloTriangle {
@@ -45,56 +46,16 @@ public class HelloTriangle {
 		var commandBuffers = boiler.commands.createPrimaryBuffers(commandPool, numFramesInFlight, "Drawing");
 		var commandFences = boiler.sync.fenceBank.borrowFences(numFramesInFlight, true, "CommandFence");
 		long graphicsPipeline;
-		long pipelineLayout;
-		long renderPass;
 
-		try (var stack = stackPush()) {
-			pipelineLayout = boiler.pipelines.createLayout(null, "DrawingLayout");
-
-			var attachments = VkAttachmentDescription.calloc(1, stack);
-			var colorAttachment = attachments.get(0);
-			colorAttachment.format(boiler.window().properties.surfaceFormat());
-			colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
-			colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
-			colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
-			colorAttachment.stencilLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
-			colorAttachment.stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
-			colorAttachment.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
-			colorAttachment.finalLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-			var colorReference = VkAttachmentReference.calloc(1, stack);
-			colorReference.attachment(0);
-			colorReference.layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-			var subpass = VkSubpassDescription.calloc(1, stack);
-			subpass.pipelineBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
-			subpass.pInputAttachments(null);
-			subpass.colorAttachmentCount(1);
-			subpass.pColorAttachments(colorReference);
-			subpass.pResolveAttachments(null);
-			subpass.pDepthStencilAttachment(null);
-			subpass.pPreserveAttachments(null);
-
-			var dependency = VkSubpassDependency.calloc(1, stack);
-			dependency.srcSubpass(VK_SUBPASS_EXTERNAL);
-			dependency.dstSubpass(0);
-			dependency.srcStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-			dependency.srcAccessMask(0);
-			dependency.dstStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-			dependency.dstAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-			var ciRenderPass = VkRenderPassCreateInfo.calloc(stack);
-			ciRenderPass.sType$Default();
-			ciRenderPass.pAttachments(attachments);
-			ciRenderPass.pSubpasses(subpass);
-			ciRenderPass.pDependencies(dependency);
-
-			var pRenderPass = stack.callocLong(1);
-			assertVkSuccess(vkCreateRenderPass(
-					boiler.vkDevice(), ciRenderPass, CallbackUserData.RENDER_PASS.put(stack, boiler), pRenderPass
-			), "CreateRenderPass", "TrianglePass");
-			renderPass = pRenderPass.get(0);
-		}
+		long pipelineLayout = boiler.pipelines.createLayout(null, "DrawingLayout");
+		long renderPass = SimpleRenderPass.create(
+				boiler, "TrianglePass", null, new SimpleRenderPass.ColorAttachment(
+						boiler.window().properties.surfaceFormat(),
+						VK_ATTACHMENT_LOAD_OP_CLEAR,
+						VK_ATTACHMENT_STORE_OP_STORE,
+						VK_SAMPLE_COUNT_1_BIT
+				)
+		);
 
 		try (var stack = stackPush()) {
 			var vertexModule = boiler.pipelines.createShaderModule(
@@ -254,6 +215,12 @@ public class HelloTriangle {
 						"DrawCommands"
 				);
 
+				recorder.transitionLayout(
+						swapchainImage.getImage(),
+						ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+						ResourceUsage.COLOR_ATTACHMENT_WRITE
+				);
+
 				var pColorClear = VkClearValue.calloc(1, stack);
 				pColorClear.color().float32(stack.floats(0.2f, 0.2f, 0.2f, 1f));
 
@@ -274,6 +241,7 @@ public class HelloTriangle {
 
 				vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 				vkCmdEndRenderPass(commandBuffer);
+				recorder.transitionLayout(swapchainImage.getImage(), ResourceUsage.COLOR_ATTACHMENT_WRITE, ResourceUsage.PRESENT);
 				assertVkSuccess(vkEndCommandBuffer(commandBuffer), "TriangleDrawing", null);
 
 				boiler.queueFamilies().graphics().first().submit(

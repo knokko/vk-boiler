@@ -17,6 +17,7 @@ import com.github.knokko.boiler.memory.MemoryCombiner;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.memory.callbacks.SumAllocationCallbacks;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
+import com.github.knokko.boiler.pipelines.SimpleRenderPass;
 import com.github.knokko.boiler.window.AcquiredImage;
 import com.github.knokko.boiler.window.SwapchainResourceManager;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
@@ -36,7 +37,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 
-import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
 import static java.lang.Math.*;
 import static java.lang.Thread.sleep;
 import static org.lwjgl.glfw.GLFW.*;
@@ -69,62 +69,6 @@ public class TerrainPlayground {
 	private static HeightLookup coarseHeightLookup;
 	private static HeightLookup fineHeightLookup;
 	private static HeightLookup coarseDeltaHeightLookup;
-
-	private static long createRenderPass(MemoryStack stack, BoilerInstance boiler, int depthFormat) {
-		var attachments = VkAttachmentDescription.calloc(2, stack);
-		var colorAttachment = attachments.get(0);
-		colorAttachment.flags(0);
-		colorAttachment.format(boiler.window().properties.surfaceFormat());
-		colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
-		colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
-		colorAttachment.storeOp(VK_ATTACHMENT_STORE_OP_STORE);
-		colorAttachment.stencilLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
-		colorAttachment.stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
-		colorAttachment.initialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		colorAttachment.finalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		var depthAttachment = attachments.get(1);
-		depthAttachment.flags(0);
-		depthAttachment.format(depthFormat);
-		depthAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
-		depthAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
-		depthAttachment.storeOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
-		depthAttachment.stencilLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
-		depthAttachment.stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
-		depthAttachment.initialLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-		depthAttachment.finalLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-		var colorReference = VkAttachmentReference.calloc(1, stack);
-		colorReference.attachment(0);
-		colorReference.layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-		var depthReference = VkAttachmentReference.calloc();
-		depthReference.attachment(1);
-		depthReference.layout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-		var subpass = VkSubpassDescription.calloc(1, stack);
-		subpass.flags(0);
-		subpass.pipelineBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
-		subpass.pInputAttachments(null);
-		subpass.colorAttachmentCount(1);
-		subpass.pColorAttachments(colorReference);
-		subpass.pResolveAttachments(null);
-		subpass.pDepthStencilAttachment(depthReference);
-		subpass.pPreserveAttachments(null);
-
-		var ciRenderPass = VkRenderPassCreateInfo.calloc(stack);
-		ciRenderPass.sType$Default();
-		ciRenderPass.pAttachments(attachments);
-		ciRenderPass.pSubpasses(subpass);
-		ciRenderPass.pDependencies(null);
-
-		var pRenderPass = stack.callocLong(1);
-		assertVkSuccess(vkCreateRenderPass(
-				boiler.vkDevice(), ciRenderPass, CallbackUserData.RENDER_PASS.put(stack, boiler), pRenderPass
-		), "CreateRenderPass", "TerrainPlayground");
-		long renderPass = pRenderPass.get(0);
-		boiler.debug.name(stack, renderPass, VK_OBJECT_TYPE_RENDER_PASS, "TerrainRendering");
-		return renderPass;
-	}
 
 	private static VkbDescriptorSetLayout createDescriptorSetLayout(MemoryStack stack, BoilerInstance boiler) {
 		var builder = new DescriptorSetLayoutBuilder(stack, 3);
@@ -298,21 +242,28 @@ public class TerrainPlayground {
 
 		var persistent = createHeightImages(boiler, persistentCombiner);
 
-		long renderPass;
+		int depthFormat = boiler.images.chooseDepthStencilFormat(
+				VK_FORMAT_X8_D24_UNORM_PACK32, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT
+		);
+		long renderPass = SimpleRenderPass.create(
+				boiler, "TerrainRenderPass", SimpleRenderPass.DepthStencilAttachment.simpleDepthOnly(
+						depthFormat, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE
+				), new SimpleRenderPass.ColorAttachment(
+						boiler.window().properties.surfaceFormat(),
+						VK_ATTACHMENT_LOAD_OP_CLEAR,
+						VK_ATTACHMENT_STORE_OP_STORE,
+						VK_SAMPLE_COUNT_1_BIT
+				)
+		);
 		VkbDescriptorSetLayout descriptorSetLayout;
 		long pipelineLayout;
 		long groundPipeline;
 		long vkDescriptorPool;
 		long[] descriptorSets;
-		int depthFormat = boiler.images.chooseDepthStencilFormat(
-				VK_FORMAT_X8_D24_UNORM_PACK32, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT
-		);
+
 		long heightSampler;
 		long normalSampler;
 		try (var stack = stackPush()) {
-
-			renderPass = createRenderPass(stack, boiler, depthFormat);
-
 			descriptorSetLayout = createDescriptorSetLayout(stack, boiler);
 			pipelineLayout = createGroundPipelineLayout(stack, boiler, descriptorSetLayout.vkDescriptorSetLayout);
 			groundPipeline = createGroundPipeline(stack, boiler, pipelineLayout, renderPass);
