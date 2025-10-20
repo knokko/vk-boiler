@@ -19,6 +19,10 @@ import static com.github.knokko.boiler.utilities.ColorPacker.rgb;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * This is the simples triangle-drawing sample, and one of the simplest samples of vk-boiler. vk-boiler applications
+ * cannot get much simpler than this.
+ */
 public class MiniTriangle extends SimpleWindowRenderLoop {
 
 	private MemoryBlock memory;

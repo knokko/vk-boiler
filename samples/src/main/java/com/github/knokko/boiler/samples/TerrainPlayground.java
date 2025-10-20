@@ -47,6 +47,17 @@ import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 
+/**
+ * This is a rather complicated sample that renders a mountain landscape with an interactive camera. The height map
+ * uses real-world height data. This is the only sample that uses a depth buffer. Camera controls:
+ * <ul>
+ *     <li>Drag with the mouse to rotate the camera</li>
+ *     <li>Hold Q or E to move vertically</li>
+ *     <li>Hold A, W, D, or S to move horizontally</li>
+ *     <li>Hold the space bar to move much quicker</li>
+ *     <li>Hold the shift button to move much slower</li>
+ * </ul>
+ */
 public class TerrainPlayground {
 
 	/**

@@ -30,6 +30,11 @@ import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 
+/**
+ * This sample uses SDL_SetWindowHitTest to create a window with a custom border. At the time of writing this, this is
+ * the only sample that uses SDL instead of GLFW. Aside from the custom window border, this sample simply draws a
+ * triangle.
+ */
 public class DecoratedTriangle extends SimpleWindowRenderLoop {
 
 	private static final int NUM_TRIANGLES = 1 + // Main triangle

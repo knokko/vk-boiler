@@ -23,6 +23,24 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * <p>
+ *     This is the first sample that was added to vk-boiler. As the name suggests, it will draw a triangle. This sample
+ *     is one of the few samples that uses a render pass instead of dynamic rendering, which means that it should even
+ *     run on old drivers without dynamic rendering support.
+ * </p>
+ *
+ * <p>
+ *     This sample also demonstrates some niche features. For instance, it uses VK allocation callbacks to make an
+ *     attempt to measure driver memory usage. Furthermore, you can press the 'I', 'M', 'R', and 'F' keys to switch the
+ *     present mode while the sample is running.
+ * </p>
+ *
+ * <p>
+ *     With all these 'features', this sample gets rather complicated.
+ *     <b><i>Take a look at MiniTriangle if</i></b> if you would like to see a simpler sample.
+ * </p>
+ */
 public class HelloTriangle {
 
 	public static void main(String[] args) throws InterruptedException {
