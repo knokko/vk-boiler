@@ -34,6 +34,10 @@ import static org.lwjgl.openxr.XR10.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK13.*;
 
+/**
+ * This sample demonstrates how vk-boiler can be used for OpenXR (virtual reality) applications. It renders a couple of
+ * flat images, and it tracks the hand positions & input.
+ */
 public class HelloXR {
 
 	private static final int NUM_FRAMES_IN_FLIGHT = 2;

@@ -21,6 +21,10 @@ import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
 
+/**
+ * This sample uses an insane amount of triangles to approximate the shape of a yellow ring. I would not recommend
+ * running this sample on laptops or desktops with weak graphics cards.
+ */
 public class SimpleRingApproximation extends WindowRenderLoop {
 
 	public static void main(String[] args) throws InterruptedException {

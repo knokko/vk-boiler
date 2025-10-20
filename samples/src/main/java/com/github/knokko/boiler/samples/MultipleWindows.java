@@ -20,6 +20,16 @@ import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 
+/**
+ * <p>
+ *     This sample demonstrates how vk-boiler can be used to create multi-window applications. It starts with 2 windows,
+ *     but additional windows can be added by clicking on the blue 'spin' window.
+ * </p>
+ * <p>
+ *     Note that this sample suffers from non-deterministic synchronization validation errors, which I expect to be
+ *     false positives, see the corresponding issue TODO insert link
+ * </p>
+ */
 public class MultipleWindows {
 
 	public static void main(String[] args) throws InterruptedException {

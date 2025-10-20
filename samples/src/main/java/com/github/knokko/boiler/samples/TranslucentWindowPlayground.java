@@ -20,6 +20,34 @@ import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.VK10.*;
 
+/**
+ * <p>
+ *     This sample <i>attempts</i> to create a <i>translucent</i> blue window: you can see the applications behind the
+ *     window!
+ * </p>
+ * <p>
+ *    The idea is to use a <b>composite alpha</b> with transparency support (either pre-multiplied or
+ *    post-multiplied). Furthermore, we need the <i>GLFW_TRANSPARENT_FRAMEBUFFER</i> hint.
+ * </p>
+ * <ul>
+ *     <li>On Linux, this sample needs Wayland since X11 only supports the opaque composite alpha.</li>
+ *     <li>On macOS, this sample will probably work, but I don't have a Mac to test it on.</li>
+ *     <li>
+ *         On Windows, it is complicated. Only the opaque composite alpha is supported on Windows, so we should not be
+ *         able to create transparent windows <i>in theory</i>. Fortunately, graphics drivers don't always follow the
+ *         specification regarding composite alpha, and might make the window translucent, even when the opaque
+ *         composite alpha is used. For some reason, they only seem to make the window translucent when the MAILBOX
+ *         present mode is used, but not when the FIFO present mode is used.
+ *     </li>
+ * </ul>
+ * <p>
+ *     When the driver/OS doesn't support translucent windows, this sample will simply draw an opaque blue window.
+ * </p>
+ * <p>
+ *     This is the shortest sample (in lines of code) because it is the only sample that doesn't create a graphics
+ *     pipeline.
+ * </p>
+ */
 public class TranslucentWindowPlayground extends SimpleWindowRenderLoop {
 
 	public static void main(String[] args) throws InterruptedException {
