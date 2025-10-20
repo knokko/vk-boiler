@@ -53,7 +53,23 @@ public record ResourceUsage(int imageLayout, int accessMask, int stageMask) {
 		return compute(0, accessMask);
 	}
 
-	public static ResourceUsage fromPresent(int stageMask) {
-		return new ResourceUsage(VK_IMAGE_LAYOUT_UNDEFINED, 0, stageMask);
+	/**
+	 * <p>
+	 *     When this is used as {@code oldUsage} in
+	 *     {@link com.github.knokko.boiler.commands.CommandRecorder#transitionLayout}, the old content of the image
+	 *     will be invalidated, but {@code stageMask} will be used in {@link org.lwjgl.vulkan.VK10#vkCmdPipelineBarrier}
+	 *     to prevent WRITE-AFTER-READ hazards with the previous image usage.
+	 * </p>
+	 *
+	 * <p>
+	 *     Such a layout transition is typically used on color attachment images at the beginning of a frame, where the
+	 *     original content of the image is irrelevant since it will be cleared before or during the frame anyway.
+	 * </p>
+	 *
+	 * @param srcStageMask The {@code srcStageMask} that will be used in
+	 * {@link org.lwjgl.vulkan.VK10#vkCmdPipelineBarrier}
+	 */
+	public static ResourceUsage invalidate(int srcStageMask) {
+		return new ResourceUsage(VK_IMAGE_LAYOUT_UNDEFINED, 0, srcStageMask);
 	}
 }

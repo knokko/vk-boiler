@@ -217,7 +217,7 @@ public class HelloTriangle {
 
 				recorder.transitionLayout(
 						swapchainImage.getImage(),
-						ResourceUsage.fromPresent(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+						ResourceUsage.invalidate(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
 						ResourceUsage.COLOR_ATTACHMENT_WRITE
 				);
 

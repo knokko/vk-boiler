@@ -73,7 +73,7 @@ public abstract class SimpleWindowRenderLoop extends WindowRenderLoop {
 				VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 				getClass().getSimpleName()
 		);
-		recorder.transitionLayout(acquiredImage.image, ResourceUsage.fromPresent(lastUsage.stageMask()), firstUsage);
+		recorder.transitionLayout(acquiredImage.image, ResourceUsage.invalidate(lastUsage.stageMask()), firstUsage);
 		recordFrame(stack, frameIndex, recorder, acquiredImage, instance);
 		recorder.transitionLayout(acquiredImage.image, lastUsage, ResourceUsage.PRESENT);
 		recorder.end();
