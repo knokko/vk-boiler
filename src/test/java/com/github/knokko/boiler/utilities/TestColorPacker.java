@@ -150,4 +150,18 @@ public class TestColorPacker {
 				)
 		);
 	}
+
+	@Test
+	public void testInterpolateColors() {
+		assertEquals(79135, interpolateColors(79135, 2810413, 0f));
+		assertEquals(2810413, interpolateColors(79135, 2810413, 1f));
+		assertEquals(
+				rgba(0.1f, 0.575f, 0.7f, 0.75f),
+				interpolateColors(
+						rgba(0f, 0.6f, 0.7f, 1f),
+						rgba(0.4f, 0.5f, 0.7f, 0f),
+						0.25f
+				)
+		);
+	}
 }

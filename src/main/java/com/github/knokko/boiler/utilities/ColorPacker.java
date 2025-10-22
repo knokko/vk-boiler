@@ -261,4 +261,25 @@ public class ColorPacker {
 				normalize(alpha(a)) * normalize(alpha(b))
 		);
 	}
+
+	/**
+	 * Linearly interpolates the colors {@code a} and {@code b}, and returns the result. The result is basically a
+	 * component-wise version of {@code (1f - weightB) * a + weightB * b}. Examples:
+	 * <ul>
+	 * 	   <li>weightB == 0 -> result == a</li>
+	 * 	   <li>weightB == 0.2 -> result == 0.8a + 0.2b</li>
+	 *     <li>weightB == 1 -> result == b</li>
+	 * </ul>
+	 * @param a The 'left' color
+	 * @param b The 'right' color
+	 * @param weightB The weight of the color {@code b}
+	 */
+	public static int interpolateColors(int a, int b, float weightB) {
+		if (weightB <= 0f) return a;
+		if (weightB >= 1f) return b;
+		return addColors(
+				multiplyColors(a, rgba(1f - weightB, 1f - weightB, 1f - weightB, 1f - weightB)),
+				multiplyColors(b, rgba(weightB, weightB, weightB, weightB))
+		);
+	}
 }
