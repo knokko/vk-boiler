@@ -3,6 +3,7 @@ package com.github.knokko.boiler;
 import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.BoilerCommands;
 import com.github.knokko.boiler.debug.BoilerDebug;
+import com.github.knokko.boiler.debug.ValidationException;
 import com.github.knokko.boiler.images.BoilerImages;
 import com.github.knokko.boiler.memory.MemoryInfo;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
@@ -116,12 +117,12 @@ public class BoilerInstance {
 		this.vmaAllocator = vmaAllocator;
 		this.validationErrorThrower = validationErrorThrower;
 
+		this.debug = new BoilerDebug(this);
 		this.memoryInfo = new MemoryInfo(this);
 		this.images = new BoilerImages(this);
 		this.pipelines = new BoilerPipelines(this);
 		this.commands = new BoilerCommands(this);
 		this.sync = new BoilerSync(this);
-		this.debug = new BoilerDebug(this);
 
 		for (var window : windows) window.setInstance(this);
 		this.deviceProperties = VkPhysicalDeviceProperties.calloc();
@@ -133,8 +134,8 @@ public class BoilerInstance {
 	}
 
 	public void checkForFatalValidationErrors() {
-		if (encounteredFatalValidationError) {
-			throw new IllegalStateException("A fatal validation error has been encountered");
+		if (debug.hasDebug && encounteredFatalValidationError) {
+			throw new ValidationException("A fatal validation error has been encountered earlier");
 		}
 	}
 
@@ -250,5 +251,16 @@ public class BoilerInstance {
 
 		deviceProperties.free();
 		destroyed = true;
+
+		// This check is nice for unit tests: it gives the validation layer 100 ms to report async validation errors,
+		// causing the unit test to fail if that happens.
+		if (debug.hasDebug) {
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException skipSleeping) {
+				// Ok, let's move on
+			}
+		}
+		checkForFatalValidationErrors();
 	}
 }

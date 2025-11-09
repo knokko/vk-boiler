@@ -395,7 +395,7 @@ public class TestBoilerBuilder {
 			);
 		}
 
-		instance.destroyInitialObjects();
+		assertThrows(ValidationException.class, instance::destroyInitialObjects);
 	}
 
 	@Test
