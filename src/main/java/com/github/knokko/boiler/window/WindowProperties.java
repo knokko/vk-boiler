@@ -21,6 +21,7 @@ package com.github.knokko.boiler.window;
  *                         usage under control.
  * @param maxFramesInFlight The maximum number of frames-in-flight that the swapchain manager can handle. Using more
  *                          will result into potentially invalid synchronization.
+ * @param acquireTimeout The timeout (in nanoseconds) that will be supplied to <i>VK_ACQUIRE_NEXT_IMAGE_KHR</i>
  */
 public record WindowProperties(
 		long handle,
@@ -33,6 +34,7 @@ public record WindowProperties(
 		int swapchainCompositeAlpha,
 		boolean usesSwapchainMaintenance,
 		int maxOldSwapchains,
-		int maxFramesInFlight
+		int maxFramesInFlight,
+		long acquireTimeout
 ) {
 }

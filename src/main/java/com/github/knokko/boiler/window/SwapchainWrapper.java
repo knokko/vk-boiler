@@ -11,8 +11,7 @@ import java.util.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_SUBOPTIMAL_KHR;
-import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
+import static org.lwjgl.vulkan.VK10.*;
 
 class SwapchainWrapper {
 
@@ -113,7 +112,7 @@ class SwapchainWrapper {
 					acquireSemaphore, acquireSubmission,
 					presentSemaphore, presentFence
 			);
-		} else if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
+		} else if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_TIMEOUT) {
 			if (acquireFence != null) {
 				acquireFence.forceSignal();
 				functions.returnFence(acquireFence);
@@ -121,7 +120,7 @@ class SwapchainWrapper {
 			if (acquireSemaphore != VK_NULL_HANDLE) {
 				acquireSemaphores.cancelPrevious();
 			}
-			outdated = true;
+			if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) outdated = true;
 			return null;
 		} else {
 			throw new VulkanFailureException("AcquireNextImageKHR", acquireResult, "SwapchainWrapper");

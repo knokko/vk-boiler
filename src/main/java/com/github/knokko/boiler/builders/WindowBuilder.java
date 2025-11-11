@@ -33,6 +33,7 @@ public class WindowBuilder {
 	long sdlFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 	int hideFirstFrames;
 	int maxOldSwapchains;
+	long acquireTimeout = 100_000_000L;
 	SurfaceFormatPicker surfaceFormatPicker = new SimpleSurfaceFormatPicker(
 			VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB
 	);
@@ -111,6 +112,16 @@ public class WindowBuilder {
 	 */
 	public WindowBuilder maxOldSwapchains(int maxSwapchains) {
 		this.maxOldSwapchains = maxSwapchains;
+		return this;
+	}
+
+	/**
+	 * Sets the timeout (in nanoseconds) that will be supplied to <i>vkAcquireNextImageKHR</i>. When it returns
+	 * <i>VK_TIMEOUT</i> (e.g. because the window is hidden behind another window), the current frame will be skipped,
+	 * and <i>vkAcquireNextImageKHR</i> will be called again later.
+	 */
+	public WindowBuilder acquireTimeout(long timeout) {
+		this.acquireTimeout = timeout;
 		return this;
 	}
 
@@ -207,7 +218,8 @@ public class WindowBuilder {
 
 			var properties = new WindowProperties(
 					handle, title, vkSurface, hideFirstFrames, surfaceFormat.format(), surfaceFormat.colorSpace(),
-					swapchainImageUsage, compositeAlpha, hasSwapchainMaintenance, maxOldSwapchains, maxFramesInFlight
+					swapchainImageUsage, compositeAlpha, hasSwapchainMaintenance, maxOldSwapchains, maxFramesInFlight,
+					acquireTimeout
 			);
 			return new VkbWindow(properties, presentFamily, supportedPresentModes, presentModes);
 		}

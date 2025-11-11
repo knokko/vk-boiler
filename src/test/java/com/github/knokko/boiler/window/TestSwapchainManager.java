@@ -29,7 +29,8 @@ public class TestSwapchainManager {
 		var properties = new WindowProperties(
 				1234L, "TestTitle", 12345L, 2, VK_FORMAT_R8G8B8A8_UNORM,
 				VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, false, 0, 2
+				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, false, 0, 2,
+				123L
 		);
 
 		var functions = new DummySwapchainFunctions();
@@ -146,7 +147,8 @@ public class TestSwapchainManager {
 		var properties = new WindowProperties(
 				1234L, "TestTitle", 12345L, 0, VK_FORMAT_R8G8B8A8_UNORM,
 				VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, false, 1, 2
+				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, false, 1, 2,
+				234L
 		);
 
 		var functions = new DummySwapchainFunctions();
@@ -413,7 +415,8 @@ public class TestSwapchainManager {
 		var properties = new WindowProperties(
 				1234L, "TestTitle", 12345L, 4, VK_FORMAT_R8G8B8A8_UNORM,
 				VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, true, 0, 1
+				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, true, 0, 1,
+				345L
 		);
 
 		var functions = new DummySwapchainFunctions();
@@ -614,7 +617,8 @@ public class TestSwapchainManager {
 		var properties = new WindowProperties(
 				1234L, "TestTitle", 12345L, 0, VK_FORMAT_R8G8B8A8_UNORM,
 				VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, true, 1, 2
+				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, true, 1, 2,
+				456L
 		);
 
 		var functions = new DummySwapchainFunctions();
@@ -842,5 +846,91 @@ public class TestSwapchainManager {
 		assertFalse(associatedSwapchain1.wasRecycled);
 		assertTrue(associatedSwapchain3.wasDestroyed);
 		assertFalse(associatedSwapchain3.wasRecycled);
+	}
+
+	@Test
+	public void testHandleVkTimeout() {
+		var presentModes = new PresentModes(createSet(VK_PRESENT_MODE_FIFO_KHR), createSet(VK_PRESENT_MODE_FIFO_KHR));
+		var properties = new WindowProperties(
+				1234L, "TestTitle", 12345L, 2, VK_FORMAT_R8G8B8A8_UNORM,
+				VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, false, 0, 2,
+				123L
+		);
+
+		var functions = new DummySwapchainFunctions();
+		functions.capabilities = VkSurfaceCapabilitiesKHR.create();
+		functions.properties = properties;
+		functions.numSwapchainImages = 3;
+
+		var swapchains = new SwapchainManager(functions, properties, presentModes);
+
+		functions.expectedAcquireSemaphore = 1L;
+		functions.expectedAcquireFence = null;
+		functions.nextAcquireResult = VK_TIMEOUT;
+		functions.expectedSwapchain = 12L;
+
+		functions.capabilities.currentExtent().set(600, 200);
+
+		// The first and second acquire attempts should return VK_TIMEOUT
+		assertNull(swapchains.acquire(VK_PRESENT_MODE_FIFO_KHR, false));
+		assertNull(swapchains.acquire(VK_PRESENT_MODE_FIFO_KHR, false));
+		assertEquals(createSet(1L), functions.borrowedSemaphores);
+
+		// -------------------------acquire 3------------------------------
+		functions.nextAcquireResult = VK_SUCCESS;
+		var image1 = swapchains.acquire(VK_PRESENT_MODE_FIFO_KHR, false);
+		assertEquals(13L, functions.nextSwapchain);
+		assertEquals(12L, image1.swapchain.vkSwapchain);
+		assertEquals(0, image1.index);
+		assertNull(image1.acquireSubmission);
+		assertThrows(UnsupportedOperationException.class, image1::getAcquireSubmission);
+		assertEquals(1L, image1.getAcquireSemaphore());
+		assertEquals(600, image1.getWidth());
+		assertEquals(200, image1.getHeight());
+		assertEquals(createSet(1L, 2L), functions.borrowedSemaphores);
+		assertEquals(VK_PRESENT_MODE_FIFO_KHR, image1.presentMode);
+		assertNull(image1.presentFence);
+		assertEquals(2L, image1.getPresentSemaphore());
+		// -------------------------acquire 3------------------------------
+
+		// -------------------------present 3------------------------------
+		functions.expectedSwitchPresentMode = false;
+		functions.nextPresentResult = VK_SUCCESS;
+		image1.swapchain.presentImage(image1);
+		// -------------------------present 3------------------------------
+
+		// The fourth acquire also times out, but we use a fence instead of semaphore this time
+		functions.expectedAcquireSemaphore = VK_NULL_HANDLE;
+		functions.expectedAcquireFence = functions.availableFences[0];
+		functions.nextAcquireResult = VK_TIMEOUT;
+		assertNull(swapchains.acquire(VK_PRESENT_MODE_FIFO_KHR, true));
+		assertEquals(createSet(1L, 2L), functions.borrowedSemaphores);
+
+		// -------------------------acquire 5------------------------------
+		functions.nextAcquireResult = VK_SUCCESS;
+		var image2 = swapchains.acquire(VK_PRESENT_MODE_FIFO_KHR, true);
+		assertEquals(13L, functions.nextSwapchain);
+		assertEquals(12L, image2.swapchain.vkSwapchain);
+		assertEquals(0, image2.index);
+		assertNotNull(image2.acquireSubmission);
+		assertThrows(UnsupportedOperationException.class, image2::getAcquireSemaphore);
+		assertEquals(600, image2.getWidth());
+		assertEquals(200, image2.getHeight());
+		assertEquals(createSet(1L, 2L), functions.borrowedSemaphores);
+		assertEquals(VK_PRESENT_MODE_FIFO_KHR, image2.presentMode);
+		assertNull(image2.presentFence);
+		assertEquals(2L, image2.getPresentSemaphore());
+		// -------------------------acquire 5------------------------------
+
+		// -------------------------present 5------------------------------
+		image2.swapchain.presentImage(image2);
+		// -------------------------present 5------------------------------
+
+		swapchains.destroy();
+		assertEquals(1, functions.deviceWaitIdleCount);
+		assertEquals(createSet(), functions.borrowedSemaphores);
+		assertEquals(1, functions.returnedFences.size());
+		assertEquals(createList(12L), functions.destroyedSwapchains);
 	}
 }

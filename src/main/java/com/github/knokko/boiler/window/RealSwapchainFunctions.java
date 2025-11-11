@@ -209,7 +209,7 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 	) {
 		long vkFence = acquireFence != null ? acquireFence.getVkFenceAndSubmit() : VK_NULL_HANDLE;
 		return vkAcquireNextImageKHR(
-				instance.vkDevice(), vkSwapchain, instance.defaultTimeout,
+				instance.vkDevice(), vkSwapchain, properties.acquireTimeout(),
 				acquireSemaphore, vkFence, pImageIndex
 		);
 	}

@@ -52,7 +52,7 @@ class SwapchainManager {
 		var acquiredImage = currentSwapchain.acquireImage(
 				presentMode, useFence, !oldSwapchains.isEmpty()
 		);
-		if (acquiredImage == null) {
+		if (acquiredImage == null && currentSwapchain.isOutdated()) {
 			recreateSwapchain(presentMode);
 			if (currentSwapchain == null) return null;
 			acquiredImage = currentSwapchain.acquireImage(

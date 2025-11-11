@@ -291,6 +291,16 @@ sometimes leads to slow resizing. By chaining
 `.maxOldSwapchains(...)`, you can configure the maximum number of
 old swapchains that the system may have at any point in time.
 
+#### Acquire timeout
+By default, the swapchain management system will pass
+`100_000_000` (ns) to the timeout of `vkAcquireNextImageKHR`.
+You can override this by chaining `.acquireTimeout(timeout)` to the
+window builder.
+
+When `vkAcquireNextImageKHR` returns `VK_TIMEOUT`, the
+`acquireSwapchainImage`xxx method of `WindowBuilder` will return `null`.
+(Which also happens when the window is minimized or resizing aggressively.)
+
 #### Composite alpha picker
 You can chain `.compositeAlphaPicker(callback)` to change the
 composite alpha picker. The default picker will try to simply
