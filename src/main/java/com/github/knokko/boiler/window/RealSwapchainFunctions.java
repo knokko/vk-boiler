@@ -18,8 +18,7 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.EXTFragmentDensityMap.VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT;
 import static org.lwjgl.vulkan.KHRFragmentShadingRate.VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
 import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.vkGetPhysicalDeviceSurfaceCapabilities2KHR;
-import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
-import static org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfaceCapabilitiesKHR;
+import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.KHRSwapchain.*;
 import static org.lwjgl.vulkan.KHRVideoDecodeQueue.VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
 import static org.lwjgl.vulkan.KHRVideoDecodeQueue.VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR;
@@ -60,7 +59,41 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 			VkSurfaceCapabilitiesKHR surfaceCapabilities, String debugName
 	) {
 		try (var stack = stackPush()) {
+			// MAILBOX does triple-buffering, so we probably need an extra image to reach that potential throughput.
 			int desiredImageCount = presentModes.current == VK_PRESENT_MODE_MAILBOX_KHR ? 3 : 2;
+
+			/*
+			 * Note the following clause in the Vulkan specification:
+			 *
+			 * Let S be the number of images in swapchain.
+			 * If swapchain is created with VkSwapchainPresentModesCreateInfoKHR, let M be the maximum of the values in
+			 * VkSurfaceCapabilitiesKHR::minImageCount when queried with each present mode in
+			 * VkSwapchainPresentModesCreateInfoKHR::pPresentModes in VkSurfacePresentModeKHR.
+			 * Otherwise, let M be the value of VkSurfaceCapabilitiesKHR::minImageCount without a
+			 * VkSurfacePresentModeKHR as part of the query input.
+			 *
+			 * vkAcquireNextImageKHR should not be called if the number of images that the application has currently
+			 * acquired is greater than S-M. If vkAcquireNextImageKHR is called when the number of images that the
+			 * application has currently acquired is less than or equal to S-M, vkAcquireNextImageKHR must return in
+			 * finite time with an allowed VkResult code.
+			 *
+			 *
+			 * Luckily for us, we only acquire 1 swapchain image at the same time, so we should only request at least
+			 * `1 + minImageCount` swapchain images.
+			 */
+			desiredImageCount = max(surfaceCapabilities.minImageCount() + 1, desiredImageCount);
+
+			// Furthermore, we should ensure that we have minImageCount >= framesInFlight + 1,
+			// since we can't reach 3 frames in flight with less than 3 swapchain images.
+			// We also want the +1 as margin.
+			desiredImageCount = max(properties.maxFramesInFlight() + 1, desiredImageCount);
+
+			// Make sure we don't exceed maxImageCount
+			if (surfaceCapabilities.maxImageCount() > 0 && desiredImageCount > surfaceCapabilities.maxImageCount()) {
+				desiredImageCount = surfaceCapabilities.maxImageCount();
+				System.err.println("Warning: " + desiredImageCount + " swapchain images are desired, " +
+						"but only " + surfaceCapabilities.maxImageCount() + " are supported");
+			}
 			int minImageCount = max(desiredImageCount, surfaceCapabilities.minImageCount());
 
 			presentModes.compatible.clear();
