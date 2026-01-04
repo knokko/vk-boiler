@@ -17,9 +17,13 @@ public class SimpleSurfaceFormatPicker implements SurfaceFormatPicker {
 	public SurfaceFormat chooseSurfaceFormat(Set<SurfaceFormat> availableSurfaceFormats) {
 		for (int vkFormat : preferredVkFormats) {
 			var desiredFormat = new SurfaceFormat(vkFormat, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
-			if (availableSurfaceFormats.contains(desiredFormat)) return desiredFormat;
+			if (availableSurfaceFormats.contains(desiredFormat)) {
+				System.out.println("<---------------------- Found " + desiredFormat + "----------------------->");
+				return desiredFormat;
+			}
 		}
 
+		System.out.println("<--------------------------------- Found nothing: fallback is " + availableSurfaceFormats.iterator().next() + " ---------------------------------->");
 		return availableSurfaceFormats.iterator().next();
 	}
 }
