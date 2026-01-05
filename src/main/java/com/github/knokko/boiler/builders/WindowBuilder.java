@@ -34,6 +34,7 @@ public class WindowBuilder {
 	int hideFirstFrames;
 	int maxOldSwapchains;
 	long acquireTimeout = 100_000_000L;
+	boolean printSurfaceFormats;
 	SurfaceFormatPicker surfaceFormatPicker = new SimpleSurfaceFormatPicker(
 			VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB
 	);
@@ -143,6 +144,15 @@ public class WindowBuilder {
 	}
 
 	/**
+	 * If you chain this method, this WindowBuilder will print all the supported surface formats to stdout, as well
+	 * as the surface format that it chose. This is potentially useful for debugging color space issues.
+	 */
+	public WindowBuilder printSurfaceFormats() {
+		this.printSurfaceFormats = true;
+		return this;
+	}
+
+	/**
 	 * Adds present modes with which the swapchain manager should try to make its swapchains compatible.
 	 * They will be ignored when the <i>VK_EXT_swapchain_maintenance1</i> extension is not enabled.
 	 */
@@ -191,10 +201,13 @@ public class WindowBuilder {
 					vkPhysicalDevice, vkSurface, pNumFormats, pFormats
 			), "GetPhysicalDeviceSurfaceFormatsKHR", "BoilerSwapchainBuilder-Elements");
 
+			if (printSurfaceFormats) System.out.println(numFormats + " surface formats are supported:");
 			var formats = new HashSet<SurfaceFormat>(numFormats);
 			for (int index = 0; index < numFormats; index++) {
 				var format = pFormats.get(index);
-				formats.add(new SurfaceFormat(format.format(), format.colorSpace()));
+				SurfaceFormat formatPair = new SurfaceFormat(format.format(), format.colorSpace());
+				formats.add(formatPair);
+				if (printSurfaceFormats) System.out.println("- " + formatPair);
 			}
 
 			var pNumSupportedPresentModes = stack.callocInt(1);
@@ -214,6 +227,7 @@ public class WindowBuilder {
 			}
 
 			var surfaceFormat = surfaceFormatPicker.chooseSurfaceFormat(formats);
+			if (printSurfaceFormats) System.out.println("Picked " + surfaceFormat);
 			var compositeAlpha = compositeAlphaPicker.chooseCompositeAlpha(capabilities.supportedCompositeAlpha());
 
 			var properties = new WindowProperties(

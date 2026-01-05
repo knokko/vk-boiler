@@ -318,6 +318,9 @@ chain this method and roll your own picker. Hint: using the
 `SimpleSurfaceFormatPicker` is going to be easier, if it's powerful
 enough for you.
 
+To debug the surface picker, you can also chain
+`.printSurfaceFormats()`.
+
 #### Relevant present modes
 When the `VK_EXT_swapchain_maintenance1` extension is enabled,
 it is possible to create swapchains that can switch their

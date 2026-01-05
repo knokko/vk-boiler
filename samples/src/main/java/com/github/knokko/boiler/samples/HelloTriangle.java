@@ -54,7 +54,7 @@ public class HelloTriangle {
 				.allocationCallbacks(new SumAllocationCallbacks())
 				.addWindow(new WindowBuilder(
 						1000, 800, numFramesInFlight
-				).presentModes(VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR))
+				).presentModes(VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_MAILBOX_KHR).printSurfaceFormats())
 				.build();
 
 		var commandPool = boiler.commands.createPool(
