@@ -17,6 +17,7 @@ import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -818,6 +819,7 @@ public class BoilerBuilder {
 		var vkInstance = BoilerInstanceBuilder.createInstance(this, extra);
 
 		long validationErrorThrower = 0;
+		AtomicBoolean alreadyThrowing = new AtomicBoolean(false);
 		BoilerInstance[] propagateInstance = { null };
 		if (forbidValidationErrors) {
 			if (!extra.instanceExtensions.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
@@ -847,8 +849,12 @@ public class BoilerBuilder {
 							System.out.println("Hit weird error: " + error.pMessageIdNameString());
 							return VK_FALSE;
 						}
+						else if (alreadyThrowing.getAndSet(true)) {
+							System.err.println("Validation error: " + message);
+							return VK_FALSE;
+						}
 						if (instance != null) instance.reportFatalValidationError();
-						throw new ValidationException(error.pMessageString());
+						throw new ValidationException(message);
 					} else {
 						if (message == null) return VK_FALSE; // I have no clue whether this is possible
 
