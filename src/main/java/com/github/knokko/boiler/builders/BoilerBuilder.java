@@ -17,6 +17,7 @@ import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -818,6 +819,7 @@ public class BoilerBuilder {
 		var vkInstance = BoilerInstanceBuilder.createInstance(this, extra);
 
 		long validationErrorThrower = 0;
+		ThreadLocal<Boolean> alreadyThrowing = ThreadLocal.withInitial(() -> false);
 		BoilerInstance[] propagateInstance = { null };
 		if (forbidValidationErrors) {
 			if (!extra.instanceExtensions.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
@@ -846,9 +848,13 @@ public class BoilerBuilder {
 						if ("VK_ERROR_OUT_OF_HOST_MEMORY".equals(message)) {
 							System.out.println("Hit weird error: " + error.pMessageIdNameString());
 							return VK_FALSE;
+						} else if (alreadyThrowing.get()) {
+							System.err.println("Validation error: " + message);
+							return VK_FALSE;
 						}
+						alreadyThrowing.set(true);
 						if (instance != null) instance.reportFatalValidationError();
-						throw new ValidationException(error.pMessageString());
+						throw new ValidationException(message);
 					} else {
 						if (message == null) return VK_FALSE; // I have no clue whether this is possible
 
