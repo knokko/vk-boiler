@@ -36,6 +36,12 @@ void registerSample(String name) {
 
 		classpath sourceSets.main.runtimeClasspath
 		mainClass = "com.github.knokko.boiler.samples.$name"
+
+		if (project.ext.isMacOS) {
+			jvmArgs "-XstartOnFirstThread"
+			systemProperty "org.lwjgl.librarypath", "/usr/local/lib"
+			systemProperty "org.lwjgl.vulkan.libname", "libvulkan.1.dylib"
+		}
 	}
 }
 
