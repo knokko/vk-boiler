@@ -23,7 +23,7 @@ allprojects {
 	}
 
 	project.ext.jomlVersion = "1.10.8"
-	project.ext.lwjglVersion = "3.4.0-SNAPSHOT"
+	project.ext.lwjglVersion = "3.4.1"
 	switch (OperatingSystem.current()) {
 		case OperatingSystem.LINUX:
 			def osArch = System.getProperty("os.arch")
