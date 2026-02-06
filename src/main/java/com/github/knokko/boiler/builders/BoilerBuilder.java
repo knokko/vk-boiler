@@ -696,6 +696,9 @@ public class BoilerBuilder {
 		this.desiredVulkanDeviceExtensions.add(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 		this.desiredVulkanDeviceExtensions.add(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME);
 
+		// As per spec, VK_KHR_portability_subset must be enabled if VK_KHR_portability_subset is available
+		this.desiredVulkanDeviceExtensions.add(KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+
 		if (apiVersion == VK_API_VERSION_1_0) {
 			this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 		}
