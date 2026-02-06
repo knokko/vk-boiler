@@ -1,4 +1,8 @@
+import org.gradle.internal.os.OperatingSystem
+
 apply plugin: "com.gradleup.shadow"
+
+ext.isMacOS = OperatingSystem.current().isMacOsX()
 
 dependencies {
 	implementation project(":")
@@ -15,8 +19,8 @@ dependencies {
 	runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
 	runtimeOnly "org.lwjgl:lwjgl-sdl::$lwjglNatives"
 	runtimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
-	runtimeOnly "org.lwjgl:lwjgl-openxr::$lwjglNatives"
-	if (lwjglNatives == "natives-macos") runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
+	if (!project.ext.isMacOS) runtimeOnly "org.lwjgl:lwjgl-openxr::$lwjglNatives"
+	if (project.ext.isMacOS) runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
 }
 
 shadowJar {
