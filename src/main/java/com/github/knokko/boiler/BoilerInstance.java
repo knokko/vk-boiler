@@ -106,7 +106,6 @@ public class BoilerInstance {
 		this.useSDL = useSDL;
 		this.windows = windows;
 		this.xr = xr;
-		this.defaultTimeout = defaultTimeout;
 		this.apiVersion = apiVersion;
 		this.vkInstance = vkInstance;
 		this.vkPhysicalDevice = vkPhysicalDevice;
@@ -127,6 +126,16 @@ public class BoilerInstance {
 		for (var window : windows) window.setInstance(this);
 		this.deviceProperties = VkPhysicalDeviceProperties.calloc();
 		vkGetPhysicalDeviceProperties(vkPhysicalDevice, deviceProperties);
+		if (defaultTimeout == 0L) {
+			if (deviceProperties.deviceType() == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
+					deviceProperties.deviceType() == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+				defaultTimeout = 1_000_000_000L;
+			} else {
+				defaultTimeout = 60_000_000_000L;
+			}
+		}
+
+		this.defaultTimeout = defaultTimeout;
 	}
 
 	public void checkForFatalValidationErrors() {

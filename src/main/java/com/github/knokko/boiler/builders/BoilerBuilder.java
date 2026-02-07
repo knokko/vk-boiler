@@ -17,7 +17,6 @@ import com.github.knokko.boiler.xr.XrBoiler;
 import org.lwjgl.vulkan.*;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -83,7 +82,7 @@ public class BoilerBuilder {
 	final String applicationName;
 	final int applicationVersion;
 
-	long defaultTimeout = 1_000_000_000L;
+	long defaultTimeout = 0;
 
 	List<WindowBuilder> windows = new ArrayList<>();
 	boolean initWindowingAPI = true;
@@ -609,7 +608,8 @@ public class BoilerBuilder {
 
 	/**
 	 * Sets the default timeout (in nanoseconds) that the <i>BoilerInstance</i> and its children will use
-	 * in e.g. <i>vkWaitForFences</i> and <i>vkAcquireNextImageKHR</i>. The default value is 1 second.
+	 * in e.g. <i>vkWaitForFences</i> and <i>vkAcquireNextImageKHR</i>. The default value is 1 second for
+	 * discrete/integrated devices, and 1 minute for CPU/virtual devices.
 	 */
 	public BoilerBuilder defaultTimeout(long defaultTimeout) {
 		this.defaultTimeout = defaultTimeout;

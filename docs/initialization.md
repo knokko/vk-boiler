@@ -431,7 +431,8 @@ Some Vulkan functions (like `vkWaitForFences` and
 `BoilerInstance` will have a default value that its children will
 use when you don't specify one. You can change the default value
 by chaining `.defaultTimeout(nanoseconds)` to the builder. The
-default value is 1 second.
+default value is 1 second for integrated/discrete devices,
+and 1 minute for CPU/virtual devices.
 
 ### Dynamic rendering
 You can chain `.dynamicRendering()` to the builder to
