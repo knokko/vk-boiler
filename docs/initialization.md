@@ -160,6 +160,9 @@ builder.physicalDeviceSelector(new SimpleDeviceSelector(
 ))
 ```
 to prefer integrated GPUs over discrete GPUs.
+Furthermore, this selector will also avoid non-conformant devices
+(MoltenVK) when it can pick a conformant device with the same
+device type.
 
 ## Device creation
 Once a physical device has been selected, it's time to create the
