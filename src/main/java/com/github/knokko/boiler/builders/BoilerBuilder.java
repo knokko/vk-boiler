@@ -894,6 +894,7 @@ public class BoilerBuilder {
 				deviceResult.vmaAllocator(), validationErrorThrower, allocationCallbacks
 		);
 		propagateInstance[0] = instance;
+		if (alreadyThrowing.get()) throw new ValidationException("A validation error occurred during initialization");
 		if (xr != null) xr.boilerInstance = instance;
 
 		for (int windowIndex = 0; windowIndex < windows.size(); windowIndex++) {

@@ -377,7 +377,12 @@ public class TestBoilerBuilder {
 		).validation().forbidValidationErrors().requiredDeviceExtensions(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 
 		String message = assertThrows(ValidationException.class, builder::build).getMessage();
-		assertTrue(message.contains("device chain"), "Message was " + message);
+		String expected1 = "Missing extension required by the device extension " +
+				"VK_KHR_dynamic_rendering: VK_KHR_depth_stencil_resolve";
+		String expected2 = "A validation error occurred during initialization";
+
+		// Either of the messages should be used. The FFM backend determines which one.
+		assertTrue(message.contains(expected1) || message.contains(expected2), "Message was " + message);
 	}
 
 	@Test
@@ -389,10 +394,10 @@ public class TestBoilerBuilder {
 		try (var stack = stackPush()) {
 			var ciFence = VkFenceCreateInfo.calloc(stack);
 			// Intentionally leave ciFence.sType 0, which should cause a validation error
-			assertThrows(
-					ValidationException.class,
-					() -> vkCreateFence(instance.vkDevice(), ciFence, null, stack.callocLong(1))
-			);
+			assertThrows(ValidationException.class, () -> {
+				vkCreateFence(instance.vkDevice(), ciFence, null, stack.callocLong(1));
+				instance.vkDevice();
+			});
 		}
 
 		assertThrows(ValidationException.class, instance::destroyInitialObjects);

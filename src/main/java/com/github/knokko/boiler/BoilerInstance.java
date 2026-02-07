@@ -129,11 +129,8 @@ public class BoilerInstance {
 		vkGetPhysicalDeviceProperties(vkPhysicalDevice, deviceProperties);
 	}
 
-	private void checkDestroyed() {
-		if (destroyed) throw new IllegalStateException("This instance has already been destroyed");
-	}
-
 	public void checkForFatalValidationErrors() {
+		if (destroyed) throw new IllegalStateException("This instance has already been destroyed");
 		if (debug.hasDebug && encounteredFatalValidationError) {
 			throw new ValidationException("A fatal validation error has been encountered earlier");
 		}
@@ -148,7 +145,7 @@ public class BoilerInstance {
 	 * If you create multiple windows, you need to chain <i>.callback(...)</i> to the <i>WindowBuilder</i>
 	 */
 	public VkbWindow window() {
-		checkDestroyed();
+		checkForFatalValidationErrors();
 		if (windows.isEmpty()) throw new UnsupportedOperationException("This boiler doesn't have a window");
 		if (windows.size() > 1) {
 			throw new UnsupportedOperationException(
@@ -166,38 +163,38 @@ public class BoilerInstance {
 	 * @return The created window
 	 */
 	public VkbWindow addWindow(WindowBuilder builder) {
-		checkDestroyed();
+		checkForFatalValidationErrors();
 		return builder.buildLate(this);
 	}
 
 	public XrBoiler xr() {
-		checkDestroyed();
+		checkForFatalValidationErrors();
 		if (xr == null) throw new UnsupportedOperationException("This BoilerInstance doesn't have OpenXR support");
 		return xr;
 	}
 
 	public VkInstance vkInstance() {
-		checkDestroyed();
+		checkForFatalValidationErrors();
 		return vkInstance;
 	}
 
 	public VkPhysicalDevice vkPhysicalDevice() {
-		checkDestroyed();
+		checkForFatalValidationErrors();
 		return vkPhysicalDevice;
 	}
 
 	public VkDevice vkDevice() {
-		checkDestroyed();
+		checkForFatalValidationErrors();
 		return vkDevice;
 	}
 
 	public QueueFamilies queueFamilies() {
-		checkDestroyed();
+		checkForFatalValidationErrors();
 		return queueFamilies;
 	}
 
 	public long vmaAllocator() {
-		checkDestroyed();
+		checkForFatalValidationErrors();
 		return vmaAllocator;
 	}
 
@@ -231,7 +228,7 @@ public class BoilerInstance {
 	 * </ul>
 	 */
 	public void destroyInitialObjects() {
-		checkDestroyed();
+		checkForFatalValidationErrors();
 
 		try (var stack = stackPush()) {
 			for (var window : windows) window.destroy();
@@ -260,7 +257,9 @@ public class BoilerInstance {
 			} catch (InterruptedException skipSleeping) {
 				// Ok, let's move on
 			}
+			if (encounteredFatalValidationError) {
+				throw new ValidationException("A fatal validation error has been encountered earlier");
+			}
 		}
-		checkForFatalValidationErrors();
 	}
 }

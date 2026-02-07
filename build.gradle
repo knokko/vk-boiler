@@ -12,11 +12,6 @@ java {
 allprojects {
 	apply plugin: "java"
 
-	java {
-		sourceCompatibility = "17"
-		targetCompatibility = "17"
-	}
-
 	repositories {
 		mavenCentral()
 		maven { url "https://central.sonatype.com/repository/maven-snapshots" }
