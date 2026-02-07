@@ -59,13 +59,14 @@ class BoilerInstanceBuilder {
 				), "EnumerateInstanceExtensionProperties", "count");
 				int numLayers = pNumLayers.get(0);
 
-				var extensionProperties = VkExtensionProperties.calloc(numLayers, stack);
+				var extensionProperties = VkExtensionProperties.calloc(numLayers);
 				assertVkSuccess(vkEnumerateInstanceExtensionProperties(
 						pLayerName, pNumLayers, extensionProperties
 				), "EnumerateInstanceExtensionProperties", "extensions");
 				for (var extension : extensionProperties) {
 					supportedExtensions.add(extension.extensionNameString());
 				}
+				extensionProperties.free();
 			}
 		}
 

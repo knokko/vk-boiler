@@ -76,7 +76,7 @@ class BoilerDeviceBuilder {
 			), "EnumerateDeviceExtensionProperties", "BoilerDeviceBuilder count");
 			int numSupportedExtensions = pNumSupportedExtensions.get(0);
 
-			var pSupportedExtensions = VkExtensionProperties.calloc(numSupportedExtensions, stack);
+			var pSupportedExtensions = VkExtensionProperties.calloc(numSupportedExtensions);
 			assertVkSuccess(vkEnumerateDeviceExtensionProperties(
 					vkPhysicalDevice, (ByteBuffer) null, pNumSupportedExtensions, pSupportedExtensions
 			), "EnumerateDeviceExtensionProperties", "BoilerDeviceBuilder extensions");
@@ -85,6 +85,7 @@ class BoilerDeviceBuilder {
 			for (int index = 0; index < numSupportedExtensions; index++) {
 				supportedExtensions.add(pSupportedExtensions.get(index).extensionNameString());
 			}
+			pSupportedExtensions.free();
 			for (var extension : builder.requiredVulkanDeviceExtensions) {
 				if (!supportedExtensions.contains(extension)) {
 					// This is a programming error because the physical device selector must not choose physical
