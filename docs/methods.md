@@ -543,6 +543,19 @@ an `int` constant in a class that has the given value, and the
 right prefix and/or suffix. This is used to figure out the
 name of Vulkan error codes (like `VK_ERROR_DEVICE_LOST`).
 
+### Main thread on macOS
+To ensure that the `-XstartOnFirstThread` JVM argument is present
+on macOS, you can add the following code to the start of your
+main method:
+```java
+public static void main(String[] args) {
+	if (EnsureMainThread.neededRestart()) return;
+	// Run the rest of your application...
+}
+```
+See the dod comments of `EnsureMainThread.neededRestart()`
+for more information.
+
 ## Virtual reality
 `vk-boiler` supports OpenXR integration. OpenXR is a Khronos
 standard (just like Vulkan) for virtual reality and augmented

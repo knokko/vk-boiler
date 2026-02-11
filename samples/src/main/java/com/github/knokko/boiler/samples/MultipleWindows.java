@@ -6,6 +6,7 @@ import com.github.knokko.boiler.commands.CommandRecorder;
 import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.pipelines.GraphicsPipelineBuilder;
 import com.github.knokko.boiler.synchronization.ResourceUsage;
+import com.github.knokko.boiler.utilities.EnsureMainThread;
 import com.github.knokko.boiler.window.*;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPushConstantRange;
@@ -34,6 +35,7 @@ import static org.lwjgl.vulkan.VK12.VK_API_VERSION_1_2;
 public class MultipleWindows {
 
 	public static void main(String[] args) throws InterruptedException {
+		if (EnsureMainThread.neededRestart()) return;
 		var windows = new VkbWindow[2];
 
 		var boiler = new BoilerBuilder(
