@@ -268,6 +268,15 @@ class RealSwapchainFunctions implements SwapchainFunctions {
 				presentInfo.pNext(changePresentMode);
 			}
 
+			if (image.presentFence != null) {
+				var attachPresentFence = VkSwapchainPresentFenceInfoKHR.calloc(stack);
+				attachPresentFence.sType$Default();
+				attachPresentFence.swapchainCount(1);
+				attachPresentFence.pFences(stack.longs(image.presentFence.getVkFenceAndSubmit()));
+
+				presentInfo.pNext(attachPresentFence);
+			}
+
 			String debugName = image.swapchain.debugName + "Present" + image.index;
 			int presentResult = presentFamily.first().present(presentInfo);
 			assertVkSuccess(presentResult, "QueuePresentKHR", debugName, VK_ERROR_OUT_OF_DATE_KHR, VK_SUBOPTIMAL_KHR);
