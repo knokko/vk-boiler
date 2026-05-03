@@ -1,4 +1,0 @@
-jdk:
-  - openjdk17
-before_install:
-  - rm -R samples
