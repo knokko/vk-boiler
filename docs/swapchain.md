@@ -105,8 +105,8 @@ var swapchainResources = new SwapchainResourceManager<Object, Long>() {
 	@Override
 	protected Long createImage(Object swapchain, AcquiredImage swapchainImage) {
 		return boiler.images.createFramebuffer(
-				renderPass, swapchainImage.width(), swapchainImage.height(),
-				"TriangleFramebuffer", swapchainImage.image().vkImageView
+				renderPass, swapchainImage.getWidth(), swapchainImage.getHeight(),
+				"TriangleFramebuffer", swapchainImage.getImage().vkImageView
 		);
 	}
 
