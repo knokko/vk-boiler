@@ -18,6 +18,11 @@ public class FenceSubmission implements AwaitableSubmission {
 	}
 
 	@Override
+	public String toString() {
+		return "FenceSubmission(" + fence + " at " + referenceTime + ")";
+	}
+
+	@Override
 	public boolean hasCompleted() {
 		return fence.hasBeenSignaled(referenceTime);
 	}
