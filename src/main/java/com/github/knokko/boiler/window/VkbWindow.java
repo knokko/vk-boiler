@@ -34,6 +34,7 @@ public class VkbWindow {
 	private final ShowCounter showCounter;
 
 	volatile boolean showFromMainThread;
+	volatile AcquiredImage presentFromMainThread;
 
 	private boolean hasBeenDestroyed;
 
@@ -158,17 +159,33 @@ public class VkbWindow {
 		}
 	}
 
-	/**
-	 * Presents a previously acquired swapchain image
-	 * @param image The swapchain image
-	 */
-	public void presentSwapchainImage(AcquiredImage image) {
+	void presentSwapchainImageNow(AcquiredImage image) {
+		if (windowLoop != null && windowLoop.onWayland) assertMainThread();
 		instance.checkForFatalValidationErrors();
 		image.swapchain.presentImage(image);
 		if (showCounter.shouldShowNow()) {
 			if (windowLoop == null) showWindowNow();
 			else showFromMainThread = true;
 		}
+	}
+
+	/**
+	 * Presents a previously acquired swapchain image
+	 * @param image The swapchain image
+	 */
+	public void presentSwapchainImage(AcquiredImage image) {
+		instance.checkForFatalValidationErrors();
+		if (windowLoop != null && windowLoop.onWayland) {
+			this.presentFromMainThread = image;
+			while (this.presentFromMainThread != null) {
+				Thread.yield();
+				instance.checkForFatalValidationErrors();
+				Thread eventLoopThread = windowLoop.thread;
+				if (eventLoopThread != null && !eventLoopThread.isAlive()) {
+					throw new IllegalStateException("Stopping window render thread because the event thread stopped");
+				}
+			}
+		} else presentSwapchainImageNow(image);
 	}
 
 	/**

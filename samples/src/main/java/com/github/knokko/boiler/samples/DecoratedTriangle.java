@@ -271,7 +271,7 @@ public class DecoratedTriangle extends SimpleWindowRenderLoop {
 				.validation().forbidValidationErrors()
 				.addWindow(new WindowBuilder(
 						1000, 800, 2
-				).sdlFlags(SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN))
+				).sdlFlags(SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN).hideFirstFrames(5))
 				.enableDynamicRendering()
 				.useSDL().build();
 

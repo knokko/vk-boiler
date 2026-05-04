@@ -6,6 +6,7 @@ import java.util.concurrent.*;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.sdl.SDLEvents.*;
+import static org.lwjgl.sdl.SDLVideo.SDL_GetCurrentVideoDriver;
 import static org.lwjgl.system.MemoryStack.stackPush;
 
 /**
@@ -18,6 +19,8 @@ public class WindowEventLoop {
 	private final Runnable updateCallback;
 	private final double waitTimeout;
 
+	volatile Thread thread;
+	volatile boolean onWayland;
 	private boolean useSDL;
 
 	/**
@@ -62,6 +65,12 @@ public class WindowEventLoop {
 				window.showWindowNow();
 				window.showFromMainThread = false;
 			}
+
+			AcquiredImage imageToPresent = window.presentFromMainThread;
+			if (imageToPresent != null) {
+				window.presentSwapchainImageNow(imageToPresent);
+				window.presentFromMainThread = null;
+			}
 		}
 	}
 
@@ -71,6 +80,11 @@ public class WindowEventLoop {
 	 */
 	public void addWindow(WindowRenderLoop renderLoop) {
 		useSDL = renderLoop.window.instance.useSDL;
+		if (useSDL) {
+			if (!onWayland && "wayland".equals(SDL_GetCurrentVideoDriver())) onWayland = true;
+		} else {
+			if (!onWayland && glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) onWayland = true;
+		}
 		stateMap.put(renderLoop.window, new State(renderLoop));
 		renderLoop.window.windowLoop = this;
 		renderLoop.start();
@@ -81,19 +95,30 @@ public class WindowEventLoop {
 	 * windows are destroyed.
 	 */
 	public void runMain() {
+		this.thread = Thread.currentThread();
 		while (!stateMap.isEmpty()) {
 			try (var stack = stackPush()) {
 				if (useSDL) {
 					var event = SDL_Event.calloc(stack);
-					if (waitTimeout > 0.0) SDL_WaitEventTimeout(event, (int) (1000 * waitTimeout));
-					else SDL_WaitEvent(event);
+
+					// Never block the main thread on Wayland, since we need it for vkQueuePresentKHR
+					if (!onWayland) {
+						if (waitTimeout > 0.0) SDL_WaitEventTimeout(event, (int) (1000 * waitTimeout));
+						else SDL_WaitEvent(event);
+					}
+
 					//noinspection StatementWithEmptyBody
 					while (SDL_PollEvent(event)) {
 						// Users can respond to events by using SDL_AddEventWatcher
 					}
 				} else {
-					if (waitTimeout > 0.0) glfwWaitEventsTimeout(waitTimeout);
-					else glfwWaitEvents();
+					// Never block the main thread on Wayland, since we need it for vkQueuePresentKHR
+					if (onWayland) {
+						glfwPollEvents();
+					} else {
+						if (waitTimeout > 0.0) glfwWaitEventsTimeout(waitTimeout);
+						else glfwWaitEvents();
+					}
 				}
 				if (updateCallback != null) updateCallback.run();
 				updateWindows();

@@ -246,8 +246,10 @@ public class WindowBuilder {
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-		// If I try this on Wayland, it will crash with:
+		// If I try this on Wayland, GLFW will report:
 		// xdg_wm_base@33: error 4: wl_surface@26 already has a buffer committed
+		// ... after which glfwWindowShouldClose() will return true
+		//
 		// hideUntilFirstFrame doesn't make much sense on Wayland anyway,
 		// since Wayland always hides windows until the first frame is presented
 		if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) hideFirstFrames = 0;
@@ -272,6 +274,7 @@ public class WindowBuilder {
 		if (title == null) throw new IllegalStateException("Missing .title(...)");
 
 		// If I try this on Wayland, the window will never become visible, not even after SDL_ShowWindow
+		//
 		// hideUntilFirstFrame doesn't make much sense on Wayland anyway,
 		// since Wayland always hides windows until the first frame is presented
 		if ("wayland".equals(SDL_GetCurrentVideoDriver())) hideFirstFrames = 0;
