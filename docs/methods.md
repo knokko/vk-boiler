@@ -17,6 +17,9 @@ which is convenient for reducing the number of vertex buffer switching.
 To make it easier to work with this, `vk-boiler` provides the `VkbBuffer`
 class, which is a tuple (`VkBuffer`, `offset`, `size`).
 
+The `VkbBuffer` class also has a `createView` method that can be used
+to create `VkBufferView`s.
+
 ### MappedVkbBuffer
 The `MappedVkbBuffer` is a subclass of `VkbBuffer` that also contains
 a `hostAddress` field, which tracks at which host address the buffer memory

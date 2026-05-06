@@ -28,6 +28,7 @@ public enum CallbackUserData {
 	IMAGE,
 	IMAGE_VIEW,
 	BUFFER,
+	BUFFER_VIEW,
 	COMMAND_POOL,
 	FRAME_BUFFER,
 	SWAPCHAIN,

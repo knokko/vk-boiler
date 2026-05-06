@@ -1,6 +1,12 @@
 package com.github.knokko.boiler.buffers;
 
-import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
+import com.github.knokko.boiler.BoilerInstance;
+import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
+import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.VkBufferViewCreateInfo;
+
+import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertVkSuccess;
+import static org.lwjgl.vulkan.VK10.*;
 
 /**
  * A {@link VkbBuffer} represents a segment of a <b>VkBuffer</b>. Every initialized instance claims bytes
@@ -33,8 +39,7 @@ public class VkbBuffer {
 
 	@Override
 	public boolean equals(Object other) {
-		if (other instanceof VkbBuffer) {
-			VkbBuffer buffer = (VkbBuffer) other;
+		if (other instanceof VkbBuffer buffer) {
 			return vkBuffer == buffer.vkBuffer && offset == buffer.offset && size == buffer.size;
 		} else return false;
 	}
@@ -58,8 +63,42 @@ public class VkbBuffer {
 		);
 	}
 
+	/**
+	 * Creates a 'child' buffer of this buffer, from {@code this.offset + childOffset} to
+	 * {@code this.offset + childOffset + childSize}
+	 * @param childOffset The starting offset of the child buffer (in bytes), relative to {@code this.offset}
+	 * @param childSize The size of the child buffer, in bytes
+	 * @return The child buffer
+	 */
 	public VkbBuffer child(long childOffset, long childSize) {
 		validateChildRange(childOffset, childSize);
 		return new VkbBuffer(vkBuffer, offset + childOffset, childSize);
+	}
+
+	/**
+	 * Creates a <b>VkBufferView</b> of this buffer segment.
+	 * @param format The buffer format, which is passed to {@link VkBufferViewCreateInfo#format(int)}
+	 * @param instance The {@link BoilerInstance} (this parameter is needed to get e.g. the <b>VkDevice</b>)
+	 * @param debugName The debug name (only used when validation and debug utils are enabled)
+	 * @return The <b>VkBufferView</b>
+	 */
+	public long createView(int format, BoilerInstance instance, String debugName) {
+		try (MemoryStack stack = MemoryStack.stackPush()) {
+			var ciView = VkBufferViewCreateInfo.calloc(stack);
+			ciView.sType$Default();
+			ciView.format(format);
+			ciView.buffer(vkBuffer);
+			ciView.offset(offset);
+			ciView.range(size);
+
+			var pView = stack.callocLong(1);
+			assertVkSuccess(vkCreateBufferView(
+					instance.vkDevice(), ciView, CallbackUserData.BUFFER_VIEW.put(stack, instance), pView
+			), "CreateBufferView", debugName);
+
+			long view = pView.get(0);
+			instance.debug.name(stack, view, VK_OBJECT_TYPE_BUFFER_VIEW, debugName);
+			return view;
+		}
 	}
 }
