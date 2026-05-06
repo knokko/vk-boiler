@@ -1,4 +1,4 @@
-name: Testing with Java 17 and Java 21 on Ubuntu and Windows
+name: Testing with Java 17, Java 21, and Java 25 on Ubuntu and Windows
 
 on: [push, pull_request]
 

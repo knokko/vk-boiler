@@ -134,7 +134,7 @@ You can run sample `X` by running `./gradlew runX`, for instance
 
 ## Add to your build
 ### Java version
-This project requires Java 17 or later (Java 17 and 21 are tested in CI).
+This project requires Java 17 or later (Java 17, 21, and 25 are tested in CI).
 ### LWJGL
 While this project is compiled against LWJGL, it does **not** bundle LWJGL, so you
 still need to declare the LWJGL dependencies yourself 
@@ -146,12 +146,15 @@ compatible with the version used by `vk-boiler`).
 ...
 repositories {
   ...
-  maven { url 'https://jitpack.io' }
+  maven {
+	name = "knokko-reposilite"
+	url = "https://49.12.188.159:8080/releases/"
+  }
 }
 ...
 dependencies {
   ...
-  implementation 'com.github.knokko:vk-boiler:v5.2.0'
+  implementation "com.github.knokko:vk-boiler:5.3.0"
 }
 ```
 
@@ -161,15 +164,16 @@ dependencies {
 <repositories>
   ...
   <repository>
-    <id>jitpack.io</id>
-    <url>https://jitpack.io</url>
+    <id>knokko-reposilite</id>
+    <name>Knokko Reposilite</name>
+    <url>https://49.12.188.159:8080/releases/</url>
   </repository>
 </repositories>
 ...
 <dependency>
   <groupId>com.github.knokko</groupId>
   <artifactId>vk-boiler</artifactId>
-  <version>v5.2.0</version>
+  <version>5.3.0</version>
 </dependency>
 ```
 
