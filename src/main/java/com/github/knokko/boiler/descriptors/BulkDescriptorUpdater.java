@@ -23,6 +23,10 @@ import static org.lwjgl.vulkan.VK10.*;
  * <ol>
  *     <li>Create an instance of this class using the public constructor.</li>
  *     <li>Call methods like {@link #writeUniformBuffer} and {@link #writeImage} as often as you need.</li>
+ *     <li>
+ *         If these methods are not sufficiently powerful, you can also modify {@link #descriptorWrites},
+ *         {@link #bufferWrites}, and {@link #imageWrites} directly.
+ *     </li>
  *     <li>Call {@link #finish()}</li>
  * </ol>
  * <p>
@@ -36,9 +40,28 @@ public class BulkDescriptorUpdater {
 
 	private final BoilerInstance instance;
 	private final boolean usedStack;
-	private final VkWriteDescriptorSet.Buffer descriptorWrites;
-	private final VkDescriptorBufferInfo.Buffer bufferWrites;
-	private final VkDescriptorImageInfo.Buffer imageWrites;
+
+	/**
+	 * <p>
+	 *   The {@code pDescriptorWrites} that will be passed to <b>vkUpdateDescriptorSets</b>. If you modify it manually,
+	 *   watch the {@link VkWriteDescriptorSet.Buffer#position()} and {@link VkWriteDescriptorSet.Buffer#position()}
+	 *   carefully!
+	 * </p>
+	 * <p>
+	 *     When this buffer is full, <b>vkUpdateDescriptorSets</b> will be called, after which this buffer is reset.
+	 * </p>
+	 */
+	public final VkWriteDescriptorSet.Buffer descriptorWrites;
+
+	/**
+	 * Contains all {@link VkDescriptorBufferInfo}s referenced by {@link #descriptorWrites}
+	 */
+	public final VkDescriptorBufferInfo.Buffer bufferWrites;
+
+	/**
+	 * Contains all {@link VkDescriptorImageInfo}s referenced by {@link #descriptorWrites}
+	 */
+	public final VkDescriptorImageInfo.Buffer imageWrites;
 
 	/**
 	 * Constructs a new {@link BulkDescriptorUpdater} with the given capacity.
@@ -180,12 +203,33 @@ public class BulkDescriptorUpdater {
 	 * </ul>
 	 */
 	public void writeImage(long vkDescriptorSet, int binding, long vkImageView, long vkSampler) {
-		if (!imageWrites.hasRemaining()) flush();
 		int descriptorType = vkSampler == VK_NULL_HANDLE ? VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		writeImage(vkDescriptorSet, binding, vkImageView, vkSampler, descriptorType, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
+
+	/**
+	 * Modifies the next {@link VkWriteDescriptorSet}. Sets:
+	 * <ul>
+	 *     <li>{@link VkWriteDescriptorSet#sType()} to the default structure type</li>
+	 *     <li>{@link VkWriteDescriptorSet#dstSet()} to {@code vkDescriptorSet}</li>
+	 *     <li>{@link VkWriteDescriptorSet#dstBinding()} to {@code binding}</li>
+	 *     <li>{@link VkWriteDescriptorSet#descriptorCount()} to 1</li>
+	 *     <li>{@link VkWriteDescriptorSet#descriptorType()} to {@code descriptorType}</li>
+	 *     <li>
+	 *         {@link VkWriteDescriptorSet#pImageInfo()} to ({@code vkSampler}, {@code vkImageView},
+	 *         {@code imageLayout})
+	 *     </li>
+	 * </ul>
+	 */
+	public void writeImage(
+			long vkDescriptorSet, int binding, long vkImageView,
+			long vkSampler, int descriptorType, int imageLayout
+	) {
+		if (!imageWrites.hasRemaining()) flush();
 		write(vkDescriptorSet, binding, descriptorType);
 
 		var imageInfo = imageWrites.get();
-		imageInfo.set(vkSampler, vkImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		imageInfo.set(vkSampler, vkImageView, imageLayout);
 
 		descriptorWrites.get(descriptorWrites.position() - 1).pImageInfo(VkDescriptorImageInfo.create(imageInfo.address(), 1));
 	}

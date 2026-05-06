@@ -1,0 +1,16 @@
+#version 450
+
+layout(set = 0, binding = 0, r8ui) uniform uimageBuffer storageTexelBuffer;
+layout(set = 0, binding = 1) uniform itextureBuffer uniformTexelBuffer;
+layout(set = 0, binding = 2, r8ui) uniform restrict writeonly uimage2D outputImage;
+
+void main() {
+	int inputIndex = int(gl_GlobalInvocationID.x);
+	uint input1 = imageLoad(storageTexelBuffer, inputIndex).r;
+	int input2 = texelFetch(uniformTexelBuffer, inputIndex).r;
+	int signedResult = int(input1) + input2;
+	uint result = uint(signedResult);
+
+	int outputIndex = (inputIndex + 1) % 4;
+	imageStore(outputImage, ivec2(outputIndex, 0), uvec4(result, 0, 0, 0));
+}

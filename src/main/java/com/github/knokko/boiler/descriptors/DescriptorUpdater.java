@@ -21,7 +21,16 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class DescriptorUpdater {
 
+	/**
+	 * The stack onto which {@link #descriptorWrites} is allocated
+	 */
 	public final MemoryStack stack;
+
+	/**
+	 * The <i>pDescriptorWrites</i> parameter that will be passed to <b>vkUpdateDescriptorSets</b>.
+	 * Its capacity and limit should be equal to the <i>numWrites</i> parameter that you passed to the constructor
+	 * of this class (unless you modified it).
+	 */
 	public final VkWriteDescriptorSet.Buffer descriptorWrites;
 
 	/**
@@ -133,6 +142,33 @@ public class DescriptorUpdater {
 	 *     <li>{@link VkWriteDescriptorSet#dstSet()} to {@code vkDescriptorSet}</li>
 	 *     <li>{@link VkWriteDescriptorSet#dstBinding()} to {@code binding}</li>
 	 *     <li>{@link VkWriteDescriptorSet#descriptorCount()} to 1</li>
+	 *     <li>{@link VkWriteDescriptorSet#descriptorType()} to {@code descriptorType}</li>
+	 *     <li>
+	 *         {@link VkWriteDescriptorSet#pImageInfo()} to ({@code vkSampler}, {@code vkImageView},
+	 *         {@code imageLayout)
+	 *     </li>
+	 * </ul>
+	 */
+	public void writeImage(
+			int index, long vkDescriptorSet, int binding,
+			long vkImageView, long vkSampler, int descriptorType, int imageLayout
+	) {
+		write(index, vkDescriptorSet, binding, descriptorType);
+
+		var imageInfo = VkDescriptorImageInfo.calloc(1, stack);
+		//noinspection resource
+		imageInfo.get(0).set(vkSampler, vkImageView, imageLayout);
+
+		descriptorWrites.get(index).pImageInfo(imageInfo);
+	}
+
+	/**
+	 * Modifies the {@link VkWriteDescriptorSet} at the given index. Sets:
+	 * <ul>
+	 *     <li>{@link VkWriteDescriptorSet#sType()} to the default structure type</li>
+	 *     <li>{@link VkWriteDescriptorSet#dstSet()} to {@code vkDescriptorSet}</li>
+	 *     <li>{@link VkWriteDescriptorSet#dstBinding()} to {@code binding}</li>
+	 *     <li>{@link VkWriteDescriptorSet#descriptorCount()} to 1</li>
 	 *     <li>
 	 *         {@link VkWriteDescriptorSet#descriptorType()} to {@link VK10#VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE} or
 	 *         {@link VK10#VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER}, depending on whether {@code vkSampler == 0}
@@ -145,13 +181,7 @@ public class DescriptorUpdater {
 	 */
 	public void writeImage(int index, long vkDescriptorSet, int binding, long vkImageView, long vkSampler) {
 		int descriptorType = vkSampler == VK_NULL_HANDLE ? VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		write(index, vkDescriptorSet, binding, descriptorType);
-
-		var imageInfo = VkDescriptorImageInfo.calloc(1, stack);
-		//noinspection resource
-		imageInfo.get(0).set(vkSampler, vkImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-		descriptorWrites.get(index).pImageInfo(imageInfo);
+		writeImage(index, vkDescriptorSet, binding, vkImageView, vkSampler, descriptorType, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 
 	/**
