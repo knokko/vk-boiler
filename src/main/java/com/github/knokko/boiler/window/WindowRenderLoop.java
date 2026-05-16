@@ -52,8 +52,12 @@ public abstract class WindowRenderLoop {
 		try (var stack = stackPush()) {
 			setup(window.instance, stack);
 		} catch (Throwable setupFailed) {
-			window.destroy();
-			throw setupFailed;
+			try {
+				window.destroy();
+				throw setupFailed;
+			} catch (Throwable destructionFailed) {
+				throw setupFailed;
+			}
 		}
 
 		try {
