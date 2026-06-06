@@ -145,15 +145,23 @@ public class SingleTimeCommands {
 	}
 
 	/**
-	 * Waits until the last command submission has finished (if applicable), and then destroys the command pool.
+	 * Waits until the last command submission has finished (if any), and then destroys the command pool.
+	 * If waiting for the completion takes longer than {@code timeout} nanoseconds, an exception is thrown instead.
 	 */
-	public void destroy() {
-		if (lastSubmission != null) lastSubmission.awaitCompletion();
+	public void destroy(long timeout) {
+		if (lastSubmission != null) lastSubmission.awaitCompletion(timeout);
 		try (var stack = stackPush()) {
 			vkDestroyCommandPool(
 					instance.vkDevice(), commandPool,
 					CallbackUserData.COMMAND_POOL.put(stack, instance)
 			);
 		}
+	}
+
+	/**
+	 * Waits until the last command submission has finished (if any), and then destroys the command pool.
+	 */
+	public void destroy() {
+		destroy(instance.defaultTimeout);
 	}
 }

@@ -31,4 +31,9 @@ public class FenceSubmission implements AwaitableSubmission {
 	public void awaitCompletion() {
 		fence.awaitSubmission(referenceTime);
 	}
+
+	@Override
+	public void awaitCompletion(long timeout) {
+		fence.awaitSubmission(referenceTime, timeout);
+	}
 }

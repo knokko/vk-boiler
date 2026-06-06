@@ -201,9 +201,13 @@ public class VkbFence implements Comparable<VkbFence> {
 		reset();
 	}
 
-	synchronized void awaitSubmission(long referenceSubmissionTime) {
+	synchronized void awaitSubmission(long referenceSubmissionTime, long timeout) {
 		if (lastCompletedSubmission >= referenceSubmissionTime) return;
-		awaitSignal();
+		awaitSignal(timeout);
+	}
+
+	void awaitSubmission(long referenceSubmissionTime) {
+		awaitSubmission(referenceSubmissionTime, instance.defaultTimeout);
 	}
 
 	/**

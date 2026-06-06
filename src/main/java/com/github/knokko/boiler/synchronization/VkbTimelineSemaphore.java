@@ -40,10 +40,10 @@ public class VkbTimelineSemaphore {
 	}
 
 	/**
-	 * Calls <i>vkWaitSemaphores</i> to wait until the semaphore reaches the given value. The default timeout of the
-	 * <i>BoilerInstance</i> will be used.
+	 * Calls <i>vkWaitSemaphores</i> to wait until the semaphore reaches the given value,
+	 * with a timeout of {@code timeout} nanoseconds.
 	 */
-	public void waitUntil(long value) {
+	public void waitUntil(long value, long timeout) {
 		try (var stack = stackPush()) {
 			var wiSemaphore = VkSemaphoreWaitInfo.calloc(stack);
 			wiSemaphore.sType$Default();
@@ -54,14 +54,22 @@ public class VkbTimelineSemaphore {
 
 			if (usesTimelineSemaphoreExtension) {
 				assertVkSuccess(vkWaitSemaphoresKHR(
-						instance.vkDevice(), wiSemaphore, instance.defaultTimeout
+						instance.vkDevice(), wiSemaphore, timeout
 				), "WaitSemaphoresKHR", name);
 			} else {
 				assertVkSuccess(vkWaitSemaphores(
-						instance.vkDevice(), wiSemaphore, instance.defaultTimeout
+						instance.vkDevice(), wiSemaphore, timeout
 				), "WaitSemaphores", name);
 			}
 		}
+	}
+
+	/**
+	 * Calls <i>vkWaitSemaphores</i> to wait until the semaphore reaches the given value,
+	 * using {@link BoilerInstance#defaultTimeout}.
+	 */
+	public void waitUntil(long value) {
+		waitUntil(value, instance.defaultTimeout);
 	}
 
 	/**

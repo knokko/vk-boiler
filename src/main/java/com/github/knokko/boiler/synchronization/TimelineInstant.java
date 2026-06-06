@@ -16,4 +16,9 @@ public record TimelineInstant(VkbTimelineSemaphore semaphore, long value) implem
 	public void awaitCompletion() {
 		semaphore.waitUntil(value);
 	}
+
+	@Override
+	public void awaitCompletion(long timeout) {
+		semaphore.waitUntil(value, timeout);
+	}
 }
