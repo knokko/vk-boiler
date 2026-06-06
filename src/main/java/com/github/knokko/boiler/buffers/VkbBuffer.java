@@ -31,10 +31,27 @@ public class VkbBuffer {
 	 */
 	public final long size;
 
+	/**
+	 * The memory type index of the memory allocation to which this buffer was bound. This field should be set during
+	 * {@link com.github.knokko.boiler.memory.MemoryCombiner#build}.
+	 */
+	public int memoryTypeIndex;
+
 	public VkbBuffer(long vkBuffer, long offset, long size) {
 		this.vkBuffer = vkBuffer;
 		this.offset = offset;
 		this.size = size;
+	}
+
+	/**
+	 * Checks whether this buffer resides in device-local memory. This method is potentially useful if this buffer
+	 * was created using {@link com.github.knokko.boiler.memory.MemoryCombiner#addMappedDeviceLocalBuffer} to check
+	 * whether the buffer was really allocated in device-local memory.
+	 * @param instance The {@link BoilerInstance}
+	 * @return True if and only if the buffer resides in a device-local memory type
+	 */
+	public boolean isDeviceLocal(BoilerInstance instance) {
+		return instance.memoryInfo.deviceLocalMemoryTypes.contains(memoryTypeIndex);
 	}
 
 	@Override

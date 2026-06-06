@@ -1,4 +1,3 @@
 package com.github.knokko.boiler.memory;
 
-public record MemoryTypeKey(int memoryType, float priority) {
-}
+record MemoryTypeKey(int memoryType, int backupMemoryType, float priority) {}

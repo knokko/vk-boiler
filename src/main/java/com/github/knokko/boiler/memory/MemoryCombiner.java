@@ -8,6 +8,7 @@ import com.github.knokko.boiler.images.VkbImage;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import org.lwjgl.vulkan.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -68,9 +69,9 @@ public class MemoryCombiner {
 		this.name = name;
 	}
 
-	private MemoryTypeClaims getClaims(int memoryTypeIndex, float priority) {
+	private MemoryTypeClaims getClaims(int memoryTypeIndex, int backupMemoryType, float priority) {
 		if (!instance.extra.memoryPriority()) priority = 0f;
-		var key = new MemoryTypeKey(memoryTypeIndex, priority);
+		var key = new MemoryTypeKey(memoryTypeIndex, backupMemoryType, priority);
 		return claims.computeIfAbsent(key, k -> new MemoryTypeClaims());
 	}
 
@@ -122,14 +123,17 @@ public class MemoryCombiner {
 	 * Adds a {@link MappedVkbBuffer} that will certainly be <b>host-visible</b> and <b>host-coherent</b>,
 	 * and preferably also <b>device-local</b>. Its memory will be mapped as soon as you call {@link #build}.
 	 * It will have the same `VkBuffer` as all other buffers added via this method, if their {@code usage} flags and
-	 * priority are the same.
+	 * priority are the same. You can use {@link MappedVkbBuffer#isDeviceLocal} to check whether the buffer ended up
+	 * in device-local memory.
 	 * @param size The size of the buffer, in bytes
 	 * @param alignment The alignment of the buffer, in bytes. The {@link MappedVkbBuffer#offset} will be a multiple of
 	 *                  {@code alignment}. Furthermore, the bound memory offset of the <b>VkBuffer</b> will be a
 	 *                  multiple of {@code alignment}.
 	 * @param usage The buffer usage flags: {@link VkBufferCreateInfo#usage()}
 	 * @param priority Will be propagated to {@link VkMemoryPriorityAllocateInfoEXT#priority()} if
-	 *                 <i>VK_EXT_memory_priority</i> is enabled. Otherwise, it is ignored.
+	 *                 <i>VK_EXT_memory_priority</i> is enabled. Furthermore, buffers with a higher priority will be
+	 *                 created first, which makes them more likely to be placed in the host-visible + device-local
+	 *                 memory heap.
 	 * @return The created {@link MappedVkbBuffer}. <b>Note that its fields may be 0 until you call {@link #build}!</b>
 	 */
 	public MappedVkbBuffer addMappedDeviceLocalBuffer(long size, long alignment, int usage, float priority) {
@@ -158,7 +162,9 @@ public class MemoryCombiner {
 			vkGetImageMemoryRequirements(instance.vkDevice(), image.vkImage, requirements);
 
 			int memoryTypeIndex = builder.memoryTypeSelector.chooseMemoryType(instance, requirements.memoryTypeBits());
-			getClaims(memoryTypeIndex, priority).images.add(new ImageClaim(image, builder, requirements.size(), requirements.alignment()));
+			getClaims(memoryTypeIndex, memoryTypeIndex, priority).images.add(
+					new ImageClaim(image, builder, requirements.size(), requirements.alignment())
+			);
 		}
 		return image;
 	}
@@ -192,18 +198,19 @@ public class MemoryCombiner {
 				claim.setBuffer(vkBuffer, requirements.size(), requirements.alignment());
 
 				int memoryTypeIndex;
+				int backupMemoryType;
 				if (key.hostVisible()) {
 					memoryTypeIndex = -1;
 					if (key.preferablyDeviceLocal()) {
 						memoryTypeIndex = instance.memoryInfo.recommendedHybridMemoryType(requirements.memoryTypeBits());
 					}
-					if (memoryTypeIndex == -1) {
-						memoryTypeIndex = instance.memoryInfo.recommendedHostVisibleMemoryType(requirements.memoryTypeBits());
-					}
+					backupMemoryType = instance.memoryInfo.recommendedHostVisibleMemoryType(requirements.memoryTypeBits());
+					if (memoryTypeIndex == -1) memoryTypeIndex = backupMemoryType;
 				} else {
 					memoryTypeIndex = instance.memoryInfo.recommendedDeviceLocalMemoryType(requirements.memoryTypeBits());
+					backupMemoryType = memoryTypeIndex;
 				}
-				getClaims(memoryTypeIndex, key.priority()).buffers.add(claim);
+				getClaims(memoryTypeIndex, backupMemoryType, key.priority()).buffers.add(claim);
 			});
 			buffers.clear();
 		}
@@ -217,12 +224,17 @@ public class MemoryCombiner {
 	public MemoryBlock build(boolean useVma) {
 		createBuffers();
 		MemoryBlock block = new MemoryBlock();
-		claims.forEach((key, claim) -> {
-			claim.allocate(
+		var claimList = new ArrayList<>(claims.entrySet());
+		claimList.sort((a, b) ->
+				-Float.compare(a.getKey().priority(), b.getKey().priority())
+		);
+		for (var entry : claimList) {
+			var key = entry.getKey();
+			entry.getValue().allocate(
 					instance, name + ": memory type " + key, useVma,
-					null, key.memoryType(), key.priority(), block
+					null, key.memoryType(), key.backupMemoryType(), key.priority(), block
 			);
-		});
+		}
 		return block;
 	}
 
@@ -249,12 +261,17 @@ public class MemoryCombiner {
 		toRecycle.destroy(instance, true);
 		createBuffers();
 		MemoryBlock block = new MemoryBlock();
-		claims.forEach((key, claim) -> {
-			claim.allocate(
+		var claimList = new ArrayList<>(claims.entrySet());
+		claimList.sort((a, b) ->
+				-Float.compare(a.getKey().priority(), b.getKey().priority())
+		);
+		for (var entry : claimList) {
+			var key = entry.getKey();
+			entry.getValue().allocate(
 					instance, name + ": memory type " + key, false,
-					toRecycle, key.memoryType(), key.priority(), block
+					toRecycle, key.memoryType(), key.backupMemoryType(), key.priority(), block
 			);
-		});
+		}
 		try (var stack = stackPush()) {
 			var memoryCallbacks = CallbackUserData.MEMORY.put(stack, instance);
 			for (var allocation : toRecycle.allocations) {

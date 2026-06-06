@@ -60,7 +60,7 @@ class MemoryTypeClaims {
 
 	void allocate(
 			BoilerInstance instance, String name, boolean useVma, MemoryBlock old,
-			int memoryType, float priority, MemoryBlock block
+			int memoryType, int backupMemoryType, float priority, MemoryBlock block
 	) {
 		long size = prepareAllocations(instance.deviceProperties.limits().bufferImageGranularity());
 		long allocation;
@@ -82,12 +82,25 @@ class MemoryTypeClaims {
 				ciVmaAllocation.memoryTypeBits(vmaRequirements.memoryTypeBits());
 
 				var allocationInfo = VmaAllocationInfo.calloc(stack);
-				assertVmaSuccess(vmaAllocateMemory(
+				int allocateResult = vmaAllocateMemory(
 						instance.vmaAllocator(), vmaRequirements, ciVmaAllocation, pAllocation, allocationInfo
-				), "AllocateMemory", name);
+				);
+				if (allocateResult == VK_ERROR_OUT_OF_DEVICE_MEMORY && memoryType != backupMemoryType) {
+					memoryType = backupMemoryType;
+					vmaRequirements.memoryTypeBits(1 << memoryType);
+					ciVmaAllocation.memoryTypeBits(vmaRequirements.memoryTypeBits());
+					allocateResult = vmaAllocateMemory(
+							instance.vmaAllocator(), vmaRequirements, ciVmaAllocation, pAllocation, allocationInfo
+					);
+				}
+				assertVmaSuccess(allocateResult, "AllocateMemory", name);
 				allocation = pAllocation.get(0);
 				block.vmaAllocations.add(allocation);
 				if (mapMemory) hostAddress = allocationInfo.pMappedData();
+
+				for (var buffer : buffers) {
+					for (var claim : buffer.claims) claim.buffer().memoryTypeIndex = memoryType;
+				}
 			} else {
 				var oldAllocation = old != null ? old.getAllocation(memoryType) : null;
 				if (oldAllocation != null) {
@@ -106,6 +119,10 @@ class MemoryTypeClaims {
 					if (oldAllocation.priority != priority) {
 						vkSetDeviceMemoryPriorityEXT(instance.vkDevice(), allocation, priority);
 					}
+
+					for (var buffer : buffers) {
+						for (var claim : buffer.claims) claim.buffer().memoryTypeIndex = oldAllocation.memoryType;
+					}
 				} else {
 					var aiMemory = VkMemoryAllocateInfo.calloc(stack);
 					aiMemory.sType$Default();
@@ -121,11 +138,27 @@ class MemoryTypeClaims {
 					}
 
 					var pMemory = stack.callocLong(1);
-					assertVkSuccess(vkAllocateMemory(
-							instance.vkDevice(), aiMemory, CallbackUserData.MEMORY.put(stack, instance), pMemory
-					), "AllocateMemory", name);
+					int allocationResult = VK_ERROR_OUT_OF_DEVICE_MEMORY;
+					if (instance.memoryInfo.getCapacity(memoryType) >= size) {
+						allocationResult = vkAllocateMemory(
+								instance.vkDevice(), aiMemory, CallbackUserData.MEMORY.put(stack, instance), pMemory
+						);
+					}
+
+					String context = name;
+					if (allocationResult == VK_ERROR_OUT_OF_DEVICE_MEMORY && backupMemoryType != memoryType) {
+						aiMemory.memoryTypeIndex(backupMemoryType);
+						allocationResult = vkAllocateMemory(
+								instance.vkDevice(), aiMemory, CallbackUserData.MEMORY.put(stack, instance), pMemory
+						);
+						context += " (retry)";
+					}
+					assertVkSuccess(allocationResult, "AllocateMemory", context);
 
 					allocation = pMemory.get(0);
+					for (var buffer : buffers) {
+						for (var claim : buffer.claims) claim.buffer().memoryTypeIndex = aiMemory.memoryTypeIndex();
+					}
 				}
 
 				instance.debug.name(stack, allocation, VK_OBJECT_TYPE_DEVICE_MEMORY, name);

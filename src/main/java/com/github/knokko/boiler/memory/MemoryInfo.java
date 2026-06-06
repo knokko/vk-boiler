@@ -42,6 +42,8 @@ public class MemoryInfo {
 	 */
 	public final List<Integer> hybridMemoryTypes;
 
+	private final long[] capacities;
+
 	/**
 	 * Note: this constructor is meant for internal use only. Use {@link BoilerInstance#memoryInfo} instead.
 	 */
@@ -50,6 +52,7 @@ public class MemoryInfo {
 			var memory = VkPhysicalDeviceMemoryProperties.calloc(stack);
 			vkGetPhysicalDeviceMemoryProperties(instance.vkPhysicalDevice(), memory);
 			this.numMemoryTypes = memory.memoryTypeCount();
+			this.capacities = new long[numMemoryTypes];
 			List<Integer> deviceLocalMemoryTypes = new ArrayList<>();
 			List<Integer> hostVisibleMemoryTypes = new ArrayList<>();
 			List<Integer> hybridMemoryTypes = new ArrayList<>();
@@ -60,11 +63,19 @@ public class MemoryInfo {
 					hostVisibleMemoryTypes.add(index);
 					if ((flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0) hybridMemoryTypes.add(index);
 				}
+				capacities[index] = memory.memoryHeaps(memory.memoryTypes(index).heapIndex()).size();
 			}
 			this.deviceLocalMemoryTypes = Collections.unmodifiableList(deviceLocalMemoryTypes);
 			this.hostVisibleMemoryTypes = Collections.unmodifiableList(hostVisibleMemoryTypes);
 			this.hybridMemoryTypes = Collections.unmodifiableList(hybridMemoryTypes);
 		}
+	}
+
+	/**
+	 * Gets the capacity (heap size) of the memory type with index {@code memoryTypeIndex}, in bytes.
+	 */
+	public long getCapacity(int memoryTypeIndex) {
+		return capacities[memoryTypeIndex];
 	}
 
 	/**

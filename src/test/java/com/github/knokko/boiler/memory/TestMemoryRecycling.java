@@ -72,7 +72,12 @@ public class TestMemoryRecycling {
 		var newImage = newCombiner.addImage(new ImageBuilder("NewImage", 20, 20).texture(), 0.5f);
 		var newBlock = newCombiner.buildAndRecycle(oldBlock);
 
-		assertEquals(oldMappedBuffer.hostAddress, newMappedBuffer.hostAddress);
+		// Note that there are multiply valid results when both buffers are device-local.
+		// This typically happens on CPU implementations of Vulkan (e.g. on GitHub Actions).
+		if (!newMappedBuffer.isDeviceLocal(instance)) {
+			assertEquals(oldMappedBuffer.hostAddress, newMappedBuffer.hostAddress);
+		}
+
 		assertEquals(40_000, newMappedBuffer.size);
 		assertEquals(55_000, newDeviceBuffer.size);
 
