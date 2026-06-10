@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class TestSizeTracker {
 
 	@Test
-	public void testWithoutMainThread() {
+	public void testWithoutMainThread() throws InterruptedException {
 		DummySwapchainFunctions functions = new DummySwapchainFunctions();
 		functions.capabilities = VkSurfaceCapabilitiesKHR.create();
 		SizeTracker tracker = new SizeTracker(functions, VkSurfaceCapabilitiesKHR.calloc());
@@ -25,24 +25,27 @@ public class TestSizeTracker {
 		assertEquals(30, tracker.getWindowHeight());
 
 		functions.capabilities.currentExtent().set(100, 70);
+		Thread.sleep(6);
 		tracker.update();
 		assertEquals(100, tracker.getWindowWidth());
 		assertEquals(70, tracker.getWindowHeight());
 
 		// However, a window size of 0 should overrule currentExtent()
 		tracker.setWindowSizeFromMainThread(0, 12);
+		Thread.sleep(6);
 		tracker.update();
 		assertEquals(0, tracker.getWindowHeight());
 		assertEquals(0, tracker.getWindowHeight());
 
 		tracker.setWindowSizeFromMainThread(1, 2);
+		Thread.sleep(6);
 		tracker.update();
 		assertEquals(100, tracker.getWindowWidth());
 		assertEquals(70, tracker.getWindowHeight());
 	}
 
 	@Test
-	public void testWithMainThread() {
+	public void testWithMainThread() throws InterruptedException {
 		DummySwapchainFunctions functions = new DummySwapchainFunctions();
 		functions.capabilities = VkSurfaceCapabilitiesKHR.create();
 		SizeTracker tracker = new SizeTracker(functions, VkSurfaceCapabilitiesKHR.calloc());
@@ -52,6 +55,7 @@ public class TestSizeTracker {
 		assertEquals(0, tracker.getWindowHeight());
 
 		functions.capabilities.currentExtent().set(-1, -1);
+		Thread.sleep(6);
 		tracker.update();
 		assertEquals(0, tracker.getWindowWidth());
 		assertEquals(0, tracker.getWindowHeight());
@@ -60,21 +64,25 @@ public class TestSizeTracker {
 		assertEquals(0, tracker.getWindowWidth());
 		assertEquals(0, tracker.getWindowHeight());
 
+		Thread.sleep(6);
 		tracker.update();
 		assertEquals(100, tracker.getWindowWidth());
 		assertEquals(200, tracker.getWindowHeight());
 
 		tracker.setWindowSizeFromMainThread(105, 195);
+		Thread.sleep(6);
 		tracker.update();
 		assertEquals(105, tracker.getWindowWidth());
 		assertEquals(195, tracker.getWindowHeight());
 
 		tracker.setWindowSizeFromMainThread(0, 5);
+		Thread.sleep(6);
 		tracker.update();
 		assertEquals(0, tracker.getWindowWidth());
 		assertEquals(0, tracker.getWindowHeight());
 
 		tracker.setWindowSizeFromMainThread(105, 195);
+		Thread.sleep(6);
 		tracker.update();
 		assertEquals(105, tracker.getWindowWidth());
 		assertEquals(195, tracker.getWindowHeight());

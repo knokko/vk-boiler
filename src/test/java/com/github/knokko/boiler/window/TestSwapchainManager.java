@@ -24,7 +24,7 @@ public class TestSwapchainManager {
 	}
 
 	@Test
-	public void testWithoutMaintenanceAndWithoutOldSwapchains() {
+	public void testWithoutMaintenanceAndWithoutOldSwapchains() throws InterruptedException {
 		var presentModes = new PresentModes(createSet(VK_PRESENT_MODE_FIFO_KHR), createSet(VK_PRESENT_MODE_FIFO_KHR));
 		var properties = new WindowProperties(
 				1234L, "TestTitle", 12345L, 2, VK_FORMAT_R8G8B8A8_UNORM,
@@ -89,6 +89,7 @@ public class TestSwapchainManager {
 		// -------------------------acquire 2------------------------------
 		assertEquals(0, functions.deviceWaitIdleCount);
 		assertEquals(13L, functions.nextSwapchain);
+		Thread.sleep(6); // Note that the size tracker has a rate-limit of once every 5 milliseconds
 		var image2 = swapchains.acquire(VK_PRESENT_MODE_FIFO_KHR, false);
 		assertEquals(1, functions.deviceWaitIdleCount);
 		assertEquals(14L, functions.nextSwapchain);
