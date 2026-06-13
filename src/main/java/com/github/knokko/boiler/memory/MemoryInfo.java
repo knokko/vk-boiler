@@ -120,4 +120,29 @@ public class MemoryInfo {
 		}
 		return -1;
 	}
+
+	/**
+	 * @param memoryTypeBits {@link VkMemoryRequirements#memoryTypeBits()}
+	 * @return The index of the first memory type that uses the largest memory heap, that is also allowed by
+	 * {@code memoryTypeBits}
+	 * @throws UnsupportedOperationException when not a single memory type is allowed by {@code memoryTypeBits}
+	 */
+	public int largestMemoryType(int memoryTypeBits) {
+		long largestCapacity = 0L;
+		int indexForLargest = -1;
+		for (int index = 0; index < numMemoryTypes; index++) {
+			if ((memoryTypeBits & (1 << index)) == 0) continue;
+
+			long capacity = capacities[index];
+			if (capacity > largestCapacity) {
+				largestCapacity = capacity;
+				indexForLargest = index;
+			}
+		}
+
+		if (indexForLargest == -1) throw new UnsupportedOperationException(
+				"No memory type is allowed by " + memoryTypeBits
+		);
+		return indexForLargest;
+	}
 }

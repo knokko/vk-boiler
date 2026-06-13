@@ -162,7 +162,8 @@ public class MemoryCombiner {
 			vkGetImageMemoryRequirements(instance.vkDevice(), image.vkImage, requirements);
 
 			int memoryTypeIndex = builder.memoryTypeSelector.chooseMemoryType(instance, requirements.memoryTypeBits());
-			getClaims(memoryTypeIndex, memoryTypeIndex, priority).images.add(
+			int backupMemoryType = instance.memoryInfo.largestMemoryType(requirements.memoryTypeBits());
+			getClaims(memoryTypeIndex, backupMemoryType, priority).images.add(
 					new ImageClaim(image, builder, requirements.size(), requirements.alignment())
 			);
 		}
@@ -208,7 +209,7 @@ public class MemoryCombiner {
 					if (memoryTypeIndex == -1) memoryTypeIndex = backupMemoryType;
 				} else {
 					memoryTypeIndex = instance.memoryInfo.recommendedDeviceLocalMemoryType(requirements.memoryTypeBits());
-					backupMemoryType = memoryTypeIndex;
+					backupMemoryType = instance.memoryInfo.largestMemoryType(requirements.memoryTypeBits());
 				}
 				getClaims(memoryTypeIndex, backupMemoryType, key.priority()).buffers.add(claim);
 			});

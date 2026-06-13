@@ -7,8 +7,7 @@ import com.github.knokko.boiler.builders.BoilerBuilder;
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.lwjgl.vulkan.VK10.VK_API_VERSION_1_0;
-import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+import static org.lwjgl.vulkan.VK10.*;
 
 public class TestBackupMemoryType {
 
@@ -44,6 +43,9 @@ public class TestBackupMemoryType {
 					10_000_000L, 1L, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0.25f + 0.001f * index
 			);
 		}
+		var mediumDeviceLocalOnly = combiner.addBuffer(
+				1_000_000_000L, 4L, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 0.5f
+		);
 
 		MemoryBlock memory;
 		if (recycle) {
@@ -68,6 +70,7 @@ public class TestBackupMemoryType {
 		System.out.println("medium device local is " + mediumDeviceLocal);
 		assertTrue(mediumDeviceLocal > 0);
 		assertTrue(mediumDeviceLocal < smallMediumPriority.length);
+		assertTrue(mediumDeviceLocalOnly.isDeviceLocal(instance));
 
 		memory.destroy(instance);
 	}
