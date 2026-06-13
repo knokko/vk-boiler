@@ -93,7 +93,7 @@ class MemoryTypeClaims {
 							instance.vmaAllocator(), vmaRequirements, ciVmaAllocation, pAllocation, allocationInfo
 					);
 				}
-				assertVmaSuccess(allocateResult, "AllocateMemory", name);
+				assertVmaSuccess(allocateResult, "AllocateMemory", size + " bytes for " + name);
 				allocation = pAllocation.get(0);
 				block.vmaAllocations.add(allocation);
 				if (mapMemory) hostAddress = allocationInfo.pMappedData();
@@ -145,7 +145,7 @@ class MemoryTypeClaims {
 						);
 					}
 
-					String context = name;
+					String context = size + " bytes for " + name;
 					if (allocationResult == VK_ERROR_OUT_OF_DEVICE_MEMORY && backupMemoryType != memoryType) {
 						aiMemory.memoryTypeIndex(backupMemoryType);
 						allocationResult = vkAllocateMemory(
