@@ -28,7 +28,7 @@ publishing {
 	publications {
 		mavenJava(MavenPublication) {
 			groupId = "com.github.knokko"
-			version = "5.4.0"
+			version = "5.4.1"
 			from components.java
 		}
 	}
