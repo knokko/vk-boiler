@@ -47,6 +47,7 @@ import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.VK_KHR_GET_PHYSIC
 import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.vkGetPhysicalDeviceFeatures2KHR;
 import static org.lwjgl.vulkan.KHRGetSurfaceCapabilities2.VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRMaintenance2.VK_KHR_MAINTENANCE_2_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRMaintenance3.VK_KHR_MAINTENANCE3_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRMultiview.VK_KHR_MULTIVIEW_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
@@ -699,10 +700,6 @@ public class BoilerBuilder {
 		// As per spec, VK_KHR_portability_subset must be enabled if VK_KHR_portability_subset is available
 		this.desiredVulkanDeviceExtensions.add(KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
 
-		if (apiVersion == VK_API_VERSION_1_0) {
-			this.desiredVulkanInstanceExtensions.add(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-		}
-
 		this.beforeDeviceCreation((ciDevice, instanceExtensions, physicalDevice, stack) -> {
 			Set<String> deviceExtensions = decodeStringSet(ciDevice.ppEnabledExtensionNames());
 			var supportedFeatures = VkPhysicalDeviceFeatures2.calloc(stack);
@@ -773,6 +770,11 @@ public class BoilerBuilder {
 			this.desiredVulkanDeviceExtensions.add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 			this.desiredVulkanDeviceExtensions.add(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME);
 			this.desiredVulkanDeviceExtensions.add(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+		}
+
+		// Try to obtain maxMemoryAllocationSize from maintenance3
+		if (apiVersion == VK_API_VERSION_1_0) {
+			this.desiredVulkanDeviceExtensions.add(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
 		}
 
 		if (validationFeatures != null) {

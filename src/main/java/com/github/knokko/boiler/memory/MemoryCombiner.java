@@ -181,22 +181,28 @@ public class MemoryCombiner {
 			var pBuffer = stack.callocLong(1);
 
 			buffers.forEach((key, claim) -> {
-				long size = claim.computeSize();
+				long maxBufferSize = 123456789012345L;
+				if (instance.maintenance3Properties != null) {
+					maxBufferSize = instance.maintenance3Properties.maxMemoryAllocationSize();
+				}
+				claim.groupClaims(maxBufferSize);
 				String bufferName = name + (key.hostVisible() ? (": mapped" +
 						(key.preferablyDeviceLocal() ? " device" : "") + ") buffer usage " + key.usage()) :
 						(": buffer usage " + key.usage()));
 
-				ciBuffer.size(size);
-				ciBuffer.usage(key.usage());
+				for (int groupIndex = 0; groupIndex < claim.groupedClaims.size(); groupIndex++) {
+					ciBuffer.size(claim.groupedClaims.get(groupIndex).expectedSize);
+					ciBuffer.usage(key.usage());
 
-				assertVkSuccess(vkCreateBuffer(
-						instance.vkDevice(), ciBuffer, CallbackUserData.BUFFER.put(stack, instance), pBuffer
-				), "CreateBuffer", bufferName);
-				long vkBuffer = pBuffer.get(0);
-				instance.debug.name(stack, vkBuffer, VK_OBJECT_TYPE_BUFFER, name);
+					assertVkSuccess(vkCreateBuffer(
+							instance.vkDevice(), ciBuffer, CallbackUserData.BUFFER.put(stack, instance), pBuffer
+					), "CreateBuffer", bufferName);
+					long vkBuffer = pBuffer.get(0);
+					instance.debug.name(stack, vkBuffer, VK_OBJECT_TYPE_BUFFER, name);
 
-				vkGetBufferMemoryRequirements(instance.vkDevice(), vkBuffer, requirements);
-				claim.setBuffer(vkBuffer, requirements.size(), requirements.alignment());
+					vkGetBufferMemoryRequirements(instance.vkDevice(), vkBuffer, requirements);
+					claim.setBuffer(groupIndex, vkBuffer, requirements.size(), requirements.alignment());
+				}
 
 				int memoryTypeIndex;
 				int backupMemoryType;

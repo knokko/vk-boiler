@@ -10,6 +10,7 @@ class ImageClaim {
 	final long memorySize;
 	final long alignment;
 	long memoryOffset = 0L;
+	int allocationIndex;
 
 	ImageClaim(VkbImage image, ImageBuilder builder, long memorySize, long alignment) {
 		this.image = image;

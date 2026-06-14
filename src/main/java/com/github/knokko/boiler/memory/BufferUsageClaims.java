@@ -10,33 +10,49 @@ import static com.github.knokko.boiler.utilities.BoilerMath.nextMultipleOf;
 class BufferUsageClaims {
 
 	final List<BufferClaim> claims = new ArrayList<>();
-	boolean shouldMapMemory;
-	long memorySize;
-	long memoryAlignment;
-	long memoryOffset;
+	final List<GroupedBufferClaims> groupedClaims = new ArrayList<>();
 
-	long computeSize() {
+	void groupClaims(long maxSize) {
 		long offset = 0L;
 		for (BufferClaim claim : claims) {
-			offset = nextMultipleOf(offset, claim.alignment());
-			claim.buffer().offset = offset;
-			offset += claim.buffer().size;
-			if (claim.buffer() instanceof MappedVkbBuffer) shouldMapMemory = true;
+
+			long oldSize = offset;
+			offset = nextMultipleOf(offset, claim.alignment);
+			claim.buffer.offset = offset;
+			offset += claim.buffer.size;
+
+			long newOffset = offset;
+			if (newOffset > maxSize) {
+				claim.buffer.offset = 0L;
+				offset = claim.buffer.size;
+				groupedClaims.add(new GroupedBufferClaims(oldSize));
+			}
+
+			claim.groupIndex = groupedClaims.size();
 		}
 
-		return offset;
+		if (offset > 0L) groupedClaims.add(new GroupedBufferClaims(offset));
+
+		for (var claim : claims) {
+			if (claim.buffer instanceof MappedVkbBuffer) groupedClaims.get(claim.groupIndex).shouldMapMemory = true;
+		}
 	}
 
-	void setBuffer(long vkBuffer, long memorySize, long memoryAlignment) {
-		for (BufferClaim claim : claims) claim.buffer().vkBuffer = vkBuffer;
-		this.memorySize = memorySize;
-		this.memoryAlignment = memoryAlignment;
-	}
-
-	void setHostAddress(long address) {
+	void setBuffer(int groupIndex, long vkBuffer, long memorySize, long memoryAlignment) {
 		for (BufferClaim claim : claims) {
-			if (claim.buffer() instanceof MappedVkbBuffer) {
-				((MappedVkbBuffer) claim.buffer()).hostAddress = address + memoryOffset + claim.buffer().offset;
+			if (claim.groupIndex == groupIndex) {
+				claim.buffer.vkBuffer = vkBuffer;
+			}
+		}
+		groupedClaims.get(groupIndex).memorySize = memorySize;
+		groupedClaims.get(groupIndex).memoryAlignment = memoryAlignment;
+	}
+
+	void setHostAddress(int groupIndex, long address) {
+		for (BufferClaim claim : claims) {
+			if (claim.groupIndex != groupIndex) continue;
+			if (claim.buffer instanceof MappedVkbBuffer) {
+				((MappedVkbBuffer) claim.buffer).hostAddress = address + groupedClaims.get(groupIndex).memoryOffset + claim.buffer.offset;
 			}
 		}
 	}

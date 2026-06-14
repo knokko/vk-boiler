@@ -2,4 +2,15 @@ package com.github.knokko.boiler.memory;
 
 import com.github.knokko.boiler.buffers.VkbBuffer;
 
-record BufferClaim(VkbBuffer buffer, long alignment) {}
+class BufferClaim {
+
+	final VkbBuffer buffer;
+	final long alignment;
+
+	int groupIndex;
+
+	BufferClaim(VkbBuffer buffer, long alignment) {
+		this.buffer = buffer;
+		this.alignment = alignment;
+	}
+}

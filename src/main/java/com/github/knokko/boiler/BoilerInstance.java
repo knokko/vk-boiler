@@ -1,5 +1,6 @@
 package com.github.knokko.boiler;
 
+import com.github.knokko.boiler.builders.BoilerBuilder;
 import com.github.knokko.boiler.builders.WindowBuilder;
 import com.github.knokko.boiler.commands.BoilerCommands;
 import com.github.knokko.boiler.debug.BoilerDebug;
@@ -13,10 +14,7 @@ import com.github.knokko.boiler.queues.QueueFamilies;
 import com.github.knokko.boiler.synchronization.BoilerSync;
 import com.github.knokko.boiler.window.VkbWindow;
 import com.github.knokko.boiler.xr.XrBoiler;
-import org.lwjgl.vulkan.VkDevice;
-import org.lwjgl.vulkan.VkInstance;
-import org.lwjgl.vulkan.VkPhysicalDevice;
-import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
+import org.lwjgl.vulkan.*;
 
 import java.util.Collection;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -25,7 +23,11 @@ import static com.github.knokko.boiler.exceptions.VulkanFailureException.assertV
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.vmaDestroyAllocator;
 import static org.lwjgl.vulkan.EXTDebugUtils.vkDestroyDebugUtilsMessengerEXT;
+import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2.vkGetPhysicalDeviceProperties2KHR;
+import static org.lwjgl.vulkan.KHRMaintenance3.VK_KHR_MAINTENANCE3_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceProperties2;
 
 public class BoilerInstance {
 
@@ -34,7 +36,15 @@ public class BoilerInstance {
 	 */
 	public final long defaultTimeout;
 
+	/**
+	 * <ul>
+	 *     <li>When <b>true</b>, this instance will use SDL to create windows</li>
+	 *     <li>When <b>false</b>, this instance will use GLFW to create windows</li>
+	 * </ul>
+	 * This is <b>false</b> by default, but can be changed using {@link BoilerBuilder#useSDL()}
+	 */
 	public final boolean useSDL;
+
 	private final Collection<VkbWindow> windows;
 
 	private final XrBoiler xr;
@@ -45,7 +55,32 @@ public class BoilerInstance {
 	public final int apiVersion;
 	private final VkInstance vkInstance;
 	private final VkPhysicalDevice vkPhysicalDevice;
+
+	private final VkPhysicalDeviceProperties2 deviceProperties2;
+
+	/**
+	 * An instance of {@link VkPhysicalDeviceProperties} that is allocated and queried when this boiler instance is
+	 * created, and freed when this boiler instance is destroyed. This field can be used to conveniently read the
+	 * device properties throughout the lifetime of this boiler instance.
+	 */
 	public final VkPhysicalDeviceProperties deviceProperties;
+
+	/**
+	 * <p>
+	 *     When this is non-null, it is an instance of {@link VkPhysicalDeviceMaintenance3Properties} that is
+	 *     allocated and queried when this boiler instance is created, and freed when this boiler instance is destroyed.
+	 *     This field is used by the {@link com.github.knokko.boiler.memory.MemoryCombiner} to check the
+	 *     maximum allocation size.
+	 * </p>
+	 *
+	 * <p>
+	 *     This field will be <b>null</b> when Vulkan 1.0 is used <i>and</i> the driver does <i>not</i> support
+	 *     <i>VK_KHR_MAINTENANCE3</i>. Since almost all drivers support this extension, this field should rarely be
+	 *     <b>null</b>.
+	 * </p>
+	 */
+	public final VkPhysicalDeviceMaintenance3Properties maintenance3Properties;
+
 	private final VkDevice vkDevice;
 
 	/**
@@ -124,8 +159,34 @@ public class BoilerInstance {
 		this.sync = new BoilerSync(this);
 
 		for (var window : windows) window.setInstance(this);
-		this.deviceProperties = VkPhysicalDeviceProperties.calloc();
-		vkGetPhysicalDeviceProperties(vkPhysicalDevice, deviceProperties);
+		if (VK_API_VERSION_MAJOR(apiVersion) == 1 && VK_API_VERSION_MINOR(apiVersion) == 0) {
+			boolean hasMaintenance3 = extra.deviceExtensions().contains(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
+			boolean hasProperties2 = extra.instanceExtensions().contains(
+					VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
+			);
+			if (hasMaintenance3 && hasProperties2) {
+				this.deviceProperties2 = VkPhysicalDeviceProperties2KHR.calloc();
+				this.deviceProperties2.sType$Default();
+				this.deviceProperties = deviceProperties2.properties();
+				this.maintenance3Properties = VkPhysicalDeviceMaintenance3PropertiesKHR.calloc();
+				this.maintenance3Properties.sType$Default();
+				deviceProperties2.pNext(maintenance3Properties);
+				vkGetPhysicalDeviceProperties2KHR(vkPhysicalDevice, deviceProperties2);
+			} else {
+				this.deviceProperties2 = null;
+				this.deviceProperties = VkPhysicalDeviceProperties.calloc();
+				vkGetPhysicalDeviceProperties(vkPhysicalDevice, deviceProperties);
+				this.maintenance3Properties = null;
+			}
+		} else {
+			this.deviceProperties2 = VkPhysicalDeviceProperties2.calloc();
+			this.deviceProperties2.sType$Default();
+			this.deviceProperties = deviceProperties2.properties();
+			this.maintenance3Properties = VkPhysicalDeviceMaintenance3Properties.calloc();
+			this.maintenance3Properties.sType$Default();
+			deviceProperties2.pNext(maintenance3Properties);
+			vkGetPhysicalDeviceProperties2(vkPhysicalDevice, deviceProperties2);
+		}
 		if (defaultTimeout == 0L) {
 			if (deviceProperties.deviceType() == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
 					deviceProperties.deviceType() == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
@@ -255,7 +316,8 @@ public class BoilerInstance {
 			if (xr != null) xr.destroyInitialObjects();
 		}
 
-		deviceProperties.free();
+		if (deviceProperties2 != null) deviceProperties2.free();
+		else deviceProperties.free();
 		destroyed = true;
 
 		// This check is nice for unit tests: it gives the validation layer 100 ms to report async validation errors,

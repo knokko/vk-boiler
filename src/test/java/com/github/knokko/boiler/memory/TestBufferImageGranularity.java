@@ -52,13 +52,17 @@ public class TestBufferImageGranularity {
 		var bufferClaims1 = new BufferUsageClaims();
 		bufferClaims1.claims.add(new BufferClaim(new VkbBuffer(12L), 13L));
 		bufferClaims1.claims.add(new BufferClaim(new VkbBuffer(13L), 15L));
-		assertEquals(28L, bufferClaims1.computeSize());
-		bufferClaims1.setBuffer(123L, 29L, 13L);
+		bufferClaims1.groupClaims(12345);
+		assertEquals(1, bufferClaims1.groupedClaims.size());
+		assertEquals(28L, bufferClaims1.groupedClaims.get(0).expectedSize);
+		bufferClaims1.setBuffer(0, 123L, 29L, 13L);
 
 		var bufferClaims2 = new BufferUsageClaims();
 		bufferClaims2.claims.add(new BufferClaim(new VkbBuffer(1029L), 27L));
-		assertEquals(1029L, bufferClaims2.computeSize());
-		bufferClaims2.setBuffer(124L, 1029L, 27L);
+		bufferClaims2.groupClaims(12345);
+		assertEquals(1, bufferClaims2.groupedClaims.size());
+		assertEquals(1029L, bufferClaims2.groupedClaims.get(0).expectedSize);
+		bufferClaims2.setBuffer(0, 124L, 1029L, 27L);
 
 		claims.buffers.add(bufferClaims1);
 		claims.buffers.add(bufferClaims2);
@@ -70,11 +74,13 @@ public class TestBufferImageGranularity {
 		claims.images.add(optimalImageClaim);
 		claims.images.add(linearImageClaim);
 
-		long size = claims.prepareAllocations(1024L);
-		assertEquals(0, bufferClaims1.memoryOffset);
+		var sizes = claims.prepareAllocations(1024L, 123456L);
+		assertEquals(1, sizes.size());
+		long size = sizes.get(0);
+		assertEquals(0, bufferClaims1.groupedClaims.get(0).memoryOffset);
 		// bufferClaims1 should end at byte 29
 
-		assertEquals(54, bufferClaims2.memoryOffset);
+		assertEquals(54, bufferClaims2.groupedClaims.get(0).memoryOffset);
 		// bufferClaims2 should end at 54 + 1029 = 1083
 
 		assertEquals(1104, linearImageClaim.memoryOffset);
