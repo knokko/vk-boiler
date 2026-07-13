@@ -377,12 +377,16 @@ public class TestBoilerBuilder {
 		).validation().forbidValidationErrors().requiredDeviceExtensions(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 
 		String message = assertThrows(ValidationException.class, builder::build).getMessage();
-		String expected1 = "Missing extension required by the device extension " +
-				"VK_KHR_dynamic_rendering: VK_KHR_depth_stencil_resolve";
+		String expected1a = "Missing extension required";
+		String expected1b = "device extension VK_KHR_dynamic_rendering";
+		String expected1c = "VK_KHR_depth_stencil_resolve";
+
+		// The exact error message depends on the VVL version, but the following parts should be present
+		boolean expected1 = message.contains(expected1a) && message.contains(expected1b) && message.contains(expected1c);
 		String expected2 = "A validation error occurred during initialization";
 
 		// Either of the messages should be used. The FFM backend determines which one.
-		assertTrue(message.contains(expected1) || message.contains(expected2), "Message was " + message);
+		assertTrue(expected1 || message.contains(expected2), "Message was " + message);
 	}
 
 	@Test
