@@ -123,7 +123,7 @@ public class BoilerInstance {
 	 */
 	public final ReadWriteLock waitIdleLock;
 
-	private volatile boolean encounteredFatalValidationError;
+	private volatile ValidationException encounteredFatalValidationError;
 	private volatile boolean destroyed = false;
 
 	/**
@@ -199,15 +199,25 @@ public class BoilerInstance {
 		this.defaultTimeout = defaultTimeout;
 	}
 
+	/**
+	 * Checks whether a validation exception (possibly on another thread) has been thrown before.
+	 * <ul>
+	 *     <li>If so, a new validation exception is thrown, including the previous exception as 'cause'</li>
+	 *     <li>If not, nothing happens</li>
+	 * </ul>
+	 */
 	public void checkForFatalValidationErrors() {
 		if (destroyed) throw new IllegalStateException("This instance has already been destroyed");
-		if (debug.hasDebug && encounteredFatalValidationError) {
-			throw new ValidationException("A fatal validation error has been encountered earlier");
+		if (debug.hasDebug && encounteredFatalValidationError != null) {
+			throw new ValidationException("A fatal validation error has been encountered earlier", encounteredFatalValidationError);
 		}
 	}
 
-	public void reportFatalValidationError() {
-		encounteredFatalValidationError = true;
+	/**
+	 * This method is meant for internal use only.
+	 */
+	public void reportFatalValidationError(ValidationException exception) {
+		encounteredFatalValidationError = exception;
 	}
 
 	/**
@@ -328,8 +338,10 @@ public class BoilerInstance {
 			} catch (InterruptedException skipSleeping) {
 				// Ok, let's move on
 			}
-			if (encounteredFatalValidationError) {
-				throw new ValidationException("A fatal validation error has been encountered earlier");
+			if (encounteredFatalValidationError != null) {
+				throw new ValidationException(
+						"A fatal validation error has been encountered earlier", encounteredFatalValidationError
+				);
 			}
 		}
 	}

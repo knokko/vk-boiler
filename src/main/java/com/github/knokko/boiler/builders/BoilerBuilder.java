@@ -858,8 +858,10 @@ public class BoilerBuilder {
 							return VK_FALSE;
 						}
 						alreadyThrowing.set(true);
-						if (instance != null) instance.reportFatalValidationError();
-						throw new ValidationException(message);
+
+						var exception = new ValidationException(message);
+						if (instance != null) instance.reportFatalValidationError(exception);
+						throw exception;
 					} else {
 						if (message == null) return VK_FALSE; // I have no clue whether this is possible
 
