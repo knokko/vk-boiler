@@ -2,6 +2,7 @@ package com.github.knokko.boiler.window;
 
 import com.github.knokko.boiler.BoilerInstance;
 import org.lwjgl.sdl.SDL_Event;
+import org.lwjgl.sdl.SDL_EventFilter;
 import org.lwjgl.system.MemoryStack;
 
 import static com.github.knokko.boiler.exceptions.SDLFailureException.assertSdlSuccess;
@@ -19,6 +20,7 @@ public abstract class WindowRenderLoop {
 
 	protected final VkbWindow window;
 	protected final int numFramesInFlight;
+	private final SDL_EventFilter sdlCloseWatch;
 	protected boolean acquireSwapchainImageWithFence;
 	protected int presentMode;
 	private volatile boolean didStart;
@@ -40,11 +42,14 @@ public abstract class WindowRenderLoop {
 		this.acquireSwapchainImageWithFence = acquireSwapchainImageWithFence;
 		this.presentMode = presentMode;
 		if (window.instance.useSDL) {
-			assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
+			this.sdlCloseWatch = SDL_EventFilter.create((userData, rawEvent) -> {
 				if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
 						nSDL_GetWindowFromEvent(rawEvent) == window.properties.handle()) sdlCloseRequested = true;
 				return false;
-			}, 0L), "AddEventWatch");
+			});
+			assertSdlSuccess(SDL_AddEventWatch(sdlCloseWatch, 0L), "AddEventWatch");
+		} else {
+			this.sdlCloseWatch = null;
 		}
 	}
 
@@ -104,6 +109,10 @@ public abstract class WindowRenderLoop {
 			}
 		} finally {
 			try {
+				if (sdlCloseWatch != null) {
+					SDL_RemoveEventWatch(sdlCloseWatch, 0L);
+					sdlCloseWatch.free();
+				}
 				cleanUp(window.instance);
 				window.destroy();
 			} catch (Throwable cleanUpFailed) {

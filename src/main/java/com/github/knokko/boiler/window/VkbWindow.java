@@ -4,6 +4,7 @@ import com.github.knokko.boiler.BoilerInstance;
 import com.github.knokko.boiler.memory.callbacks.CallbackUserData;
 import com.github.knokko.boiler.queues.VkbQueueFamily;
 import org.lwjgl.sdl.SDL_Event;
+import org.lwjgl.sdl.SDL_EventFilter;
 
 import java.nio.IntBuffer;
 import java.util.*;
@@ -39,6 +40,7 @@ public class VkbWindow {
 	private boolean hasBeenDestroyed;
 
 	WindowEventLoop windowLoop;
+	private SDL_EventFilter sdlSizeWatch;
 
 	private SwapchainManager swapchains;
 
@@ -127,11 +129,12 @@ public class VkbWindow {
 
 	public void registerCallbacks() {
 		if (instance.useSDL) {
-			assertSdlSuccess(SDL_AddEventWatch((userData, rawEvent) -> {
+			this.sdlSizeWatch = SDL_EventFilter.create((userData, rawEvent) -> {
 				if (SDL_Event.ntype(rawEvent) == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED &&
 						nSDL_GetWindowFromEvent(rawEvent) == properties.handle()) updateSize();
 				return false;
-			}, 0L), "AddEventWatch");
+			});
+			assertSdlSuccess(SDL_AddEventWatch(sdlSizeWatch, 0L), "AddEventWatch");
 		} else {
 			//noinspection resource
 			glfwSetFramebufferSizeCallback(
@@ -221,6 +224,10 @@ public class VkbWindow {
 		try (var stack = stackPush()) {
 			swapchains.destroy();
 			vkDestroySurfaceKHR(instance.vkInstance(), properties.vkSurface(), CallbackUserData.SURFACE.put(stack, instance));
+			if (sdlSizeWatch != null) {
+				SDL_RemoveEventWatch(sdlSizeWatch, 0L);
+				sdlSizeWatch.free();
+			}
 		} finally {
 			if (windowLoop == null) destroyHandle();
 			hasBeenDestroyed = true;
