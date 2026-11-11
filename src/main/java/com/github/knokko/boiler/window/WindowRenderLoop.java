@@ -142,6 +142,7 @@ public abstract class WindowRenderLoop {
 			this.run();
 		} else {
 			this.thread = new Thread(this::run);
+			thread.setName("WindowRenderLoop (" + this.getClass().getSimpleName() + ")");
 			thread.setDaemon(true); // Ensure that the render thread dies when the main thread dies (unexpectedly)
 			thread.start();
 		}
